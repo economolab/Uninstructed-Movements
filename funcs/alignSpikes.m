@@ -41,6 +41,21 @@ if strcmp(params.alignEvent,'lastLick')
     obj.bp.ev.(params.alignEvent) = lastLick;
 end
 
+if strcmp(params.alignEvent,'jawOnset')
+    % half rise time to first peak of jaw onset after go cue
+    view = 1; % side cam
+    feat = 2; % jaw
+    
+    % filter params
+    opts.f_cut = 60; % cutoff freq for butter filt
+    opts.f_n   = 2;  % filter order
+    
+    % peak finding params
+    opts.minpkdist = 0.06; % number of ms around peaks to reject peaks
+    opts.minpkprom = 10;   % a threshold for the peak size
+    obj.bp.ev.(params.alignEvent) = alignJawOnset(view,feat,obj,opts);
+end
+
 % align spikes to params.alignEvent
 for clu = 1:numel(obj.clu{params.probe(prbnum)})
     event = obj.bp.ev.(params.alignEvent)(obj.clu{params.probe(prbnum)}(clu).trial);

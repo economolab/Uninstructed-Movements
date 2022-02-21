@@ -6,7 +6,7 @@ addpath(genpath(pwd))
 
 
 %% SET PARAMS
-params.alignEvent          = 'goCue'; % 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'jawOnset'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -76,7 +76,7 @@ disp(' ')
 % TODO - make sure go cue is aligned (might have to add 0.5 sec to time
 % vector from me.data
 
-[meta,mov] = assignEarlyTrials(obj,meta,params);
+% [meta,mov] = assignEarlyTrials(obj,meta,params);
 
 
 
