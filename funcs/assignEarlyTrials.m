@@ -9,6 +9,10 @@ if ~isstruct(me)
     warning('Assign a threshold for the motion energy to label moving vs. stationary')
 end
 
+if contains(meta.anm,'JGR2')
+    obj.bp.Ntrials = obj.bp.Ntrials - 1;
+end
+
 mov.earlyMoveTrial = false(obj.bp.Ntrials,1);
 mov.moveTime = cell(obj.bp.Ntrials,1);
 mov.stationaryTime = cell(obj.bp.Ntrials,1);

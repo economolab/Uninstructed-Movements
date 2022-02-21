@@ -75,8 +75,9 @@ disp(' ')
 
 % TODO - make sure go cue is aligned (might have to add 0.5 sec to time
 % vector from me.data
+% - also return ix of movement times based on obj.time
 
-% [meta,mov] = assignEarlyTrials(obj,meta,params);
+[meta,mov] = assignEarlyTrials(obj,meta,params);
 
 
 
