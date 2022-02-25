@@ -6,7 +6,7 @@
 % contexts = Cell array containing the context that you want to plot for
 % ('afc' or 'auw' for 2AFC or Autowater)
 
-function plotJawProb_SessAvg (dirs,contexts,anm,date,colors)
+function plotJawProb_SessAvg (dirs,contexts,anm,date,colors,edges)
 jawdat = cell(1,numel(dirs));
 for ii = 1:numel(dirs)
     jawdat{ii} = jawkinSessionAvg(dirs{ii},contexts{ii},anm,date);
