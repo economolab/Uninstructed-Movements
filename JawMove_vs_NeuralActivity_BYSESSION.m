@@ -9,14 +9,13 @@
 % modes found w/ and w/o early move trials
 % Panel D: Avg Probability of jaw movement throughout the trial
 
-% In Panel A --> choice mode is found according to Nuo's definition (hits
+% In Panels A and C--> choice mode is found according to Nuo's definition (hits
 % and misses included)
-% In Panel C --> choice mode is found only using hits and misses
 
 %%
 clear; clc; close all;
 %% SET RUN PARAMS
-params.alignEvent          = 'goCue';
+params.alignEvent          = 'goCue'; % goCue or firstLick
 
 params.lowFR               = 1; % remove clusters firing less than this val
 
@@ -25,21 +24,20 @@ params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right h
 params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw off
 params.condition(3) = {'R&miss&~stim.enable&autowater.nums==2&~early'};   % error right, no stim, aw off
 params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % error left, no stim, aw off
-% params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
-% params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
-% params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
-% params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right early hits, no stim, aw off
-% params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left early hits, no stim, aw off
+params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
+params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
+params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
 
 
 % set conditions used for finding the modes
 aw = '2'; % 1-on, 2-off
 stim = '0'; % 0-off
-params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};
-params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};
-params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};
-params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};
-params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};
+params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
+params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
+params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
+params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
+params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
+params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
 
 clrs = cell(1,4);
 clrs{1} = [0 0 1];  % Blue = hit, 2AFC, R
@@ -49,9 +47,9 @@ clrs{4} = [1 0.5 0.5];    % Light red = (for L choice mode w/ early trials remov
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-% meta = loadJEB4_ALMVideo(meta);
-% meta = loadJEB5_ALMVideo(meta);
-% meta = loadJEB6_ALMVideo(meta);
+meta = loadJEB4_ALMVideo(meta);
+meta = loadJEB5_ALMVideo(meta);
+meta = loadJEB6_ALMVideo(meta);
 meta = loadJEB7_ALMVideo(meta);
 % meta = loadEKH1_ALMVideo(meta);
 % meta = loadEKH3_ALMVideo(meta);
@@ -88,7 +86,7 @@ end
 % To project single trials or trial-averaged PSTHs onto that mode, have to
 % multiply PSTH by the coding direction
 
-for gg = 14:length(meta)
+for gg = 1:length(meta)
     figure(gg)
     obj = objs{gg};
     met = meta(gg);
@@ -104,19 +102,13 @@ for gg = 14:length(meta)
     rez.condition = objs{1}.condition;
     rez.alignEvent = params.alignEvent;
 
-    cond{1} = params.modecondition{1};
-    cond{2} = params.modecondition{2};
-    cond{3} = params.modecondition{3};
-    cond{4} = params.modecondition{4};
-    epoch = 'delay';
 
     % PANEL A: SINGLE-TRIAL CHOICE MODE (rez) VS. JAW VELOCITY
     % This choice mode is found using R and L hits and misses 
-    rez.choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent);
-    clear cond
-    
-    % Project single trials onto coding dimensions
-    cd = rez.choice_mode;
+    allModes = calcAllModes(obj,met,rez,params);
+      
+    % Project single trials onto choice mode
+    cd = allModes.choice_mode;
     lat_choice = getTrialLatents(obj,cd);
     
     % Find the jaw velocity at all time points in the trial
@@ -135,80 +127,98 @@ for gg = 14:length(meta)
 
     % Make scatter plot
     conditions = 1:2;               % Look only at correct left and right hits during 2AFC
-    subplot(2,2,1)
+    subplot(3,2,6)
     ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,clrs)
     lgd = legend('Right','Left');
     lgd.FontSize = 12;
 
     % PANEL B: HEATMAP OF JAW MOVEMENTS THROUGHOUT SESSION
     conditions = {1,2};
+    subplot(3,2,5)
     JawVelHeatmap(conditions,jaw,taxis,met)
 
-    % PANEL C: CHOICE MODE WITH (reg) AND WITHOUT EARLY MOVEMENT TRIALS
+    % PANEL C: CHOICE MODE WITH AND WITHOUT EARLY MOVEMENT TRIALS
     % This choice mode is only found using L and R hit trials, epoch =
     % delay
-    reg.time = obj.time;
-    reg.psth = obj.psth;
-    reg.condition = obj.condition;
-    reg.alignEvent = params.alignEvent;
-
-    %choice mode
-    cond{1} = params.modecondition{1};
-    cond{2} = params.modecondition{2};
-    epoch = 'delay';
-    reg.choice_mode = choiceMode_noError(obj,met,cond,epoch,rez.alignEvent);
-   
+      
     % Find early tongue and jaw movements 
     obj = findEarlyMoveTrials(obj);
 
-    % Choice modes without early movements (removeEarly)
-    removeEarly.time = obj.time;
-    removeEarly.psth = obj.psth;
-    removeEarly.condition = obj.condition;
-    removeEarly.alignEvent = params.alignEvent;
-
-    cond{1} = params.modecondition{1};
-    cond{2} = params.modecondition{2};
-    epoch = 'delay';
-    removeEarly.choice_mode = choiceMode_noError(obj,met,cond,epoch,removeEarly.alignEvent);
-    clear cond
+    % Find all modes when early trials are not included
+    allModes_NoMove = calcAllModes(obj,met,rez,params);
 
     % Which conditions to project onto the modes
     conditions = [1,2];         % Left and right 2AFC hits (not early)
     smooth = 61;
-    [rez,removeEarly] = getChoiceModeProjections(obj,rez,removeEarly,smooth,conditions);
+    [allModes,allModes_NoMove] = getChoiceModeProjections_twoModes(obj,allModes,allModes_NoMove,smooth,conditions);
 
-    % Plot the R and L hits onto choice modes found w/ and w/o early move
-    % trials 
-    if ~isempty(rez.latentChoice) && ~isempty(removeEarly.latentChoice)
-        subplot(2,2,3)
+    % Plot the R and L hits onto the two choice modes (found w/ and w/o
+    % early move trials) 
+    if ~isempty(allModes.latentChoice) && ~isempty(allModes_NoMove.latentChoice)
+        subplot(3,2,3)
         colors = {[0 0 1],[1 0 0],[0.5 0.5 1],[1 0.5 0.5]};
         lw = 2;
-        plot(rez.time,rez.latentChoice{1},'Color',colors{1},'LineWidth',2)
+        plot(rez.time,allModes.latentChoice{1},'Color',colors{1},'LineWidth',2)
         hold on
-        plot(rez.time,rez.latentChoice{2},'Color',colors{2},'LineWidth',2)
-        plot(rez.time,removeEarly.latentChoice{1},'Color',colors{3},'LineWidth',2)
-        plot(rez.time,removeEarly.latentChoice{2},'Color',colors{4},'LineWidth',2)
-        legend('Right Hit','Left Hit','R no early','L no early')
-        title('Remove early move trials','FontSize',14)
+        plot(rez.time,allModes.latentChoice{2},'Color',colors{2},'LineWidth',2)
+        plot(rez.time,allModes_NoMove.latentChoice{1},'Color',colors{3},'LineWidth',2)
+        plot(rez.time,allModes_NoMove.latentChoice{2},'Color',colors{4},'LineWidth',2)
+        legend('Right','Left','R no early','L no early')
+        title('Remove early move trials from choice mode','FontSize',14)
         xlabel('Time since go-cue (s)','FontSize',13)
         ylabel('Choice Mode (a.u.)','FontSize',13)
     end
    
 
     % PANEL D: PLOT PROB OF JAW MOVEMENT ACROSS TRIAL FOR R AND L HITS
-    subplot(2,2,4)
+    subplot(3,2,2)
     dirs = {'R','L'};                           % Dimension of 'dirs' must match dimension of 'contexts'
     contexts = {'afc','afc'};           
-    plotJawProb_SessAvg(dirs, contexts,anm,date,colors)
+    plotJawProb_SessAvg(dirs, contexts,anm,date,colors,edges)
     legend('Right','Left')
 
     sgtitle(sesstitle,'FontSize',16)
 
+    % PANEL E: PROJECT NO-EARLYMOVE TRIALS ONTO REGULAR CHOICE MODE
+    subplot(3,2,4)
+    obj = removeEarlyTrials_PSTH(obj,met);              % Get trial PSTHs by condition, excluding early move trials
+    [Reg_projection] = getChoiceModeProjections_oneMode(obj,allModes,smooth,conditions);      % Project all trials and non-early move trials onto same choice mode
+
+    if ~isempty(Reg_projection.ALLTrix) && ~isempty(Reg_projection.NOEarly)
+        colors = {[0 0 1],[1 0 0],[0 0 0.75],[0.75 0 0]};
+        lw = 2;
+        plot(rez.time,Reg_projection.ALLTrix{1},'Color',colors{1},'LineWidth',2)
+        hold on
+        plot(rez.time,Reg_projection.ALLTrix{2},'Color',colors{2},'LineWidth',2)
+        plot(rez.time,Reg_projection.NOEarly{1},'Color',colors{3},'LineWidth',2)
+        plot(rez.time,Reg_projection.NOEarly{2},'Color',colors{4},'LineWidth',2)
+        legend('Right','Left','R no early','L no early')
+        title('Remove early move trials from projection','FontSize',14)
+        xlabel('Time since go-cue (s)','FontSize',13)
+        ylabel('Choice Mode (a.u.)','FontSize',13)
+    end
+
+    % PANEL F: Heat-map of R/L selectivity for all cells
+    subplot(3,2,1)
+    numCells = size(obj.psth,2);
+    Rpsth = obj.psth(:,:,1);                        
+    Lpsth = obj.psth(:,:,2);
+    DirSelect = Rpsth-Lpsth;
+    maxSelect =  max(abs(DirSelect),[],'all');      % Find max directional selectivity
+    selectNorm = DirSelect./maxSelect;              % Normalize all selectivity values to max selectivity
+
+    alignEv = find(taxis == 0);
+    earlyDelay = find(taxis>-0.855 & taxis<-0.845);     % t = 0.85 s before alignEvent
+    lateDelay = find(taxis>-0.253 & taxis<-0.247);      % t = 0.25 s before alignEvent
+    sort_by = lateDelay;          % alignEv, early delay, late delay, presample
+
+    plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)
+    ylabel('Neuron #','FontSize',18)
+    xlabel('Time since go cue (s)','FontSize',18)
+    ax = gca;
+    ax.FontSize = 14;
+    title('Direction selectivity (R - L)','FontSize',18)
+    hold off;
+
 
 end
-
-%% ANALYSIS FUNCTIONS
-
-
-
