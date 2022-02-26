@@ -14,6 +14,9 @@
 
 %%
 clear; clc; close all;
+
+% Saving params
+outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue'; % goCue or firstLick
 
@@ -87,7 +90,8 @@ end
 % multiply PSTH by the coding direction
 
 for gg = 1:length(meta)
-    figure(gg)
+    f = figure(gg);
+    f.WindowState = 'maximized';
     obj = objs{gg};
     met = meta(gg);
 
@@ -167,6 +171,7 @@ for gg = 1:length(meta)
         title('Remove early move trials from choice mode','FontSize',14)
         xlabel('Time since go-cue (s)','FontSize',13)
         ylabel('Choice Mode (a.u.)','FontSize',13)
+        xlim([-2.5 2.5])
     end
    
 
@@ -196,6 +201,7 @@ for gg = 1:length(meta)
         title('Remove early move trials from projection','FontSize',14)
         xlabel('Time since go-cue (s)','FontSize',13)
         ylabel('Choice Mode (a.u.)','FontSize',13)
+        xlim([-2.5 2.5])
     end
 
     % PANEL F: Heat-map of R/L selectivity for all cells
@@ -220,5 +226,6 @@ for gg = 1:length(meta)
     title('Direction selectivity (R - L)','FontSize',18)
     hold off;
 
-
+    saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
+    close all
 end
