@@ -17,6 +17,7 @@ clear; clc; close all;
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
+toSave = 'yes';
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue'; % goCue or firstLick
 
@@ -50,14 +51,14 @@ clrs{4} = [1 0.5 0.5];    % Light red = (for L choice mode w/ early trials remov
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
-meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
-% meta = loadEKH1_ALMVideo(meta);
-% meta = loadEKH3_ALMVideo(meta);
-% meta = loadJGR2_ALMVideo(meta);
-% meta = loadJGR3_ALMVideo(meta);
+% meta = loadJEB4_ALMVideo(meta);
+% meta = loadJEB5_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
+meta = loadEKH1_ALMVideo(meta);
+meta = loadEKH3_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
@@ -226,6 +227,8 @@ for gg = 1:length(meta)
     title('Direction selectivity (R - L)','FontSize',18)
     hold off;
 
-    saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
-    close all
+    if strcmp(toSave,'yes')
+        saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
+        close all
+    end
 end
