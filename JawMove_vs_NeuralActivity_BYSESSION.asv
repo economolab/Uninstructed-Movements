@@ -174,12 +174,12 @@ for gg = 1:length(meta)
     % mode calculated without any early movement trials
     % Project all 2AFC ~early hits onto those two modes
     
-%     figure;
-%     for i = 1:30:500
-%         hold on; plot(obj.time, MySmooth(mean(lat_choice(:, ix(i:i+29)), 2), 15), 'Color', [1-i/500, 0, 0]);
-%         
-%         
-%     end
+    figure;
+    for i = 1:100
+        hold on; plot(obj.time, mean(lat_choice
+        
+        
+    end
     
     
     
