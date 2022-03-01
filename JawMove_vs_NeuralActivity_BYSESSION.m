@@ -2,16 +2,17 @@
 % SESSION BASIS
 
 % Will generate a figure for each session:
-% Panel A: scatter plot of single trial choice mode projections vs. jaw
-% velocity
-% Panel B: Heatmap of jaw movements on each non-early, 2AFC hit trial
-% Panel C: Projections of R and L hit, non-early, 2AFC trials onto choice
+% Panel A: Heatmap of direction selectivity for all cells recorded in the
+% session
+% Panel B: Avg Probability of jaw movement throughout the trial
+% Panel C: Projections of R and L hit, ~early, 2AFC trials onto choice
 % modes found w/ and w/o early move trials
-% Panel D: Avg Probability of jaw movement throughout the trial
-
-% In Panels A and C--> choice mode is found according to Nuo's definition (hits
-% and misses included)
-
+% Panel D: Projections of R and L hit, ~early, 2AFC trials AND
+% projections of 2AFC hits with early tongue and jaw movements removed onto
+% the 'normal' choice mode
+% Panel E: Heatmap of jaw movements on each non-early, 2AFC hit trial
+% Panel F: scatter plot of single trial choice mode projections vs. jaw
+% velocity
 %%
 clear; clc; close all;
 
@@ -108,7 +109,29 @@ for gg = 1:length(meta)
     rez.alignEvent = params.alignEvent;
 
 
-    % PANEL A: SINGLE-TRIAL CHOICE MODE (rez) VS. JAW VELOCITY
+    % PANEL A: Heat-map of R/L selectivity for all cells
+    subplot(3,2,1)
+    numCells = size(obj.psth,2);
+    Rpsth = obj.psth(:,:,1);                        
+    Lpsth = obj.psth(:,:,2);
+    DirSelect = Rpsth-Lpsth;                        % Find R-L selectivity for all cells
+    maxSelect =  max(abs(DirSelect),[],'all');      % Find max directional selectivity
+    selectNorm = DirSelect./maxSelect;              % Normalize all selectivity values to max selectivity
+
+    alignEv = find(taxis == 0);
+    earlyDelay = find(taxis>-0.855 & taxis<-0.845);     % t = 0.85 s before alignEvent
+    lateDelay = find(taxis>-0.253 & taxis<-0.247);      % t = 0.25 s before alignEvent
+    sort_by = lateDelay;          % alignEv, early delay, late delay, presample
+
+    plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)
+    ylabel('Neuron #','FontSize',18)
+    xlabel('Time since go cue (s)','FontSize',18)
+    ax = gca;
+    ax.FontSize = 14;
+    title('Direction selectivity (R - L)','FontSize',18)
+    hold off;
+    
+    % PANEL F: SINGLE-TRIAL CHOICE MODE (rez) VS. JAW VELOCITY
     % This choice mode is found using R and L hits and misses 
     allModes = calcAllModes(obj,met,rez,params);
       
@@ -137,14 +160,16 @@ for gg = 1:length(meta)
     lgd = legend('Right','Left');
     lgd.FontSize = 12;
 
-    % PANEL B: HEATMAP OF JAW MOVEMENTS THROUGHOUT SESSION
+    % PANEL E: HEATMAP OF JAW MOVEMENTS THROUGHOUT SESSION
+    % Plotting 2AFC hit trials, ~early
     conditions = {1,2};
     subplot(3,2,5)
     JawVelHeatmap(conditions,jaw,taxis,met)
 
     % PANEL C: CHOICE MODE WITH AND WITHOUT EARLY MOVEMENT TRIALS
-    % This choice mode is only found using L and R hit trials, epoch =
-    % delay
+    % Find two different choice modes: 1) Nuo Li's choice mode; 2) Choice
+    % mode calculated without any early movement trials
+    % Project all 2AFC ~early hits onto those two modes
       
     % Find early tongue and jaw movements 
     obj = findEarlyMoveTrials(obj);
@@ -176,16 +201,18 @@ for gg = 1:length(meta)
     end
    
 
-    % PANEL D: PLOT PROB OF JAW MOVEMENT ACROSS TRIAL FOR R AND L HITS
+    % PANEL B: PLOT PROB OF JAW MOVEMENT ACROSS TRIAL FOR R AND L HITS
     subplot(3,2,2)
     dirs = {'R','L'};                           % Dimension of 'dirs' must match dimension of 'contexts'
     contexts = {'afc','afc'};           
     plotJawProb_SessAvg(dirs, contexts,anm,date,colors,edges)
     legend('Right','Left')
 
-    sgtitle(sesstitle,'FontSize',16)
 
-    % PANEL E: PROJECT NO-EARLYMOVE TRIALS ONTO REGULAR CHOICE MODE
+    % PANEL D: PROJECT NO-EARLYMOVE TRIALS ONTO REGULAR CHOICE MODE
+    % Take the 'normal' choice mode.  Project two sets of trials onto it:
+    % 1) All 2AFC hits; 2) 2AFC hits with early movement trials removed 
+
     subplot(3,2,4)
     obj = removeEarlyTrials_PSTH(obj,met);              % Get trial PSTHs by condition, excluding early move trials
     [Reg_projection] = getChoiceModeProjections_oneMode(obj,allModes,smooth,conditions);      % Project all trials and non-early move trials onto same choice mode
@@ -205,28 +232,9 @@ for gg = 1:length(meta)
         xlim([-2.5 2.5])
     end
 
-    % PANEL F: Heat-map of R/L selectivity for all cells
-    subplot(3,2,1)
-    numCells = size(obj.psth,2);
-    Rpsth = obj.psth(:,:,1);                        
-    Lpsth = obj.psth(:,:,2);
-    DirSelect = Rpsth-Lpsth;
-    maxSelect =  max(abs(DirSelect),[],'all');      % Find max directional selectivity
-    selectNorm = DirSelect./maxSelect;              % Normalize all selectivity values to max selectivity
+    sgtitle(sesstitle,'FontSize',16)
 
-    alignEv = find(taxis == 0);
-    earlyDelay = find(taxis>-0.855 & taxis<-0.845);     % t = 0.85 s before alignEvent
-    lateDelay = find(taxis>-0.253 & taxis<-0.247);      % t = 0.25 s before alignEvent
-    sort_by = lateDelay;          % alignEv, early delay, late delay, presample
-
-    plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)
-    ylabel('Neuron #','FontSize',18)
-    xlabel('Time since go cue (s)','FontSize',18)
-    ax = gca;
-    ax.FontSize = 14;
-    title('Direction selectivity (R - L)','FontSize',18)
-    hold off;
-
+    % Save the figure to the output directory
     if strcmp(toSave,'yes')
         saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
         close all
