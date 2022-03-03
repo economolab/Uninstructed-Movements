@@ -1,3 +1,5 @@
+% Plots a heatmap of jaw velocities for all trials in a session
+
 function JawVelHeatmap(conditions, jaw, taxis, met)
 toplot = [];
 for c = 1:numel(conditions)
@@ -5,7 +7,7 @@ for c = 1:numel(conditions)
 end
 
 trix = sort(toplot);                    % Trial ID of all hit, non-early 2AFC trials
-numtrix = length(trix);              % Num of trials to be plotted
+numtrix = length(trix);                 % Num of trials to be plotted
 
 imagesc(taxis(10:end), 1:numtrix,jaw(10:end,trix)')      % Make heatmap of jaw velocity for specified trials
 ax = gca;
