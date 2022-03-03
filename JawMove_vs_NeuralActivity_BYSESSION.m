@@ -66,7 +66,6 @@ taxis = taxis(1:end-1);
 %% PREPROCESS DATA
 objs = loadObjs(meta);
 
-%% PREPROCESS DATA
 for i = 1:numel(meta)
     obj = objs{i};
     obj.condition = params.condition;
@@ -91,7 +90,7 @@ end
 % To project single trials or trial-averaged PSTHs onto that mode, have to
 % multiply PSTH by the coding direction
 
-for gg = 1:length(meta)
+for gg = 1:length(meta)         % For all loaded sessions...
     f = figure(gg);
     f.WindowState = 'maximized';
     obj = objs{gg};
@@ -99,8 +98,8 @@ for gg = 1:length(meta)
 
     anm = obj.pth.anm;                  % Animal name
     date = obj.pth.dt;                  % Session date
-    probenum = string(met.probe);       % Which probe 
-    sesstitle = strcat(anm,{'   '},date,' ;  ','Probe ',{'   '},probenum);  % Name for session
+    probenum = string(met.probe);       % Which probe was used  
+    sesstitle = strcat(anm,{'   '},date,' ;  ','Probe ',{'   '},probenum);  % Name/title for session
 
     clear rez; clear removeEarly, clear reg
     
@@ -118,12 +117,12 @@ for gg = 1:length(meta)
     maxSelect =  max(abs(DirSelect),[],'all');      % Find max directional selectivity
     selectNorm = DirSelect./maxSelect;              % Normalize all selectivity values to max selectivity
 
-    alignEv = find(taxis == 0);
-    earlyDelay = find(taxis>-0.855 & taxis<-0.845);     % t = 0.85 s before alignEvent
+    alignEv = find(taxis == 0);                         % t = 0 (Event that everything is aligned to)
+    earlyDelay = find(taxis>-0.655 & taxis<-0.645);     % t = 0.65 s before alignEvent
     lateDelay = find(taxis>-0.253 & taxis<-0.247);      % t = 0.25 s before alignEvent
-    sort_by = lateDelay;          % alignEv, early delay, late delay, presample
+    sort_by = lateDelay;          % Which event/epoch you want to sort the heatmap by (choose from defined times above)
 
-    plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)
+    plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)       % Plot heatmap for direction selectivity (for all cells in the session)
     ylabel('Neuron #','FontSize',18)
     xlabel('Time since go cue (s)','FontSize',18)
     ax = gca;
