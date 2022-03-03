@@ -1,3 +1,5 @@
+% Function to find and orthogonalize all 7 activity modes defined in Nuo Li's preprint
+
 function allModes = calcAllModes(obj,met,rez,params)
 
 % stimulus mode
