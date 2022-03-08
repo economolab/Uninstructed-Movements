@@ -77,6 +77,7 @@ disp(' ')
 % vector from me.data
 % - also return ix of movement times based on obj.time
 
+params.moveThresh = 0.15; % fraction of time in delay period that if labeled as moving, labels trial as a early move trial
 [meta,mov] = assignEarlyTrials(obj,meta,params);
 
 

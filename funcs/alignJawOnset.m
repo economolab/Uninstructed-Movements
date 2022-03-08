@@ -55,6 +55,6 @@ for trix = 1:obj.bp.Ntrials
     end
     
 end
-jawOnset = jawOnset - 0.5;
+jawOnset = jawOnset - 0.5; % frameTimes are offset by 0.5 second (probs because of the 0.5s addition in SGLX)
 
 end

@@ -30,7 +30,7 @@ for trix = 1:obj.bp.Ntrials
     % earlyMoveTrial
     total = sum( (vidtime >= delayStartEnd(1)) & (vidtime <= delayStartEnd(2)) );
     moving = sum( (mov.moveTime{trix} >= delayStartEnd(1)) & (mov.moveTime{trix} <= delayStartEnd(2)) );
-    mov.earlyMoveTrial(trix) = (moving/total) >= 0.15;
+    mov.earlyMoveTrial(trix) = (moving/total) >= params.moveThresh;
 end
 
 disp(['Number of early move trials:  ' num2str(sum(mov.earlyMoveTrial)) '/' num2str(obj.bp.Ntrials) ...

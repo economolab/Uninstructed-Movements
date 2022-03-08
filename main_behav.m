@@ -6,7 +6,7 @@ addpath(genpath(pwd))
 
 
 %% SET PARAMS
-params.alignEvent          = 'goCue'; % 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'jawOnset'; % 'goCue'  'jawOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -43,12 +43,15 @@ params.smooth = 15;
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
 
+% video Hz
+params.vid_dt = 1/400;
+
 %% SET METADATA
 % experiment meta data
 meta.datapth = '/Users/Munib/Documents/Economo-Lab/code/data';
 % meta.datapth = '/Volumes/MUNIB_SSD/Experiments';
-meta.anm = 'JEB7';
-meta.date = '2021-04-29';
+meta.anm = 'JGR2';
+meta.date = '2021-11-16';
 meta.datafn = findDataFn(meta);
 
 %% LOAD AND PROCESS DATA
@@ -96,7 +99,16 @@ end
 
 
 %% analyze jaw traces for each trial type from bottom cam
-analyzeJaw(obj,params);
+analyzeJaw(obj);
+
+%% calculate eigenpose
+calcEigenpose(obj);
+
+
+
+
+
+
 
 
 

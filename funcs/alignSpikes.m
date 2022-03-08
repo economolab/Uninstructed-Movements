@@ -44,7 +44,8 @@ end
 if strcmp(params.alignEvent,'jawOnset')
     % half rise time to first peak of jaw onset after go cue
     view = 1; % side cam
-    feat = 2; % jaw
+    [~,jawMask] = patternMatchCellArray(obj.traj{view}(1).featNames,{'jaw'},'all');
+    feat = find(jawMask); % jaw
     
     % filter params
     opts.f_cut = 60; % cutoff freq for butter filt
