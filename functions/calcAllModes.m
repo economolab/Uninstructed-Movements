@@ -1,6 +1,6 @@
 % Function to find and orthogonalize all 7 activity modes defined in Nuo Li's preprint
 
-function allModes = calcAllModes(obj,met,rez,params)
+function allModes = calcAllModes(obj,met,rez,params,RemoveEarly)
 
 % stimulus mode
 % 1. stimulus mode: defined during stimulus (sample) period
@@ -10,7 +10,7 @@ cond{2} = params.modecondition{2};
 cond{3} = params.modecondition{3};
 cond{4} = params.modecondition{4};
 epoch = 'sample';
-allModes.stimulus_mode = stimulusMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.stimulus_mode = stimulusMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % choice mode
@@ -21,7 +21,7 @@ cond{2} = params.modecondition{2};
 cond{3} = params.modecondition{3};
 cond{4} = params.modecondition{4};
 epoch = 'delay';
-allModes.choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % action mode
@@ -31,7 +31,7 @@ clear cond
 cond{1} = params.modecondition{1};
 cond{2} = params.modecondition{2};
 epoch = 'action';
-allModes.action_mode = actionMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.action_mode = actionMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % outcome mode
@@ -43,7 +43,7 @@ cond{2} = params.modecondition{2};
 cond{3} = params.modecondition{3};
 cond{4} = params.modecondition{4};
 epoch = 'outcome';
-allModes.outcome_mode = outcomeMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.outcome_mode = outcomeMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % ramping mode
@@ -51,7 +51,7 @@ clear cond
 %       (hit_presample - hit_delay) / sqrt(sum(sd for each tt ^2));
 cond{1} = params.modecondition{5};
 epoch = {'presample','delay'};
-allModes.ramping_mode = rampingMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.ramping_mode = rampingMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % go mode
@@ -59,7 +59,7 @@ clear cond
 %       (hit_after - hit_before) / sqrt(sum(sd for each tt ^2));
 cond{1} = params.modecondition{5};
 epoch = {'postgo','prego'};
-allModes.go_mode = goMode(obj,met,cond,epoch,rez.alignEvent);
+allModes.go_mode = goMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
 % response mode
@@ -72,7 +72,7 @@ cond{1} = params.modecondition{1};
 cond{2} = params.modecondition{2};
 psthcond = [1,2];
 epoch = 'presample'; % used to estimate baseline firing rate
-allModes.response_mode = responseMode(obj,met,cond,epoch,rez.alignEvent,psthcond);
+allModes.response_mode = responseMode(obj,met,cond,epoch,rez.alignEvent,psthcond,RemoveEarly);
 clear cond
 
 % orthogonalize MODES
