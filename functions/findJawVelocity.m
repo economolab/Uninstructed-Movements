@@ -13,7 +13,7 @@ for i = 1:nTrials                % For every trial...
         continue;
     end
     if ~isnan(traj(i).frameTimes)
-        ts = MySmooth(traj(i).ts(:, 2, 2), 21);
+        ts = mySmooth(traj(i).ts(:, 2, 2), 21);
         tsinterp = interp1(traj(i).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);   %Linear interpolation of jaw position to keep number of time points consistent across trials
         basederiv = median(diff(tsinterp),'omitnan');                                         %Find the median jaw velocity (aka baseline)
     end
