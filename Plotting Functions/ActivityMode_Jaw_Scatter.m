@@ -8,17 +8,19 @@
 % make this plot for (i.e. 1:2 will plot R and L 2AFC hits)
 % clrs = cell array of colors to use
 
-function ActivityMode_Jaw_Scatter(jawVel,avgChoice,conditions,met,clrs)
+function [coeff,R] = ActivityMode_Jaw_Scatter(jawVel,avgChoice,conditions,met,clrs,obj)
 jv = [];                                        
 ch = [];
 for j = conditions                              % For all conditions                 
     trialid = met.trialid{j};                   % Get the trials that correspond to those conditions
+    earlyTrialid = trialid(find(ismember(trialid,obj.earlyMoveix)));
+    regTrialid = trialid(find(~ismember(trialid,obj.earlyMoveix)));
     color = clrs{j};                    
     jv = [jv, jawVel(trialid)];                 % Store only the jaw velocities from the desired trials 
     ch = [ch, avgChoice(trialid)];              % Store only the choice mode values from the desired trials 
-    scatter(jawVel(trialid),avgChoice(trialid),'MarkerFaceColor',color)     % Make a scatter plot comparing these values 
-                                                                            % for the desired trials, colored according to condition
+    scatter(jawVel(regTrialid),avgChoice(regTrialid),'MarkerFaceColor',color)     % Make a scatter plot comparing these values 
     hold on;
+    scatter(jawVel(earlyTrialid),avgChoice(earlyTrialid),'MarkerFaceColor',color,'Marker','diamond')                                                                        % for the desired trials, colored according to condition
 end
 ax = gca;
 ax.FontSize = 12;
@@ -28,11 +30,4 @@ ch(nanix) = [];                             % Indices that were a NaN for jaw ve
 R = corr2(jv,ch);                           % Calculate the correlation coefficient between these two variables
 R = num2str(R);
 coeff = polyfit(jv,ch,1);                   % Find the line of best fit
-hline = refline(coeff);
-hline.LineStyle = '--';
-hline.Color = 'k';
-str = strcat('R^2 =',R);
-title(str,'fontsize',13)
-xlabel('Avg Jaw Velocity','fontsize',14)
-ylabel('Avg choice mode','fontsize',14)
 end  %ActivityMode_Jaw_Scatter
