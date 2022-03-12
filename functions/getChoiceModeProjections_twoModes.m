@@ -13,7 +13,8 @@
 function [allModes,allModes_NoMove] = getChoiceModeProjections_twoModes(obj,allModes,allModes_NoMove,smooth,conditions)
 allModes.latentChoice = cell(1,numel(conditions));     % Cell array: 1 x # projection conditions
 allModes_NoMove.latentChoice = cell(1,numel(conditions));
-psth = obj.psth - mean(obj.psth,1);     % Mean center the PSTHs
+% psth = obj.psth - mean(obj.psth,1);     % Mean center the PSTHs
+psth = obj.psth;
 
 for j = 1:numel(conditions)             % For each condition...
     cond = conditions(j);
