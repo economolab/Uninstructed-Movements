@@ -3,7 +3,8 @@ projection.ALLTrix = cell(1,numel(conditions));     % Cell array: 1 x # projecti
 projection.NOEarly = cell(1,numel(conditions));
 avgPSTH_noEarlyMove = cell(1,numel(conditions));
 
-psth = obj.psth - mean(obj.psth,1);     % Mean center the PSTHs
+% psth = obj.psth - mean(obj.psth,1);     % Mean center the PSTHs
+psth = obj.psth;     % Mean center the PSTHs
 for j = 1:numel(conditions)             % For each condition...
     cond = conditions(j);
     if ~isempty(allModes.choice_mode)
