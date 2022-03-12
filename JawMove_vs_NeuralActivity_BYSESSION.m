@@ -16,12 +16,15 @@
 %%
 clear; clc; close all;
 
-addpath(genpath('C:\Code\BehavVis'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
 
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'yes';
+toSave = 'no';
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue'; % goCue or firstLick
 
@@ -86,14 +89,8 @@ end
 
 [multi_psth,fromsess] = concatPSTH(objs);                          % Concatenate the trial-averaged PSTHs from all sessions into one structure 
 %% ACTIVITY MODES
-% After each mode is calculated according to its definition, the weights
-% for each neuron (aka the coding direction for that mode) is stored in
-% rez.mode
 
-% To project single trials or trial-averaged PSTHs onto that mode, have to
-% multiply PSTH by the coding direction
-
-for gg = 1:length(meta)         % For all loaded sessions...
+for gg = 3:length(meta)         % For all loaded sessions...
     f = figure(gg);
     f.WindowState = 'maximized';
     obj = objs{gg};
@@ -104,25 +101,27 @@ for gg = 1:length(meta)         % For all loaded sessions...
     probenum = string(met.probe);       % Which probe was used  
     sesstitle = strcat(anm,{'   '},date,' ;  ','Probe ',{'   '},probenum);  % Name/title for session
 
+    
     clear rez; clear removeEarly, clear reg
     
     rez.time = objs{1}.time;
     rez.condition = objs{1}.condition;
     rez.alignEvent = params.alignEvent;
 
+    % Identify early movement trials (tongue and jaw movements during delay) 
+    obj = findEarlyMoveTrials(obj);
+
 
     % PANEL A: Heat-map of R/L selectivity for all cells
     subplot(3,2,1)
     numCells = size(obj.psth,2);
-    Rpsth = obj.psth(:,:,1);                        
-    Lpsth = obj.psth(:,:,2);
-    DirSelect = Rpsth-Lpsth;                        % Find R-L selectivity for all cells
-    maxSelect =  max(abs(DirSelect),[],'all');      % Find max directional selectivity
-    selectNorm = DirSelect./maxSelect;              % Normalize all selectivity values to max selectivity
+    smooth = 50;
 
-    alignEv = find(taxis == 0);                         % t = 0 (Event that everything is aligned to)
-    earlyDelay = find(taxis>-0.655 & taxis<-0.645);     % t = 0.65 s before alignEvent
-    lateDelay = find(taxis>-0.253 & taxis<-0.247);      % t = 0.25 s before alignEvent
+    selectNorm = findDirectionSelectivity(obj, 'obj.psth',smooth);          % Find direction selectivity
+
+    alignEv = find(taxis == 0);                          % t = 0 (Event that everything is aligned to)
+    earlyDelay = find(taxis>=-0.65, 1, 'first');     % t = 0.65 s before alignEvent
+    lateDelay = find(taxis>=-0.25, 1, 'first');      % t = 0.25 s before alignEvent
     sort_by = lateDelay;          % Which event/epoch you want to sort the heatmap by (choose from defined times above)
 
     plotSelectivityHeatmap(taxis,sort_by,numCells,selectNorm)       % Plot heatmap for direction selectivity (for all cells in the session)
@@ -132,62 +131,24 @@ for gg = 1:length(meta)         % For all loaded sessions...
     ax.FontSize = 14;
     title('Direction selectivity (R - L)','FontSize',18)
     hold off;
-    
-    % PANEL F: SINGLE-TRIAL CHOICE MODE (rez) VS. JAW VELOCITY
-    % This choice mode is found using R and L hits and misses 
-    allModes = calcAllModes(obj,met,rez,params);
-      
-    % Project single trials onto choice mode
-    cd = allModes.choice_mode;
-    lat_choice = getTrialLatents(obj,cd);
-    
-    % Find the jaw velocity at all time points in the trial
-    edges = rez.time;
-    jaw = findJawVelocity(edges, obj);
 
-    % Define time intervals: Time frame for late delay period(from -0.4 before go-cue to -0.1)
-    late_start = find(taxis>=-0.4, 1, 'first');
-    late_stop = find(taxis<=-0.1, 1, 'last');
-    lateDelay = late_start:late_stop;
 
-    % Get jaw velocity and activity mode averages for late delay
-    timeInt = lateDelay;
-    jawVel_late = getAverages(timeInt,jaw);
-    Choice_late = getAverages(timeInt,lat_choice);
-
-    % Make scatter plot
-    conditions = 1:2;               % Look only at correct left and right hits during 2AFC
-    subplot(3,2,6)
-    ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,clrs)
-    lgd = legend('Right','Left');
-    lgd.FontSize = 12;
-
-    % PANEL E: HEATMAP OF JAW MOVEMENTS THROUGHOUT SESSION
-    % Plotting 2AFC hit trials, ~early
+    % PANEL B: PLOT PROB OF JAW MOVEMENT ACROSS TRIAL FOR R AND L HITS
+    subplot(3,2,2)
     conditions = {1,2};
-    subplot(3,2,5)
-    JawVelHeatmap(conditions,jaw,taxis,met)
+    colors = {[0 0 1],[1 0 0],[0.5 0.5 1],[1 0.5 0.5]};
+    plotJawProb_SessAvg(obj,met,conditions,colors)
+    legend('Right','Left')
+
 
     % PANEL C: CHOICE MODE WITH AND WITHOUT EARLY MOVEMENT TRIALS
     % Find two different choice modes: 1) Nuo Li's choice mode; 2) Choice
     % mode calculated without any early movement trials
     % Project all 2AFC ~early hits onto those two modes
-    
-%     figure;
-%     for i = 1:30:500
-%         hold on; plot(obj.time, MySmooth(mean(lat_choice(:, ix(i:i+29)), 2), 15), 'Color', [1-i/500, 0, 0]);
-%         
-%         
-%     end
-    
-    
-    
-      
-    % Find early tongue and jaw movements 
-    obj = findEarlyMoveTrials(obj);
 
-    % Find all modes when early trials are not included
-    allModes_NoMove = calcAllModes(obj,met,rez,params);
+    % Find all modes when early trials are and are not included
+    allModes = calcAllModes(obj,met,rez,params,'no');
+    allModes_NoMove = calcAllModes(obj,met,rez,params,'yes');
 
     % Which conditions to project onto the modes
     conditions = [1,2];         % Left and right 2AFC hits (not early)
@@ -211,14 +172,6 @@ for gg = 1:length(meta)         % For all loaded sessions...
         ylabel('Choice Mode (a.u.)','FontSize',13)
         xlim([-2.5 2.5])
     end
-   
-
-    % PANEL B: PLOT PROB OF JAW MOVEMENT ACROSS TRIAL FOR R AND L HITS
-    subplot(3,2,2)
-    dirs = {'R','L'};                           % Dimension of 'dirs' must match dimension of 'contexts'
-    contexts = {'afc','afc'};           
-    plotJawProb_SessAvg(dirs, contexts,anm,date,colors,edges)
-    legend('Right','Left')
 
 
     % PANEL D: PROJECT NO-EARLYMOVE TRIALS ONTO REGULAR CHOICE MODE
@@ -243,6 +196,51 @@ for gg = 1:length(meta)         % For all loaded sessions...
         ylabel('Choice Mode (a.u.)','FontSize',13)
         xlim([-2.5 2.5])
     end
+
+
+    % PANEL E: HEATMAP OF JAW MOVEMENTS THROUGHOUT SESSION
+    % Plotting 2AFC hit trials, ~early
+    
+    % Find the jaw velocity at all time points in the session
+    jaw = findJawVelocity(edges, obj);
+
+    conditions = {1,2};
+    subplot(3,2,5)
+    JawVelHeatmap(conditions,jaw,taxis,met)
+
+    
+    % PANEL F: SINGLE-TRIAL CHOICE MODE (rez) VS. JAW VELOCITY
+    % This choice mode is found using R and L hits and misses 
+      
+    % Project single trials onto choice mode
+    cd = allModes.choice_mode;
+    lat_choice = getTrialLatents(obj,cd);
+
+    % Define time intervals: Time frame for late delay period(from -0.4 before go-cue to -0.1)
+    late_start = find(taxis>=-0.4, 1, 'first');
+    late_stop = find(taxis<=-0.1, 1, 'last');
+    lateDelay = late_start:late_stop;
+
+    % Get jaw velocity and activity mode averages for late delay
+    timeInt = lateDelay;
+    jawVel_late = getAverages(timeInt,jaw);
+    Choice_late = getAverages(timeInt,lat_choice);
+
+    % Make scatter plot
+    conditions = 1:2;               % Look only at correct left and right hits during 2AFC
+    subplot(3,2,6)
+    [coeff,R] = ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,clrs,obj);
+    hline = refline(coeff);
+    hline.LineStyle = '--';
+    hline.Color = 'k';
+    lgd = legend('Right','Right early move','Left','Left early move','');
+    lgd.FontSize = 9;
+    lgd.Location = 'best';
+    str = strcat('R^2 =',R);
+    title(str,'fontsize',13)
+    xlabel('Avg Jaw Velocity','fontsize',14)
+    ylabel('Avg choice mode','fontsize',14)
+
 
     sgtitle(sesstitle,'FontSize',16)
 
