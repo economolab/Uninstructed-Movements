@@ -120,12 +120,11 @@ for gg = 1 %:length(meta)         % For all loaded sessions...
     rez.condition = objs{1}.condition;
     rez.alignEvent = params.alignEvent;
 
-    % FIND EARLY MOVEMENT TRIALS(early move trial if moving more than 15% of delay period)
+    % FIND EARLY MOVEMENT TRIALS
     if strcmp(params.earlytrials,'DeepLabCut')
-        % Using deeplabcut to find tongue and jaw movements during delay
+        % Using deeplabcut to find tongue and jaw movements during delay 
         obj = findEarlyMoveTrials(obj);
     elseif strcmp(params.earlytrials,'motionEnergy')
-        % Using motion energy to define moving/not moving
 
     end
 

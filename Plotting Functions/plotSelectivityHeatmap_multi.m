@@ -11,7 +11,8 @@
 % A heatmap of selectivity (ranges from -1 to 1), aligned to the align
 % event
 
-function plotSelectivityHeatmap(taxis,sort_by,numCells_tot,selectNorm)
+function plotSelectivityHeatmap_multi(taxis,sort_by,numCells_tot,selectNorm,sort_ix)
+selectNorm = selectNorm(:,sort_ix);  % Sort by the selectivity at specified time point
 
 alignEv = find(taxis == 0);       
 earlyDelay = find(taxis>-0.855 & taxis<-0.845);     % t = 0.85 s before first lick
