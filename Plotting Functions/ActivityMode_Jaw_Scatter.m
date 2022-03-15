@@ -8,13 +8,18 @@
 % make this plot for (i.e. 1:2 will plot R and L 2AFC hits)
 % clrs = cell array of colors to use
 
-function [coeff,R] = ActivityMode_Jaw_Scatter(jawVel,avgChoice,conditions,met,clrs,obj)
+function [coeff,R] = ActivityMode_Jaw_Scatter(jawVel,avgChoice,conditions,met,clrs,obj,params)
 jv = [];                                        
 ch = [];
 for j = conditions                              % For all conditions                 
     trialid = met.trialid{j};                   % Get the trials that correspond to those conditions
-    earlyTrialid = trialid(find(ismember(trialid,obj.earlyMoveix)));
-    regTrialid = trialid(find(~ismember(trialid,obj.earlyMoveix)));
+    if strcmp(params.earlytrials,'motionEnergy')
+        temp = find(obj.earlyMoveix);
+    else
+        temp = obj.earlyMoveix;
+    end
+    earlyTrialid = trialid(find(ismember(trialid,temp)));
+    regTrialid = trialid(find(~ismember(trialid,temp)));
     color = clrs{j};                    
     jv = [jv, jawVel(trialid)];                 % Store only the jaw velocities from the desired trials 
     ch = [ch, avgChoice(trialid)];              % Store only the choice mode values from the desired trials 
