@@ -18,6 +18,8 @@
 % Saving params: 'toSave' --> whether or not to save figures
 % Run params: 'earlytrials' --> which method you want to use to identify
 % early movement trials
+% 'moveThresh' --> what percentage of the delay period you want to be used
+% for identifying early move trials 
 % 'alignEvent' --> which behavioral event you want to align the PSTHs and
 % modes to
 %%
@@ -31,16 +33,20 @@ addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'))
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'no';
+toSave = 'yes';
 %% SET RUN PARAMS
 
 % Which method you want to use to identify early movement trials:
 % 'motionEnergy' or 'DeepLabCut'
 params.earlytrials         =  'motionEnergy'; 
+params.moveThresh          = 0.15;      % What percentage of the delay period you want to use for identifying early move trials
 
-params.alignEvent          = 'goCue'; % goCue or firstLick
+params.alignEvent          = 'goCue';   % goCue or firstLick
 
 params.lowFR               = 1; % remove clusters firing less than this val
+params.dt = 0.05;
+
+
 
 % set conditions to use for projections
 params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off
@@ -73,10 +79,10 @@ meta = [];
 % meta = loadJEB4_ALMVideo(meta);
 % meta = loadJEB5_ALMVideo(meta);
 % meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
-% meta = loadEKH1_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
+%meta = loadEKH1_ALMVideo(meta);
 % meta = loadEKH3_ALMVideo(meta);
-% meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
 % meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
@@ -102,7 +108,7 @@ end
 [multi_psth,fromsess] = concatPSTH(objs);                          % Concatenate the trial-averaged PSTHs from all sessions into one structure 
 %% ACTIVITY MODES
 
-for gg = 1 %:length(meta)         % For all loaded sessions...
+for gg = 2:length(meta)         % For all loaded sessions...
     f = figure(gg);
     f.WindowState = 'maximized';
     obj = objs{gg};
@@ -126,6 +132,8 @@ for gg = 1 %:length(meta)         % For all loaded sessions...
         obj = findEarlyMoveTrials(obj);
     elseif strcmp(params.earlytrials,'motionEnergy')
         % Using motion energy to define moving/not moving
+        [met,mov] = assignEarlyTrials(obj,met,params);
+        obj.earlyMoveix = mov.earlyMoveTrial;
 
     end
 
@@ -198,7 +206,7 @@ for gg = 1 %:length(meta)         % For all loaded sessions...
     % 1) All 2AFC hits; 2) 2AFC hits with early movement trials removed 
 
     subplot(3,2,4)
-    obj = removeEarlyTrials_PSTH(obj,met);              % Get trial PSTHs by condition, excluding early move trials
+    obj = removeEarlyTrials_PSTH(obj,met,params);              % Get trial PSTHs by condition, excluding early move trials
     [Reg_projection] = getChoiceModeProjections_oneMode(obj,allModes,smooth,conditions);      % Project all trials and non-early move trials onto same choice mode
 
     if ~isempty(Reg_projection.ALLTrix) && ~isempty(Reg_projection.NOEarly)
@@ -248,7 +256,7 @@ for gg = 1 %:length(meta)         % For all loaded sessions...
     % Make scatter plot
     conditions = 1:2;               % Look only at correct left and right hits during 2AFC
     subplot(3,2,6)
-    [coeff,R] = ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,clrs,obj);
+    [coeff,R] = ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,clrs,obj,params);
     hline = refline(coeff);
     hline.LineStyle = '--';
     hline.Color = 'k';
