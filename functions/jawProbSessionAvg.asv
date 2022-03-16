@@ -40,8 +40,12 @@ for i = 1:numel(conditions)
     for ii = 1:length(trialsToUse)
         q = trialsToUse(ii);
         
+        
+
         ts = mySmooth(traj(q).ts(:, 2, 2), 21);
+
         tsinterp = interp1(traj(q).frameTimes-0.5, ts, edges);   %Linear interpolation of jaw position to keep number of time points consistent across trials
+
         basederiv = median(diff(tsinterp),"omitnan");                   %Find the median jaw velocity (aka baseline)
 
         %Find when the difference between the jaw velocity and the
@@ -51,16 +55,18 @@ for i = 1:numel(conditions)
 
     end
     
-%     nojawmovix = ~ismember(trialsToUse, find(obj.earlyMoveix));
-%     jawdat_noearly = mean(jaw(:, nojawmovix), 2, 'omitnan');
-%     jawdat_noearly = medfilt1(jawdat_noearly, 10);
+    
+    nojawix = mean(ja
+    jawdat_noearly = mean(jaw(ix), 2, 'omitnan');
     
     
+
     jawdat = mean(jaw,2,'omitnan');         % Take the average probability of jaw movement across trials
     jawdat = medfilt1(jawdat,10);           % Smooth the avg probability of jaw movement 
     jawprob{i} = jawdat;                % Store the avg prob of jaw movement for the current condition
     
-%     figure; imagesc(jaw)
-%     figure; imagesc(jaw(:, nojawmovix))
+    
+    
+    
 end
 %end % jawProbSessionAvg
