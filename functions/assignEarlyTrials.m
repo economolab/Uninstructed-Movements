@@ -17,9 +17,9 @@ mov.earlyMoveTrial = false(obj.bp.Ntrials,1);
 mov.moveTime = cell(obj.bp.Ntrials,1);
 mov.stationaryTime = cell(obj.bp.Ntrials,1);
 for trix = 1:obj.bp.Ntrials
-    vidtime = (1:numel(me.data.data{trix}))./400;
+    vidtime = (1:numel(me.data{trix}))./400;
     
-    movemask = me.data.data{trix} > me.moveThresh;
+    movemask = me.data{trix} > me.moveThresh;
     mov.moveTime{trix} = vidtime(movemask)';
     
     stationarymask = ~movemask;
