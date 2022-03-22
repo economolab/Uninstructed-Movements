@@ -76,15 +76,15 @@ allModes.response_mode = responseMode(obj,met,cond,epoch,rez.alignEvent,psthcond
 clear cond
 
 % orthogonalize MODES
-[fns,~] = patternMatchCellArray(fieldnames(allModes),{'mode'},'all');
-modes = zeros(size(obj.psth,2),numel(fns));
-for i = 1:numel(fns)
-    modes(:,i) = allModes.(fns{i});
-end
-
-orthModes = gschmidt(modes);
-
-for i = 1:numel(fns)
-    allModes.(fns{i}) = orthModes(:,i);
-end
-end
+% [fns,~] = patternMatchCellArray(fieldnames(allModes),{'mode'},'all');
+% modes = zeros(size(obj.psth,2),numel(fns));
+% for i = 1:numel(fns)
+%     modes(:,i) = allModes.(fns{i});
+% end
+% 
+% orthModes = gschmidt(modes);
+% 
+% for i = 1:numel(fns)
+%     allModes.(fns{i}) = orthModes(:,i);
+% end
+% end

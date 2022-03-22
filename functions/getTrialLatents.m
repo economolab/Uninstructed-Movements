@@ -5,13 +5,17 @@
 % rez.choice_mode)
 % OUTPUT: lat_single = [time x nTrials] struct array 
 
-function lat_single = getTrialLatents(obj,cd)
+function latent = getTrialLatents(obj,cd,conditions,met)
 smooth = 15;
-             
-latent = nan(size(obj.trialpsth, 1), size(obj.trialpsth, 3));  % time x num trials
-for j = 1:size(obj.trialpsth, 3)                % For each trial...
-    ts = obj.trialpsth(:,:,j);                  % Get the PSTHs for each neuron
-    latent(:, j) = mySmooth(ts*cd,smooth);      % Multiply PSTHs by coding dimension and smooth it
+latent = cell(1,numel(conditions));
+for cond = 1:numel(conditions)
+    nTrials = numel(met.trialid{cond});
+    temp = nan(size(obj.trialpsth, 1), nTrials);  % time x num trials
+    for j = 1:nTrials                % For each trial...
+        trix = met.trialid{cond}(j);
+        ts = obj.trialpsth(:,:,trix);                  % Get the PSTHs for each neuron
+        temp(:, j) = mySmooth(ts*cd,smooth);      % Multiply PSTHs by coding dimension and smooth it
+    end
+    latent{cond} = temp;
 end
-lat_single = latent;
 end    %getTrialLatents

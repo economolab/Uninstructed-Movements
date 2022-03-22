@@ -47,6 +47,8 @@ params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % erro
 params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
 params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
 params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
+params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
+params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
 
 
 % set conditions used for finding the modes
@@ -59,16 +61,17 @@ params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~e
 params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
 params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
 
+
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
-meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB4_ALMVideo(meta);
+% meta = loadJEB5_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
 meta = loadJEB7_ALMVideo(meta);
 % meta = loadEKH1_ALMVideo(meta);
-meta = loadEKH3_ALMVideo(meta);
-meta = loadJGR2_ALMVideo(meta);
-meta = loadJGR3_ALMVideo(meta);
+% meta = loadEKH3_ALMVideo(meta);
+% meta = loadJGR2_ALMVideo(meta);
+% meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
@@ -111,24 +114,27 @@ for gg = 1:length(meta)         % For all loaded sessions...
 
     % Project single trials onto choice mode
     cd = allModes.choice_mode;
-    conditions = {1,2};
+    conditions = {1,2,8,9};
     latent = getTrialLatents(obj,cd,conditions,met);
 
     % Which conditions to project onto the modes
-    conditions = [1,2];         % Left and right 2AFC hits (not early)
+    conditions = [1,2,8,9];         % Left and right 2AFC hits (not early)
     smooth = 61;
     allModes = getChoiceModeProjection(obj,allModes,smooth,conditions);
 
-    % Plot the R and L hits onto the two choice modes (found w/ and w/o
-    % early move trials) 
+    % PANEL B: Plot projections of trials from specific conditions onto
+    % choice mode 
     if ~isempty(allModes.latentChoice)
         subplot(3,2,2)
-        colors = {[0 0 1],[1 0 0],[0.5 0.5 1],[1 0.5 0.5]};
+        colors = {[0 0 1],[1 0 0],[0.25 0.25 1],[1 0.25 0.25]};
         lw = 2;
-        plot(rez.time,allModes.latentChoice{1},'Color',colors{1},'LineWidth',2)
-        hold on
-        plot(rez.time,allModes.latentChoice{2},'Color',colors{2},'LineWidth',2)
-        legend('Right','Left')
+        for i=1:length(conditions)
+            plot(rez.time,allModes.latentChoice{i},'Color',colors{i},'LineWidth',2)
+            hold on;
+        end
+        hold off;
+
+        legend('Right','Left','Right Early Resp','Left Early Resp','Location','best')
         title('Delay CD','FontSize',14)
         xlabel('Time since go-cue (s)','FontSize',13)
         ylabel('Choice Mode (a.u.)','FontSize',13)
@@ -161,8 +167,9 @@ for gg = 1:length(meta)         % For all loaded sessions...
     val = nanmean(jaw(startix:stopix, :), 1);
     % val = lastlick;
 
-    nanix = find(isnan(val));
+    nanix = find(isnan(val));       % Get rid of trials where jaw velocity is always NaN
     val(nanix) = [];
+
     % Sort the average jaw velocities in descending order and save the trial
     % order
     [~, ix] = sort(val, 'descend');
@@ -171,13 +178,14 @@ for gg = 1:length(meta)         % For all loaded sessions...
     Ngroups = 5;                                % Number of groups that you want to partition trials into
     trialsPerGroup = floor(Ntrials/Ngroups);    % Number of trials to include in each group
     num = [1:Ntrials];
-    group = ceil(num/trialsPerGroup);            % Assign a group to each sorted trial
+    group = ceil(num/trialsPerGroup);           % Assign a group to each sorted trial
     group(group>Ngroups) = Ngroups;             % Any group number that is above the Ngroups, change it to the last group number
     
 
     groupsToPlot = [1:5];                       % Which of the groups do you want to plot?
     groupslegend = cell(1,numel(groupsToPlot));
     
+    % Make a legend
     for i = 1:numel(groupsToPlot)
         temp = groupsToPlot(i);
         if temp == 5
@@ -189,25 +197,23 @@ for gg = 1:length(meta)         % For all loaded sessions...
         end
     end
 
-    % Plot a heatmap of all of the all of the single trial choice latents, sorted according to the average jaw velocity
+    % PANEL D: Plot a heatmap of all of the all of the single trial choice latents, sorted according to the average jaw velocity
     subplot(3,2,4); imagesc(taxis,1:numel(ix),lat_choice(:, ix)');
     xlabel('Time since go-cue (s)')
     ylabel('Sorted trials')
     title('Single trial choice mode latents')
     colorbar
 
-    % Heatmap of jaw velocity, sorted accordingly
+    % PANEL C: Heatmap of jaw velocity, sorted accordingly
     subplot(3,2,3); imagesc(taxis,1:numel(ix),jaw(:, ix)'); caxis([0 5]);
     xlabel('Time since go-cue (s)')
     ylabel('Sorted trials')
     title('Single trial jaw velocity')
     colorbar
     
-    % FIGURE 1, Panel A: Plot single trial choice latents
+    % PANEL E: Plot single trial choice latents
     ax1 = subplot(3,2,5); hold on;
-    clr = colormap(ax1,jet(Ngroups));               % Generate Ngroups number of colors from the specified colormap (Ngroups x 3 struct where the 3 is an RGB value)
-   
-    
+    clr = colormap(ax1,jet(Ngroups));                  % Generate Ngroups number of colors from the specified colormap (Ngroups x 3 struct where the 3 is an RGB value)
     for i = 1:Ntrials                 % For all trials...
         trix = ix(i);
         c = clr(group(i), :);                           % Find which group this trial belongs to and assign the color associated with that group
@@ -220,7 +226,7 @@ for gg = 1:length(meta)         % For all loaded sessions...
     title('Single trial choice mode latents')
     hold off;
 
-    % FIGURE 1, Panel B: Plot average choice latents for each group 
+    % PANEL F: Plot average choice latents for each group 
     ax2 = subplot(3,2,6); hold on;
     clr = colormap(ax2,jet(Ngroups));
     for i = 1:Ngroups                 % For all groups of trials...
@@ -245,7 +251,20 @@ for gg = 1:length(meta)         % For all loaded sessions...
         close all
     end
 
-    %close all;
+    % Plot population FR for each jaw velocity group of trials 
+%     fig = figure(gg+1); fig.WindowState = 'maximized'; hold on; 
+%     clr = colormap(jet(Ngroups));
+%     
+%     plotPopulationAvgFR_bygroup(obj,Ngroups,clr, group, ix,groupsToPlot,taxis,groupslegend)
+% 
+%     sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'PopulationFR_LateDelay');  % Name/title for session
+%     sgtitle(sesstitle,'FontSize',16)
+% 
+%     if strcmp(toSave,'yes')
+%         saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
+%         close all
+%     end
+
 end
 %%
 %

@@ -61,14 +61,14 @@ params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
-meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
-% meta = loadEKH1_ALMVideo(meta);
-meta = loadEKH3_ALMVideo(meta);
-meta = loadJGR2_ALMVideo(meta);
-meta = loadJGR3_ALMVideo(meta);
+% meta = loadJEB4_ALMVideo(meta);
+% meta = loadJEB5_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
+meta = loadEKH1_ALMVideo(meta);
+% meta = loadEKH3_ALMVideo(meta);
+% meta = loadJGR2_ALMVideo(meta);
+% meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
