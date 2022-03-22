@@ -15,20 +15,21 @@
 %%
 clear; clc; close all;
 
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
+% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
 
-% addpath(genpath('C:\Code\ActivityModes'));
-% addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
-% addpath(genpath('C:\Code\Uninstructed-Movements'));
-% addpath(genpath('C:\Code\Utils'));
+addpath(genpath('C:\Code\ActivityModes'));
+addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
+addpath(genpath('C:\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Code\Utils'));
+addpath(genpath('C:\Code\DataLoadingScripts'));
 
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'yes';
+toSave = 'no';
 %% SET RUN PARAMS
 
 % Which method you want to use to identify early movement trials:
@@ -67,9 +68,9 @@ meta = [];
 % meta = loadJEB4_ALMVideo(meta);
 % meta = loadJEB5_ALMVideo(meta);
 % meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
 % meta = loadEKH1_ALMVideo(meta);
-% meta = loadEKH3_ALMVideo(meta);
+ meta = loadEKH3_ALMVideo(meta);
 % meta = loadJGR2_ALMVideo(meta);
 % meta = loadJGR3_ALMVideo(meta);
 
@@ -93,8 +94,8 @@ for i = 1:numel(meta)
     objs{i} = obj;
 end
 %%
-for gg = 1:length(meta)         % For all loaded sessions...
-     ff = figure(gg);
+for gg = 2%:length(meta)         % For all loaded sessions...
+    ff = figure(gg);
     ff.WindowState = 'maximized';
     obj = objs{gg};
     met = meta(gg);
@@ -114,15 +115,16 @@ for gg = 1:length(meta)         % For all loaded sessions...
 
     % Project single trials onto choice mode
     cd = allModes.choice_mode;
-    conditions = {1,2,8,9};
+    conditions = {1,2};
     latent = getTrialLatents(obj,cd,conditions,met);
 
     % Which conditions to project onto the modes
-    conditions = [1,2,8,9];         % Left and right 2AFC hits (not early)
+    conditions = [1,2];         % Left and right 2AFC hits (not early)
     smooth = 61;
     allModes = getChoiceModeProjection(obj,allModes,smooth,conditions);
 
-    % PANEL B: Plot 
+    % PANEL B: Plot projections of trials from specific conditions onto
+    % choice mode 
     if ~isempty(allModes.latentChoice)
         subplot(3,2,2)
         colors = {[0 0 1],[1 0 0],[0.25 0.25 1],[1 0.25 0.25]};
@@ -133,7 +135,7 @@ for gg = 1:length(meta)         % For all loaded sessions...
         end
         hold off;
 
-        legend('Right','Left','Right Early Resp','Left Early Resp','Location','best')
+        legend('Right','Left','Location','best')
         title('Delay CD','FontSize',14)
         xlabel('Time since go-cue (s)','FontSize',13)
         ylabel('Choice Mode (a.u.)','FontSize',13)
@@ -165,26 +167,120 @@ for gg = 1:length(meta)         % For all loaded sessions...
     stopix = find(taxis<=-0.05, 1, 'last');
     val = nanmean(jaw(startix:stopix, :), 1);
     % val = lastlick;
-
-    nanix = find(isnan(val));       % Get rid of trials where jaw velocity is always NaN
+    nanix = find(isnan(val));                   % Get rid of trials where jaw velocity is always NaN
     val(nanix) = [];
+    
+    
+    %mike's crappy code
+    
+    %jaw angle
+    figure; hold on;
+    tsinterp = zeros(numel(taxis), numel(val));
+    for i = 1:numel(val)
+        dat = medfilt1(obj.traj{2}(i).ts, 3, [], 1);
+        
+        %Find the median x and y jaw position for the trial i
+        jx = nanmedian(dat(:, 1, 8));
+        jy = nanmedian(dat(:, 2, 8));
+        
+        %Find the x and y tongue tip position for the all time points in trial i
+        tx = (dat(:, 1, 1)+dat(:, 1, 3))./2;    %Average between x position of top tongue and bottom tongue
+        ty = (dat(:, 2, 1)+dat(:, 2, 3))./2;    %Average between y position of top tongue and bottom tongue
+        
+        dx = tx-jx;                             %Distance in x coordinates between tongue tip and jaw
+        dy = ty-jy;                             %Distance in y coordinates between tongue tip and jaw
+        len{i} = sqrt(dx.^2 + dy.^2);           %Length of tongue for all points in trial i
+        ang{i} = atan(dy./dx);                  %Angle of tongue for all points in trial i
+        
+        ang{i}(dx<0 & dy>0) = ang{i}(dx<0 & dy>0) + pi;     %Correction for the quadrant that the angle lies in
+        ang{i}(dx<0 & dy<0) = ang{i}(dx<0 & dy<0) - pi;
+        plot(ang{i})
+        
+        tsinterp(:, i) = interp1(obj.traj{2}(i).frameTimes-0.5-mode(obj.bp.ev.goCue), ang{i}, taxis);
+        
+    end
+    
+    
+    startix = 1;
+    stopix = 1100;
+    meanfr = mySmooth(squeeze(mean(fr(startix:stopix, :, :), 1)), 51);
+    b = regress(ang',meanfr');
+    proj2 = zeros(size(fr, 1), size(fr, 3));
+    for i = 1:size(proj2, 2)
+        proj2(:, i) = squeeze(fr(:, :, i))*b;
+    end
+    
+    
+    
+    
+    
+    startix = 500;
+    stopix = 1000;
+    fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
+    fr(isnan(fr)) = 0;
+    
+    r = zeros(size(fr, 2), 1);
+    for i = 1:size(fr, 2)
+        f = mySmooth(squeeze(fr(startix:stopix, i, :)), 51);
+        j = jaw(startix:stopix, :);
+        j(isnan(j)) = 0;
+        tmp = corrcoef(f(:), j(:));
+        r(i) = tmp(1,2);
+        
+    end
+    
+
+    proj1 = zeros(size(fr, 1), size(fr, 3));
+    for i = 1:size(proj1, 2)
+        proj1(:, i) = squeeze(fr(:, :, i))*r;
+    end
+    
+    startix = 75;
+    stopix = 95;
+    meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
+    b = regress(val',meanfr');
+    proj2 = zeros(size(fr, 1), size(fr, 3));
+    for i = 1:size(proj2, 2)
+        proj2(:, i) = squeeze(fr(:, :, i))*b;
+    end
+    
+    startix = 400;
+    stopix = 500;
+    meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
+    b = regress(val',meanfr');
+    proj3 = zeros(size(fr, 1), size(fr, 3));
+    for i = 1:size(proj3, 2)
+        proj3(:, i) = squeeze(fr(:, :, i))*b;
+    end
+
+    
+    [~, lastlickix] = sort(lastlick, 'descend');
+    figure; imagesc(proj1(:, lastlickix)); colorbar;
+    figure; imagesc(proj2(:, lastlickix)); colorbar;
+    figure; imagesc(proj3(:, lastlickix)); colorbar;
+
+    figure; imagesc(jaw(:, lastlickix)); colorbar; caxis([0 6]);
+
+    
+    
+    
 
     % Sort the average jaw velocities in descending order and save the trial
     % order
     [~, ix] = sort(val, 'descend');
-
     Ntrials = numel(ix);
+    
+    [~, order] = ismember(1:Ntrials, ix);
     Ngroups = 5;                                % Number of groups that you want to partition trials into
     trialsPerGroup = floor(Ntrials/Ngroups);    % Number of trials to include in each group
-    num = [1:Ntrials];
-    group = ceil(num/trialsPerGroup);           % Assign a group to each sorted trial
+    group = ceil(order/trialsPerGroup);           % Assign a group to each sorted trial
     group(group>Ngroups) = Ngroups;             % Any group number that is above the Ngroups, change it to the last group number
     
 
     groupsToPlot = [1:5];                       % Which of the groups do you want to plot?
     groupslegend = cell(1,numel(groupsToPlot));
     
-    % Make a legend
+    % Generate legend entries
     for i = 1:numel(groupsToPlot)
         temp = groupsToPlot(i);
         if temp == 5
@@ -197,14 +293,14 @@ for gg = 1:length(meta)         % For all loaded sessions...
     end
 
     % PANEL D: Plot a heatmap of all of the all of the single trial choice latents, sorted according to the average jaw velocity
-    subplot(3,2,4); imagesc(taxis,1:numel(ix),lat_choice(:, ix)');
+    subplot(3,2,4); imagesc(taxis,1:Ntrials, lat_choice(:, ix)');
     xlabel('Time since go-cue (s)')
     ylabel('Sorted trials')
     title('Single trial choice mode latents')
     colorbar
 
     % PANEL C: Heatmap of jaw velocity, sorted accordingly
-    subplot(3,2,3); imagesc(taxis,1:numel(ix),jaw(:, ix)'); caxis([0 5]);
+    subplot(3,2,3); imagesc(taxis,1:Ntrials,jaw(:, ix)'); caxis([0 5]);
     xlabel('Time since go-cue (s)')
     ylabel('Sorted trials')
     title('Single trial jaw velocity')
@@ -214,10 +310,10 @@ for gg = 1:length(meta)         % For all loaded sessions...
     ax1 = subplot(3,2,5); hold on;
     clr = colormap(ax1,jet(Ngroups));                  % Generate Ngroups number of colors from the specified colormap (Ngroups x 3 struct where the 3 is an RGB value)
     for i = 1:Ntrials                 % For all trials...
-        trix = ix(i);
+%         trix = ix(i);
         c = clr(group(i), :);                           % Find which group this trial belongs to and assign the color associated with that group
         if ismember(group(i), groupsToPlot)             % If the trial is a member of the groups that you want to plot...
-            plot(taxis,medfilt1(lat_choice(:, trix), 151), 'Color', c, 'LineWidth', 1.5);        % Plot the single trial projections onto the choice mode. Colored according to what the jaw velocity was on that trial
+            plot(taxis,medfilt1(lat_choice(:, i), 151), 'Color', c, 'LineWidth', 1.5);        % Plot the single trial projections onto the choice mode. Colored according to what the jaw velocity was on that trial
         end
     end
     xlabel('Time since go-cue (s)')
@@ -230,7 +326,7 @@ for gg = 1:length(meta)         % For all loaded sessions...
     clr = colormap(ax2,jet(Ngroups));
     for i = 1:Ngroups                 % For all groups of trials...
         c = clr(i, :);                                  % Find the color associated with the current group
-        trix = ix(find(group==i));
+        trix = find(group==i);
         if ismember(i, groupsToPlot)                    % If current group is one that you want to plot...
             ts = mean(medfilt1(lat_choice(:, trix), 25), 2,'omitnan');        % Find the average projection onto the choice mode for that group of trials
             plot(taxis,ts, 'Color', c, 'LineWidth', 3);
@@ -285,14 +381,16 @@ end
 % jvm = nanmean(jaw(60:120, :), 1);
 % [~, ix] = sort(jvm, 'descend');
 
-% % Get the timing of the last lick in each trial
-% lastlick = zeros(size(jaw, 2), 1);      % Trials x 1
-% for i = 1:size(jaw, 2)                  % For all trials...
-%     licks = sort([obj.bp.ev.lickR{i} obj.bp.ev.lickL{i}]);      % Find all of the licks that occurred on that trial and sort them in time order
-%     if isempty(licks)
-%         lastlick(i) = 0;
-%     else
-%         lastlick(i) = licks(end);                                   % Find the time of the last lick in the trial
-%     end
-% end
+% Get the timing of the last lick in each trial
+
+trialnums= [met.trialid{1}; met.trialid{2}];
+lastlick = zeros(size(jaw, 2), 1);      % Trials x 1
+for i = 1:size(jaw, 2)                  % For all trials...
+    licks = sort([obj.bp.ev.lickR{trialnums(i)} obj.bp.ev.lickL{trialnums(i)}]);      % Find all of the licks that occurred on that trial and sort them in time order
+    if isempty(licks)
+        lastlick(i) = 0;
+    else
+        lastlick(i) = licks(end);                                   % Find the time of the last lick in the trial
+    end
+end
 

@@ -20,7 +20,7 @@ cond{1} = params.modecondition{1};
 cond{2} = params.modecondition{2};
 cond{3} = params.modecondition{3};
 cond{4} = params.modecondition{4};
-epoch = 'delay';
+epoch = 'sample';
 allModes.choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,RemoveEarly);
 clear cond
 
