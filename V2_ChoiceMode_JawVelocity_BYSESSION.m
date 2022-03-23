@@ -216,7 +216,7 @@ for gg = 2%:length(meta)         % For all loaded sessions...
     
     
     
-    
+    % JAW MODE--Cross correlation
     startix = 500;
     stopix = 1000;
     fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
