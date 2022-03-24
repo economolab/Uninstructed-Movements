@@ -15,8 +15,13 @@ function [meta,mov,me] = assignEarlyTrials(obj,meta,params)
 % load motion energy data, assumes it's stored in same location as data obj
 meta.mefn = ['motionEnergy_' meta.anm '_' meta.date];
 temp = load(fullfile(meta.datapth,meta.mefn));
+if isfield(temp,'me')
 me = temp.me;
+elseif isfield(temp,'ans')
+    me = temp.ans;
+end
 clear temp
+
 if ~isstruct(me)
     warning('Assign a threshold for the motion energy to label moving vs. stationary')
 end
@@ -29,9 +34,9 @@ mov.earlyMoveTrial = false(obj.bp.Ntrials,1);
 mov.moveTime = cell(obj.bp.Ntrials,1);
 mov.stationaryTime = cell(obj.bp.Ntrials,1);
 for trix = 1:obj.bp.Ntrials
-    vidtime = (1:numel(me.data.data{trix}))./400;
+    vidtime = (1:numel(me.data{trix}))./400;
     
-    movemask = me.data.data{trix} > me.moveThresh;
+    movemask = me.data{trix} > me.moveThresh;
     mov.moveTime{trix} = vidtime(movemask)';
     
     stationarymask = ~movemask;
