@@ -15,16 +15,16 @@
 %%
 clear; clc; close all;
 
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
 
-addpath(genpath('C:\Code\ActivityModes'));
-addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
-addpath(genpath('C:\Code\Uninstructed-Movements'));
-addpath(genpath('C:\Code\Utils'));
-addpath(genpath('C:\Code\DataLoadingScripts'));
+% addpath(genpath('C:\Code\ActivityModes'));
+% addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
+% addpath(genpath('C:\Code\Uninstructed-Movements'));
+% addpath(genpath('C:\Code\Utils'));
+% addpath(genpath('C:\Code\DataLoadingScripts'));
 
 
 % Saving params

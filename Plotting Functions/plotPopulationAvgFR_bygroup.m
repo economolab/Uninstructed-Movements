@@ -14,7 +14,7 @@ function plotPopulationAvgFR_bygroup(obj,Ngroups,clr, group, ix,groupsToPlot,tax
 
 for i = 1:Ngroups                 % For all groups of trials...
     c = clr(i, :);                                   % Find the color associated with the current group
-    trix = ix(find(group==i));
+    trix = find(group==i);
     if ismember(i, groupsToPlot)                     % If current group is one that you want to plot...
         across_trials = mean(obj.trialpsth(:,:,trix),3); % Get mean across trials from this group
         ts = mean(medfilt1(across_trials, 25), 2,'omitnan');        % Find average FR from this group across cells

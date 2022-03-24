@@ -20,13 +20,13 @@ for cond = 1:numel(conditions)
             basederiv = median(diff(tsinterp),'omitnan');                                         % Find the median jaw velocity (aka baseline)
         end
         %Find the difference between the jaw velocity and the
-        %baseline jaw velocity
-        tempx(2:end, i) = abs(diff(tsinterp(:, 1))-basederiv(1));      % Values > 0 = jaw is moving
-        tempy(2:end, i) = abs(diff(tsinterp(:, 2))-basederiv(2));      % Values > 0 = jaw is moving
+        %baseline feature velocity
+        tempx(2:end, i) = abs(diff(tsinterp(:, 1))-basederiv(1));      
+        tempy(2:end, i) = abs(diff(tsinterp(:, 2))-basederiv(2));      
     end
 
     xvel{cond} = tempx;
     yvel{cond} = tempy;
 end
 
-end  % findJawVelocity
+end  % findVelocity

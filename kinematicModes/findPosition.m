@@ -1,7 +1,7 @@
-function [xvel, yvel] = findPosition(edges, obj, conditions, met, view, feat)
+function [xpos, ypos] = findPosition(edges, obj, conditions, met, view, feat)
 traj = obj.traj{view};                             % Get the video data
-xvel = cell(1,numel(conditions));
-yvel = cell(1,numel(conditions));
+xpos = cell(1,numel(conditions));
+ypos = cell(1,numel(conditions));
 
 for cond = 1:numel(conditions)
     nTrials = numel(met.trialid{cond});
@@ -16,17 +16,17 @@ for cond = 1:numel(conditions)
 
         if ~isnan(traj(trix).frameTimes)                           % If the video data from this trial is good...
             ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);                                               % Side-view, up and down position of the jaw, smoothed
-            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
-            basederiv = median(tsinterp(1:100, :),'omitnan');                                         % Find the median jaw velocity (aka baseline)
+            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
+            basederiv = median(tsinterp(1:100, :),'omitnan');                                             % Find the median jaw velocity (aka baseline)
         end
         %Find the difference between the jaw velocity and the
         %baseline jaw velocity
-        tempx(:, i) = abs(tsinterp(:, 1)-basederiv(1));      % Values > 0 = jaw is moving
-        tempy(:, i) = abs(tsinterp(:, 2)-basederiv(2));      % Values > 0 = jaw is moving
+        tempx(:, i) = abs(tsinterp(:, 1)-basederiv(1));      
+        tempy(:, i) = abs(tsinterp(:, 2)-basederiv(2));      
     end
 
-    xvel{cond} = tempx;
-    yvel{cond} = tempy;
+    xpos{cond} = tempx;
+    ypos{cond} = tempy;
 end
 
-end  % findJawVelocity
+end  % findPosition

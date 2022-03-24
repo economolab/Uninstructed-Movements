@@ -15,21 +15,21 @@
 %%
 clear; clc; close all;
 
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
-% addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
 
-addpath(genpath('C:\Code\ActivityModes'));
-addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
-addpath(genpath('C:\Code\Uninstructed-Movements'));
-addpath(genpath('C:\Code\Utils'));
-addpath(genpath('C:\Code\DataLoadingScripts'));
+% addpath(genpath('C:\Code\ActivityModes'));
+% addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
+% addpath(genpath('C:\Code\Uninstructed-Movements'));
+% addpath(genpath('C:\Code\Utils'));
+% addpath(genpath('C:\Code\DataLoadingScripts'));
 
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'no';
+toSave = 'yes';
 %% SET RUN PARAMS
 
 % Which method you want to use to identify early movement trials:
@@ -65,14 +65,14 @@ params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-% meta = loadJEB4_ALMVideo(meta);
-% meta = loadJEB5_ALMVideo(meta);
-% meta = loadJEB6_ALMVideo(meta);
-% meta = loadJEB7_ALMVideo(meta);
+meta = loadJEB4_ALMVideo(meta);
+meta = loadJEB5_ALMVideo(meta);
+meta = loadJEB6_ALMVideo(meta);
+meta = loadJEB7_ALMVideo(meta);
 % meta = loadEKH1_ALMVideo(meta);
- meta = loadEKH3_ALMVideo(meta);
-% meta = loadJGR2_ALMVideo(meta);
-% meta = loadJGR3_ALMVideo(meta);
+meta = loadEKH3_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
@@ -94,7 +94,7 @@ for i = 1:numel(meta)
     objs{i} = obj;
 end
 %%
-for gg = 2%:length(meta)         % For all loaded sessions...
+for gg = 1:length(meta)         % For all loaded sessions...
     ff = figure(gg);
     ff.WindowState = 'maximized';
     obj = objs{gg};
@@ -170,104 +170,6 @@ for gg = 2%:length(meta)         % For all loaded sessions...
     nanix = find(isnan(val));                   % Get rid of trials where jaw velocity is always NaN
     val(nanix) = [];
     
-    
-    %mike's crappy code
-    
-    %jaw angle
-    tsinterp = zeros(numel(taxis), numel(val));
-    for i = 1:numel(val)
-        num = trialnums(i);
-        dat = medfilt1(obj.traj{2}(num).ts, 3, [], 1);
-        
-        %Find the median x and y jaw position for the trial i
-        jx = nanmedian(dat(:, 1, 8));
-        jy = nanmedian(dat(:, 2, 8));
-        
-        %Find the x and y tongue tip position for the all time points in trial i
-        tx = (dat(:, 1, 1)+dat(:, 1, 3))./2;    %Average between x position of top tongue and bottom tongue
-        ty = (dat(:, 2, 1)+dat(:, 2, 3))./2;    %Average between y position of top tongue and bottom tongue
-        
-        dx = tx-jx;                             %Distance in x coordinates between tongue tip and jaw
-        dy = ty-jy;                             %Distance in y coordinates between tongue tip and jaw
-        len{i} = sqrt(dx.^2 + dy.^2);           %Length of tongue for all points in trial i
-        ang{i} = atan(dy./dx);                  %Angle of tongue for all points in trial i
-        
-        ang{i}(dx<0 & dy>0) = ang{i}(dx<0 & dy>0) + pi;     %Correction for the quadrant that the angle lies in
-        ang{i}(dx<0 & dy<0) = ang{i}(dx<0 & dy<0) - pi;
-        
-        tsinterp(:, i) = interp1(obj.traj{2}(num).frameTimes-0.5-mode(obj.bp.ev.goCue), ang{i}, taxis);
-    end
-    
-    
-    startix = 1;
-    stopix = 1000;
-    fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
-    fr(isnan(fr)) = 0;
-    
-    r = zeros(size(fr, 2), 1);
-    for i = 1:size(fr, 2)
-        f = mySmooth(squeeze(fr(startix:stopix, i, :)), 51);
-        j = tsinterp(startix:stopix, :);
-        j(isnan(j)) = 0;
-        tmp = corrcoef(f(:), j(:));
-        r(i) = tmp(1,2);
-        
-    end
-    
-    
-    
-    % JAW MODE--Cross correlation
-    startix = 500;
-    stopix = 1000;
-    fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
-    fr(isnan(fr)) = 0;
-    
-    r = zeros(size(fr, 2), 1);
-    for i = 1:size(fr, 2)
-        f = mySmooth(squeeze(fr(startix:stopix, i, :)), 51);
-        j = jaw(startix:stopix, :);
-        j(isnan(j)) = 0;
-        tmp = corrcoef(f(:), j(:));
-        r(i) = tmp(1,2);
-        
-    end
-    
-
-    proj1 = zeros(size(fr, 1), size(fr, 3));
-    for i = 1:size(proj1, 2)
-        proj1(:, i) = squeeze(fr(:, :, i))*r;
-    end
-    
-    startix = 75;
-    stopix = 95;
-    meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
-    b = regress(val',meanfr');
-    proj2 = zeros(size(fr, 1), size(fr, 3));
-    for i = 1:size(proj2, 2)
-        proj2(:, i) = squeeze(fr(:, :, i))*b;
-    end
-    
-    startix = 400;
-    stopix = 500;
-    meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
-    b = regress(val',meanfr');
-    proj3 = zeros(size(fr, 1), size(fr, 3));
-    for i = 1:size(proj3, 2)
-        proj3(:, i) = squeeze(fr(:, :, i))*b;
-    end
-
-    
-    [~, lastlickix] = sort(lastlick, 'descend');
-    figure; imagesc(proj1(:, lastlickix)); colorbar;
-    figure; imagesc(proj2(:, lastlickix)); colorbar;
-    figure; imagesc(proj3(:, lastlickix)); colorbar;
-
-    figure; imagesc(jaw(:, lastlickix)); colorbar; caxis([0 6]);
-
-    
-    
-    
-
     % Sort the average jaw velocities in descending order and save the trial
     % order
     [~, ix] = sort(val, 'descend');
@@ -397,3 +299,102 @@ for i = 1:size(jaw, 2)                  % For all trials...
     end
 end
 
+
+
+%%
+%mike's crappy code
+    
+%     %jaw angle
+%     tsinterp = zeros(numel(taxis), numel(val));
+%     for i = 1:numel(val)
+%         num = trialnums(i);
+%         dat = medfilt1(obj.traj{2}(num).ts, 3, [], 1);
+%         
+%         %Find the median x and y jaw position for the trial i
+%         jx = nanmedian(dat(:, 1, 8));
+%         jy = nanmedian(dat(:, 2, 8));
+%         
+%         %Find the x and y tongue tip position for the all time points in trial i
+%         tx = (dat(:, 1, 1)+dat(:, 1, 3))./2;    %Average between x position of top tongue and bottom tongue
+%         ty = (dat(:, 2, 1)+dat(:, 2, 3))./2;    %Average between y position of top tongue and bottom tongue
+%         
+%         dx = tx-jx;                             %Distance in x coordinates between tongue tip and jaw
+%         dy = ty-jy;                             %Distance in y coordinates between tongue tip and jaw
+%         len{i} = sqrt(dx.^2 + dy.^2);           %Length of tongue for all points in trial i
+%         ang{i} = atan(dy./dx);                  %Angle of tongue for all points in trial i
+%         
+%         ang{i}(dx<0 & dy>0) = ang{i}(dx<0 & dy>0) + pi;     %Correction for the quadrant that the angle lies in
+%         ang{i}(dx<0 & dy<0) = ang{i}(dx<0 & dy<0) - pi;
+%         
+%         tsinterp(:, i) = interp1(obj.traj{2}(num).frameTimes-0.5-mode(obj.bp.ev.goCue), ang{i}, taxis);
+%     end
+%     
+%     
+%     startix = 1;
+%     stopix = 1000;
+%     fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
+%     fr(isnan(fr)) = 0;
+%     
+%     r = zeros(size(fr, 2), 1);
+%     for i = 1:size(fr, 2)
+%         f = mySmooth(squeeze(fr(startix:stopix, i, :)), 51);
+%         j = tsinterp(startix:stopix, :);
+%         j(isnan(j)) = 0;
+%         tmp = corrcoef(f(:), j(:));
+%         r(i) = tmp(1,2);
+%         
+%     end
+%     
+%     
+%     
+%     % JAW MODE--Cross correlation
+%     startix = 500;
+%     stopix = 1000;
+%     fr = cat(3, obj.trialpsth_cond{1}, obj.trialpsth_cond{2});
+%     fr(isnan(fr)) = 0;
+%     
+%     r = zeros(size(fr, 2), 1);
+%     for i = 1:size(fr, 2)
+%         f = mySmooth(squeeze(fr(startix:stopix, i, :)), 51);
+%         j = jaw(startix:stopix, :);
+%         j(isnan(j)) = 0;
+%         tmp = corrcoef(f(:), j(:));
+%         r(i) = tmp(1,2);
+%         
+%     end
+%     
+% 
+%     proj1 = zeros(size(fr, 1), size(fr, 3));
+%     for i = 1:size(proj1, 2)
+%         proj1(:, i) = squeeze(fr(:, :, i))*r;
+%     end
+%     
+%     startix = 75;
+%     stopix = 95;
+%     meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
+%     b = regress(val',meanfr');
+%     proj2 = zeros(size(fr, 1), size(fr, 3));
+%     for i = 1:size(proj2, 2)
+%         proj2(:, i) = squeeze(fr(:, :, i))*b;
+%     end
+%     
+%     startix = 400;
+%     stopix = 500;
+%     meanfr = squeeze(mean(fr(startix:stopix, :, :), 1));
+%     b = regress(val',meanfr');
+%     proj3 = zeros(size(fr, 1), size(fr, 3));
+%     for i = 1:size(proj3, 2)
+%         proj3(:, i) = squeeze(fr(:, :, i))*b;
+%     end
+% 
+%     
+%     [~, lastlickix] = sort(lastlick, 'descend');
+%     figure; imagesc(proj1(:, lastlickix)); colorbar;
+%     figure; imagesc(proj2(:, lastlickix)); colorbar;
+%     figure; imagesc(proj3(:, lastlickix)); colorbar;
+% 
+%     figure; imagesc(jaw(:, lastlickix)); colorbar; caxis([0 6]);
+% 
+%     
+%     
+%     
