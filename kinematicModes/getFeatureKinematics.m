@@ -2,7 +2,9 @@ function [featPos,featSpeed] = getFeatureKinematics(taxis,obj,conditions,met,vie
 
 [xpos, ypos] = findPosition(taxis, obj, conditions, met, view, feat);
 [xvel, yvel] = findVelocity(taxis, obj, conditions, met, view, feat);
-featPos = [sqrt(xpos{1}.^2+ypos{1}.^2) sqrt(xpos{2}.^2+ypos{2}.^2)];
-featSpeed = [sqrt(xvel{1}.^2+yvel{1}.^2) sqrt(xvel{2}.^2+yvel{2}.^2)];
-
+featPos = [];
+featSpeed = [];
+for i = 1:numel(conditions)
+    featPos = [featPos sqrt(xpos{i}.^2+ypos{i}.^2)];            % Find displacement 
+    featSpeed = [featSpeed sqrt(xvel{i}.^2+yvel{i}.^2)];        % Find speed in x and y direction
 end
