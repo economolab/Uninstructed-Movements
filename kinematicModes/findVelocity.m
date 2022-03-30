@@ -17,12 +17,19 @@ for cond = 1:numel(conditions)
         if ~isnan(traj(trix).frameTimes)                           % If the video data from this trial is good...
             ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);                                               % Side-view, up and down position of the jaw, smoothed
             tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
-            basederiv = median(diff(tsinterp),'omitnan');                                         % Find the median jaw velocity (aka baseline)
+            basederiv = median(diff(tsinterp),'omitnan');                                            % Find the median jaw velocity (aka baseline)
         end
-        %Find the difference between the jaw velocity and the
-        %baseline feature velocity
-        tempx(2:end, i) = abs(diff(tsinterp(:, 1))-basederiv(1));      
-        tempy(2:end, i) = abs(diff(tsinterp(:, 2))-basederiv(2));      
+        
+        %Find the difference between the feat velocity and the
+        %baseline feature velocity (NOT FOR TONGUE)
+        if strcmp(traj(trix).featNames{feat},'tongue') %|| strcmp(traj(trix).featNames{feat},'nose')
+            tempx(2:end, i) = abs(diff(tsinterp(:, 1)));
+            tempy(2:end, i) = abs(diff(tsinterp(:, 2)));
+        else
+            tempx(2:end, i) = abs(diff(tsinterp(:, 1))-basederiv(1));
+            tempy(2:end, i) = abs(diff(tsinterp(:, 2))-basederiv(2));
+        end
+    
     end
 
     xvel{cond} = tempx;
