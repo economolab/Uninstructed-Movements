@@ -29,12 +29,12 @@ addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'))
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'yes';
+toSave = 'no';
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue';
 params.lowFR               = 1; % remove clusters firing less than this val
-params.dt = 0.05;
 params.moveThresh          = 0.15;
+params.dt                  = 0.05;
 
 % set conditions to use for projections
 params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off
@@ -44,8 +44,8 @@ params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % erro
 params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
 params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
 params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
-params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
-params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
+% params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
+% params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
 
 
 % set conditions used for finding the modes
@@ -61,15 +61,16 @@ params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
-meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB4_ALMVideo(meta);
+% meta = loadJEB5_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
 meta = loadJEB7_ALMVideo(meta);
-meta = loadEKH1_ALMVideo(meta);
-meta = loadEKH3_ALMVideo(meta);
-meta = loadJGR2_ALMVideo(meta);
-meta = loadJGR3_ALMVideo(meta);
+% meta = loadEKH1_ALMVideo(meta);
+% meta = loadEKH3_ALMVideo(meta);
+% meta = loadJGR2_ALMVideo(meta);
+% meta = loadJGR3_ALMVideo(meta);
 
+% Meta.dt = 0.005
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
 %% PREPROCESS DATA
@@ -90,8 +91,8 @@ for i = 1:numel(meta)
     objs{i} = obj;
 end
 %%
-for gg = 1:length(meta)         % For all loaded sessions...
-    ff = figure(gg);
+for gg = 2%:length(meta)         % For all loaded sessions...
+    ff = figure();
     ff.WindowState = 'maximized';
     obj = objs{gg};
     met = meta(gg);
@@ -103,8 +104,9 @@ for gg = 1:length(meta)         % For all loaded sessions...
     % FIND KINEMATIC MODES
 %     jawAngle = getJawAngle(taxis, obj, met);         % Find tongue angle
 
-    kin = struct();                                    % Make an empty struct for kinematic information
+    kin = struct();                                
     conditions = {1,2};
+    featMeasure = 'vel';            % 'pos' or 'vel'--> Whether you want to find kinematic modes using feature position or velocity
 
     numTrials = 0;                                     % Get total number of trials that you are working with
     for i = 1:numel(conditions)
@@ -115,32 +117,69 @@ for gg = 1:length(meta)         % For all loaded sessions...
 
 
     % Find kinematic data for all DeepLabCut features
-    view = 1; % side
-    feat = 2; % jaw
-    [kin.jawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
-    view = 1; % side
-    feat = 3; % nose
-    [kin.nosePos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
-    view = 1; % side
-    feat = 1; % tongue
-    [kin.tonguePos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
-    view = 2; % bottom
-    feat = 5; % top_paw
-    [kin.topPawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
-    view = 2; % bottom
-    feat = 6; % bottom_paw
-    [kin.bottomPawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+    if strcmp(featMeasure,'pos')
+        view = 1; % side
+        feat = 2; % jaw
+        [kin.jawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 1; % side
+        feat = 3; % nose
+        [kin.nosePos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 1; % side
+        feat = 1; % tongue
+        [kin.tonguePos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 2; % bottom
+        feat = 5; % top_paw
+        [kin.topPawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 2; % bottom
+        feat = 6; % bottom_paw
+        [kin.bottomPawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+    
+    elseif strcmp(featMeasure,'vel')
+        view = 1; % side
+        feat = 2; % jaw
+        [~,kin.jawVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 1; % side
+        feat = 3; % nose
+        [~,kin.noseVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 1; % side
+        feat = 1; % tongue
+        [~,kin.tongueVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 2; % bottom
+        feat = 5; % top_paw
+        [~,kin.topPawVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+        view = 2; % bottom
+        feat = 6; % bottom_paw
+        [~,kin.bottomPawVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
+    end
+
+%     figure()
+%     offset = 10;
+%     for i = 1:size(kin.topPawPos,2)
+%         plot(i*offset+kin.topPawPos(:,i))
+%         hold on;
+%     end
+% 
+%     figure()
+%     offset = 10;
+%     for i = 1:size(obj.trialpsth,3)
+%         plot(i*offset+obj.traj{1}(i).ts(:,1,1))
+%         hold on;
+%     end
 
     % Find interpolated ME for each condition
     edges = 0:0.005:5.5;
     [met,mov,me] = assignEarlyTrials(obj,met,params);
     [MEinterp,~] = findInterpME(edges,conditions, met,mov,me);
-    kin.MotionEnergy = [MEinterp{1} MEinterp{2}];
+    kin.MotionEnergy = [];
+    for c = 1:numel(conditions)
+        kin.MotionEnergy = [kin.MotionEnergy MEinterp{c}];
+    end
+    
 
     modeparams.tix = 1:1100;       % time points to use when finding mode
     modeparams.fcut = 50;          % smoothing cutoff frequency
-    modeparams.cond = 1:2;         % which conditions to use to find mode
-    modeparams.method = 'xcorr';   % 'xcorr' or 'regress' (basically the same)
+    modeparams.cond = [1,2];       % which conditions to use to find mode
+    modeparams.method = 'regress'; % 'xcorr' or 'regress' (basically the same)
     modeparams.fa = false;         % if true, reduces neural dimensions to 10 with factor analysis
 
     % get modes based on single trial full neural data (or latents) and kinematic features
@@ -163,29 +202,96 @@ for gg = 1:length(meta)         % For all loaded sessions...
         orthmode.(kinfns{i}) = orthModes(:,i);
     end
 
-
     % project data onto orthogonalized modes
     for i = 1:numel(kinfns)
         orthproj.(kinfns{i}) = getProjection(dat.(kinfns{i}), orthmode.(kinfns{i}));
     end
 
+
+    % Do cross correlation analysis (determine whether movement precedes
+    % neural activity or vice versa)
+%     numlags = 50;                          % Define number of lags that you want to do cross corr for 
+%     [corr,lags] = findCrossCorrelations(orthproj,kin,kinfns,numlags);
+% 
+%     for i = 1:numel(kinfns)
+%         f(i) = subplot(3,2,i);
+%         stem(lags,corr.(kinfns{i}))
+%         xlabel('Lags')
+%         title(kinfns{i});
+%     end
+%     sgtitle('Cross-correlation of projection onto feature mode and feature position')
+   
+   
     % mode is a struct with unorthgonalized modes
     % orthmode is a struct with orthogonalized modes
     % proj is a struct with single trials projected onto modes
-    % orthproj is a struct with single trials projected onto orthmodes
+    % orthproj is a struct with single trials projected onto orthmode
 
+
+    l1 = length(met.trialid{1});
+    l2 = l1+length(met.trialid{2});
+    l3 = l2+length(met.trialid{5});
     
     % plot everything
-    for i = 1:numel(kinfns)
-        f(i) = subplot(3,2,i);
+    for i = 1:3
+        f(i) = subplot(3,2,(2*i-1));
         imagesc(taxis,1:numTrials,orthproj.(kinfns{i})')
         colorbar(f(i))
+        hold on;
+        line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
         xlabel('Time since go-cue (s)')
-        title(kinfns{i});
+        title(kinfns{i},'  Mode');
+        
+        g(i) = subplot(3,2,(2*i));
+        imagesc(taxis,1:numTrials,kin.(kinfns{i})')
+        colorbar(g(i))
+        caxis([0 10])
+        hold on;
+        line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
+        xlabel('Time since go-cue (s)')
+        title(kinfns{i},'  Feature Tracking');  
     end
-
-    sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'Kinematic Modes');  % Name/title for session
+    sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'Kinematic Modes--Velocity');  % Name/title for session
     sgtitle(sesstitle,'FontSize',16)
+    
+
+    fig = figure();
+    fig.WindowState = 'maximized';
+     for i = 4:6
+        k = i-3;
+        f(i) = subplot(3,2,(2*k-1));
+        imagesc(taxis,1:numTrials,orthproj.(kinfns{i})')
+        colorbar(f(i))
+        hold on;
+        line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
+        xlabel('Time since go-cue (s)')
+        title(kinfns{i},'  Mode');
+        
+        g(i) = subplot(3,2,(2*k));
+        imagesc(taxis,1:numTrials,kin.(kinfns{i})')
+        colorbar(g(i))
+        if strcmp(kinfns{i},'topPawVel') || strcmp(kinfns{i},'bottomPawVel')
+            caxis([0 2])
+        end
+        hold on;
+        line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
+        line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
+        xlabel('Time since go-cue (s)')
+        title(kinfns{i},'  Feature Tracking');  
+    end
+    sgtitle(sesstitle,'FontSize',16)
+
+    if strcmp(toSave,'yes')
+        saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')
+        close all
+    end
 
     % next steps:
     % Qpotent = orthModes;

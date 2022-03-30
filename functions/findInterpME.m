@@ -4,7 +4,8 @@ function [MEinterp,MEraw] = findInterpME(edges,conditions, met,mov,me)
 MEinterp = cell(1,numel(conditions));
 MEraw = cell(1,numel(conditions));
 
-for cond = 1:numel(conditions)
+for c = 1:numel(conditions)
+    cond = conditions{c};
     nTrials = numel(met.trialid{cond});
     tempmove = nan(numel(edges)-1, nTrials);    % (time x num trials in curr condition)
     tempme = nan(numel(edges)-1, nTrials);    % (time x num trials in curr condition)
@@ -22,8 +23,8 @@ for cond = 1:numel(conditions)
         tempme(:,i) = ts(2:length(edges));                          % Store raw ME for the trial
     end
 
-    MEinterp{cond} = tempmove;
-    MEraw{cond} = tempme;
+    MEinterp{c} = tempmove;
+    MEraw{c} = tempme;
 end
 
 end  % findInterpME
