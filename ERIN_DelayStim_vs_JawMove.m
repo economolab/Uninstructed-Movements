@@ -116,18 +116,28 @@ for gg = 1%:length(meta)         % For all loaded sessions...
     % PANEL A: Plot prob of jaw velocity for both trial types
     %subplot(3,2,1)
     conditions = {1,2,3,4};
-    
+
     alljaw = ERIN_jawProbAnimalAvg(objs,meta,conditions);
     smooth = 60;
     for i = 1:numel(alljaw)
         temp = mean(alljaw{i},2,'omitnan');
         %temp = medfilt1(temp,10);
         temp = mySmooth(temp,smooth);
-        plot(temp,'LineWidth',2);
+        plot(temp,'LineWidth',2.5);
         hold on;
     end
     legend('R ctrl','L ctrl','R stim','L stim')
     ylim([0 0.6])
-    %ERIN_plotJawVelHeatmap(alljaw)
-
+    ylabel('Avg Jaw Velocity')
+    xlabel('Frames')
+    title('Avg jaw velocity (across 5 sessions)','FontSize',13)
 end
+
+ERIN_plotJawVelHeatmap(alljaw)
+c= colorbar;
+ylabel(c,'Velocity')
+caxis([0 1.5])
+xlabel('Frames')
+ylabel('Trials')
+title('Jaw Velocity heatmap')
+
