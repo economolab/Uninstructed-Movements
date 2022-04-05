@@ -12,6 +12,11 @@
 % for identifying early move trials
 % 'alignEvent' --> which behavioral event you want to align the PSTHs and
 % modes to
+
+% mode is a struct with unorthgonalized modes
+% orthmode is a struct with orthogonalized modes
+% proj is a struct with single trials projected onto modes
+% orthproj is a struct with single trials projected onto orthmode
 %%
 clear; clc; close all;
 
@@ -61,14 +66,14 @@ params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-% meta = loadJEB4_ALMVideo(meta);
-% meta = loadJEB5_ALMVideo(meta);
-% meta = loadJEB6_ALMVideo(meta);
+meta = loadJEB4_ALMVideo(meta);
+meta = loadJEB5_ALMVideo(meta);
+meta = loadJEB6_ALMVideo(meta);
 meta = loadJEB7_ALMVideo(meta);
-% meta = loadEKH1_ALMVideo(meta);
-% meta = loadEKH3_ALMVideo(meta);
-% meta = loadJGR2_ALMVideo(meta);
-% meta = loadJGR3_ALMVideo(meta);
+meta = loadEKH1_ALMVideo(meta);
+meta = loadEKH3_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR3_ALMVideo(meta);
 
 % Meta.dt = 0.005
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
@@ -91,7 +96,7 @@ for i = 1:numel(meta)
     objs{i} = obj;
 end
 %%
-for gg = 2%:length(meta)         % For all loaded sessions...
+for gg = 1:6%:length(meta)         % For all loaded sessions...
     ff = figure();
     ff.WindowState = 'maximized';
     obj = objs{gg};
@@ -102,9 +107,9 @@ for gg = 2%:length(meta)         % For all loaded sessions...
     probenum = string(met.probe);       % Which probe was used
 
     % FIND KINEMATIC MODES
-%     jawAngle = getJawAngle(taxis, obj, met);         % Find tongue angle
+    %     jawAngle = getJawAngle(taxis, obj, met);         % Find tongue angle
 
-    kin = struct();                                
+    kin = struct();
     conditions = {1,2};
     featMeasure = 'vel';            % 'pos' or 'vel'--> Whether you want to find kinematic modes using feature position or velocity
 
@@ -133,7 +138,7 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         view = 2; % bottom
         feat = 6; % bottom_paw
         [kin.bottomPawPos,~] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
-    
+
     elseif strcmp(featMeasure,'vel')
         view = 1; % side
         feat = 2; % jaw
@@ -152,20 +157,6 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         [~,kin.bottomPawVel] = getFeatureKinematics(taxis,obj,conditions,met,view,feat);
     end
 
-%     figure()
-%     offset = 10;
-%     for i = 1:size(kin.topPawPos,2)
-%         plot(i*offset+kin.topPawPos(:,i))
-%         hold on;
-%     end
-% 
-%     figure()
-%     offset = 10;
-%     for i = 1:size(obj.trialpsth,3)
-%         plot(i*offset+obj.traj{1}(i).ts(:,1,1))
-%         hold on;
-%     end
-
     % Find interpolated ME for each condition
     edges = 0:0.005:5.5;
     [met,mov,me] = assignEarlyTrials(obj,met,params);
@@ -174,12 +165,12 @@ for gg = 2%:length(meta)         % For all loaded sessions...
     for c = 1:numel(conditions)
         kin.MotionEnergy = [kin.MotionEnergy MEinterp{c}];
     end
-    
+
 
     modeparams.tix = 1:1100;       % time points to use when finding mode
     modeparams.fcut = 50;          % smoothing cutoff frequency
     modeparams.cond = [1,2];       % which conditions to use to find mode
-    modeparams.method = 'regress'; % 'xcorr' or 'regress' (basically the same)
+    modeparams.method = 'xcorr'; % 'xcorr' or 'regress' (basically the same)
     modeparams.fa = false;         % if true, reduces neural dimensions to 10 with factor analysis
 
     % get modes based on single trial full neural data (or latents) and kinematic features
@@ -210,28 +201,40 @@ for gg = 2%:length(meta)         % For all loaded sessions...
 
     % Do cross correlation analysis (determine whether movement precedes
     % neural activity or vice versa)
-%     numlags = 50;                          % Define number of lags that you want to do cross corr for 
-%     [corr,lags] = findCrossCorrelations(orthproj,kin,kinfns,numlags);
-% 
-%     for i = 1:numel(kinfns)
-%         f(i) = subplot(3,2,i);
-%         stem(lags,corr.(kinfns{i}))
-%         xlabel('Lags')
-%         title(kinfns{i});
-%     end
-%     sgtitle('Cross-correlation of projection onto feature mode and feature position')
-   
-   
-    % mode is a struct with unorthgonalized modes
-    % orthmode is a struct with orthogonalized modes
-    % proj is a struct with single trials projected onto modes
-    % orthproj is a struct with single trials projected onto orthmode
+    %     numlags = 50;                          % Define number of lags that you want to do cross corr for
+    %     [corr,lags] = findCrossCorrelations(orthproj,kin,kinfns,numlags);
+    %
+    %     for i = 1:numel(kinfns)
+    %         f(i) = subplot(3,2,i);
+    %         stem(lags,corr.(kinfns{i}))
+    %         xlabel('Lags')
+    %         title(kinfns{i});
+    %     end
+    %     sgtitle('Cross-correlation of projection onto feature mode and feature position')
 
+    % Find variance explained by each kinematic mode 
+    
+    A = [];                             % concatenate data into a 2D array of size (CT,N) where C is number of
+                                        % conditions, T is time points, N is number of neurons
+    for i = 1:numel(conditions)
+        cond = conditions{i};
+        A = [A; obj.psth(:,:,cond)];
+    end
+    cov_mat = cov(A);                   % Find covariance matrix of the data
+    [~,~,eigvals] = pca(A);
+    eigsum = eigvals(1);                % Find the largest eigenvalue of the data (variance explained by the first PC)
+    var_expl = nan(1,numel(kinfns));
+    for i = 1:numel(kinfns)
+        currmode = orthmode.(kinfns{i});
+        var_expl(i) = 100*(var_proj(currmode,cov_mat,eigsum));
+    end
+    %totalVE = sum(var_expl)
+    
 
     l1 = length(met.trialid{1});
     l2 = l1+length(met.trialid{2});
     l3 = l2+length(met.trialid{5});
-    
+
     % plot everything
     for i = 1:3
         f(i) = subplot(3,2,(2*i-1));
@@ -242,8 +245,9 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
         line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
         xlabel('Time since go-cue (s)')
+        %plotname = strcat(kinfns{i},'  Mode; Var Explained = ',num2str(var_expl(i)),'%');
         title(kinfns{i},'  Mode');
-        
+
         g(i) = subplot(3,2,(2*i));
         imagesc(taxis,1:numTrials,kin.(kinfns{i})')
         colorbar(g(i))
@@ -253,15 +257,15 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
         line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
         xlabel('Time since go-cue (s)')
-        title(kinfns{i},'  Feature Tracking');  
+        title(kinfns{i},'  Feature Tracking');
     end
     sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'Kinematic Modes--Velocity');  % Name/title for session
     sgtitle(sesstitle,'FontSize',16)
-    
+
 
     fig = figure();
     fig.WindowState = 'maximized';
-     for i = 4:6
+    for i = 4:6
         k = i-3;
         f(i) = subplot(3,2,(2*k-1));
         imagesc(taxis,1:numTrials,orthproj.(kinfns{i})')
@@ -271,8 +275,9 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
         line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
         xlabel('Time since go-cue (s)')
+        %plotname = strcat(kinfns{i},'  Mode; Var Explained = ',num2str(var_expl(i)),'%');
         title(kinfns{i},'  Mode');
-        
+
         g(i) = subplot(3,2,(2*k));
         imagesc(taxis,1:numTrials,kin.(kinfns{i})')
         colorbar(g(i))
@@ -284,7 +289,7 @@ for gg = 2%:length(meta)         % For all loaded sessions...
         line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
         line([taxis(1),taxis(end)],[l3,l3],'Color','white','LineStyle','--')
         xlabel('Time since go-cue (s)')
-        title(kinfns{i},'  Feature Tracking');  
+        title(kinfns{i},'  Feature Tracking');
     end
     sgtitle(sesstitle,'FontSize',16)
 
