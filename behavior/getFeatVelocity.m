@@ -12,7 +12,11 @@ for trix = 1:numel(traj) % for each trial
         
         for cix = 1:2 % for each coordinate (x/y)
             % calculate velocity for feature and coordinate
+            try
             vel(trix).(fnames{fix})(:,cix) = myDiff(vel(trix).(fnames{fix})(:,cix),dt);
+            catch
+                'a'
+            end
             % smooth velocity sgolayfilt(x,order,framelen)
             vel(trix).(fnames{fix})(:,cix) = sgolayfilt(vel(trix).(fnames{fix})(:,cix),3,sm);
 %             % get norm of velocity (this is what SLEAP does)

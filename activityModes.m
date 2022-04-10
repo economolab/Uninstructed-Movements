@@ -29,7 +29,7 @@ addpath(genpath(pwd))
 % 7. remainder modes
 
 %% SET RUN PARAMS
-params.alignEvent          = 'firstLick'; % 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'jawOnset'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -240,6 +240,7 @@ elseif strcmpi(params.alignEvent,'gocue')
 elseif strcmpi(params.alignEvent,'firstlick')
     plt.title = '2AFC-AW (Correct) Trials [First Lick]';
 end
+plt.title = '';
 plt.legend = {'Right 2AFC','Left 2AFC','Right AW', 'Left AW'};
 plt.conditions = [1,2,3,4];
 plt.lw = [2.7 2.7 2.7 2.7];
