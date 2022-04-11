@@ -18,6 +18,15 @@ for i = 1:numel(trialnums)                        % For each trial
         tsinterp = interp1(traj(trix).frameTimes-0.5-obj.bp.ev.(alignEv)(trix), ts, taxis);               % Linear interpolation of x,y position to keep number of time points consistent across trials
         xpos(:,i) = tsinterp(:,1);
         ypos(:,i) = tsinterp(:,2);
+        
+        % fill missing values for all features except tongue
+        if contains(feat,'tongue')
+            continue
+        else
+            xpos(:,i) = fillmissing(xpos(:,i),'nearest');
+            ypos(:,i) = fillmissing(ypos(:,i),'nearest');
+        end
+        
     end
 end
 

@@ -10,8 +10,11 @@ switch params.lfads_or_fa
         obj = dat.obj;
         % get params used to create lfads input data
         temp = dat.preprocess_params;
+        temp.traj_features = params.traj_features;
         temp.lfads_or_fa = params.lfads_or_fa;
         temp.lfads_run = params.lfads_run;
+        temp.feat_varToExplain = params.feat_varToExplain;
+        temp.full_or_reduced = params.full_or_reduced;
         params = temp; clear temp
         % get rid of stuff we no longer need
         dat = rmfield(dat,{'preprocess_params','obj','train_percent','bin_spikes',...

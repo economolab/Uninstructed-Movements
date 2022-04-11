@@ -2,6 +2,8 @@
 % difference for main part of vector, and first order forward/backward
 % difference for boundaries
 % https://www.mathworks.com/matlabcentral/answers/142346-how-can-i-differentiate-without-decreasing-the-length-of-a-vector
+
+% turns out this is just the same as the gradient function in matlab
 function d = myDiff(x,dt)
 
 % boundaries
