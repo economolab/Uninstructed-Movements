@@ -2,7 +2,7 @@ clear,clc,close all
 
 % finds null/potent spaces for a single session based on the linear equation
 
-%               V = NW, 
+%               V = WN, 
 
 % where V is a video feature matrix and N is a matrix of 
 % single trial neural activity. W is the transformation
@@ -10,7 +10,7 @@ clear,clc,close all
 % the null space of W and colspace(W) is a basis for the row space of W (which
 % is the potent space).
 
-% * (all functions associated with this script are in the kinModes directory) *
+% * (all functions associated with this script are in the kinNullSpace directory) *
 
 addpath(genpath(pwd))
 
@@ -52,11 +52,12 @@ params.feat_varToExplain = 90; % num factors for dim reduction of video features
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
 % using the full data will require another method, the system seems to be
 % highly overfit as is
+assert(strcmpi(params.full_or_reduced,'reduced'),'method to use full dimensional data doesnt exist, params.full_or_reduced should be set to `reduced`')
 
-% % TODO: parameters for time points to use for regression (and a lag b/w neural activity
-% % and video features)
-% params.time_to_use = 0;
-% params.lag = 0;
+% --SPECIFY TIME POINTS AND LAG TO USE
+params.prep = [-2.5 -0.05]; % initial and final time points (seconds) defining prep epoch, relative to alignevent
+params.move = [-2.5 1.5];   % initial and final time points (seconds) defining move epoch, relative to alignevent
+params.advance_movement = 0.025; % seconds, amount of time to advance movement data relative to neural data
 
 %% NEURAL ACTIVITY
 
@@ -96,7 +97,7 @@ params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use 
 
 
 % JAW ANGLE
-jawAngle = getJawAngle(obj.time, obj, dat.trials, params.alignEvent); % (time, trials)
+jawAngle = getJawAngle(obj, dat.trials, params.alignEvent, params.advance_movement); % (time, trials)
 dat.featLeg{end+1} = 'jaw_angle';
 
 % create feature matrix, feats, and assign to a field in dat
@@ -122,7 +123,7 @@ end
 % many of the video features will be highly correlated, so we will perform PCA/FA
 % on the matrix of features to reduce the dimensionality to a set of factors that
 % best explain the movement captured by the video recordings
-dat.feats_reduced = reduceDimensionVideoFeatures(dat.feats,params.feat_varToExplain);
+dat.feats_reduced = reduceDimensionVideoFeatures(dat.feats,params.feat_varToExplain,size(dat.factors,2));
 
 disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
@@ -152,8 +153,8 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 %           
 %               V = NW
 %
-% where V is a matrix of size (time*trials , numVideoFeatures)
-% and   N is a matrix of size (time*trials , numFactors/numClusters)
+% where V is a matrix of size (numVideoFeatures , time*trials)'
+% and   N is a matrix of size (numFactors/numClusters , time*trials)'
 % 
 % We will estimate W with ridge regression (regularized linear regression).
 % It is the linear transformation that takes neural activity to video
@@ -161,81 +162,35 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 % The null space of W forms subspace that we will call the         NULL SPACE   of N
 % The column space of W forms the subspace that we will call the   POTENT SPACE of N
 
-[W,N,V] = estimateW(dat,params); % N,V are zscored neural activity and feature matrix
-
-
-
-% gprMdl = fitrgp(N(1:5000,:),V(1:5000,1));
-% V_ = resubPredict(gprMdl);
-% 
-% V_=predict(gprMdl,N(5001:10000,:));
-% L = loss(gprMdl,N(5001:10000,:),V(5001:10000,1))
-
+rez = estimateW(dat,params,obj.time); % N,V are zscored neural activity and feature matrix
 
 
 % V_ = N*W;
 % ft = 1;
 % figure; plot(V(1:1000,ft)); hold on; plot(V_(1:1000,ft))
 
-% TODO:
-% from kaufman2014:
-% To accommodate the known lag between motor cortical activity and muscle activity,
-% M was advanced by 50 ms relative to N (refs. 34,46); the movement period for the muscle data 
-% therefore began at movement onset
-% - implement a lag b/w N and V
-% - split trials into 2 or 3 sets, train,test,valid 
-
+    
 %% NULL AND POTENT SPACE OF W
 
-% TODO: W is (10,9) or (N,V). rank ends up being 10 or close to it (9
-% sometimes). So 1 dimension for null space or no null space...
-% will have to figure out good number of dims for factors and feats_reduced
-
-% http://pillowlab.princeton.edu/teaching/statneuro2018/slides/notes03a_SVDandLinSys.pdf
-
-% W_potent = colspace(W);
-% W_null = null(W);
-
-% find null and potent spaces of W (reference above)
-[u,s,v] = svd(W);
-W_potent = u(logical(diag(s)),:)'; % can also use licols to get col space of W or W'
-W_null = u(~sum(s'),:)';
-
-N_potent = N * W_potent;
-N_null   = N * W_null;
-
-N_potent = reshape(N_potent,size(dat.factors,1),size(dat.factors,3),size(N_potent,2));
-N_potent = permute(N_potent,[1,3,2]);
-
-N_null = reshape(N_null,size(dat.factors,1),size(dat.factors,3),size(N_null,2));
-N_null = permute(N_null,[1,3,2]);
-% 
-% % % prep tuning
-% gamma = norm((W_null * data.N(data.move_idx,:)'),'fro')^2 / ...
-%     norm((W_potent * data.N(data.move_idx,:)'),'fro')^2;
-% 
-% N_null = (W_null * data.N(data.prep_idx,:)')';
-% N_potent = (W_potent * data.N(data.prep_idx,:)')';
-% 
-% tuning_ratio = (1/gamma) * (norm(N_null,'fro')^2 / norm(N_potent,'fro')^2)
+[rez.W_null,rez.W_potent,rez.N_null,rez.N_potent] = getNullPotentSpaces_SVD(rez.W',rez,dat); % transposing W b/c we found W by solving V'=N'*W, rather than V = WN
 
 
-%% dPCA
+%% PREP TUNING
 
+% this step is only valid if the number of null and potent dimensions are
+% the same. For this to happen, you need R neural dimensions and R/2
+% kinematic dimensions
+if (size(rez.N,2)/2)==size(rez.V,2) 
+    rez.tuning_ratio = preparatoryTuning(rez,obj.time,params);
+end
 
-% [~,mask] = patternMatchCellArray(dat.featLeg,{'jaw','xvel','0'},'all');
-% ix = find(mask);
-% 
-% temp = squeeze(dat.feats(:,ix,1:numel(params.trialid{1})));
-% figure; imagesc(temp')
-% figure; plot(nanmean(temp,2))
-% 
-% 
-% 
-% 
-% figure; imagesc(squeeze(N_potent(:,1,:))')
-% figure; imagesc(squeeze(N_null(:,1,:))')
-% 
+%% 
+
+% We now have a struct, rez, that contains results from regression (and
+% data used)
+
+%% random plots
+
 % % for fa data
 % figure; 
 % plot(obj.time,squeeze(N_potent(:,1,1:numel(params.trialid{1}))),'b'); hold on
@@ -250,56 +205,34 @@ rhit = find(mask);
 mask = ismember(dat.trials,lhit);
 lhit = find(mask);
 
-figure; 
-dim = 1;
-plot(obj.time,squeeze(N_null(:,dim,rhit)),'b'); hold on;
-plot(obj.time,squeeze(N_null(:,dim,lhit)),'r')
+figure(1); sgtitle('Null Space Projections')
+for i = 1:size(rez.N_null,2) % num null dims
+    subplot(3,1,i); hold on
+    for j = 1:numel(rhit)
+        patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+    end
+    for j = 1:numel(lhit)
+        patchline(obj.time,squeeze(rez.N_null(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+    end
+    xlim([obj.time(100) obj.time(end)])
+    hold off
+end
 
-figure; 
-dim = 1;
-plot(obj.time,squeeze(N_potent(:,dim,rhit)),'b'); hold on;
-plot(obj.time,squeeze(N_potent(:,dim,lhit)),'r')
-
-
-nPlot = 20;
-gc = round(numel(obj.time)/2);
-figure; hold on
-trix = randsample(rhit,nPlot);
-plot3(squeeze(N_null(101:end,dim,trix)),squeeze(N_potent(101:end,2,trix)),squeeze(N_potent(101:end,1,trix)),'b')
-plot3(squeeze(N_null(101,dim,trix)),squeeze(N_potent(101,2,trix)),squeeze(N_potent(101,1,trix)),'b.','MarkerSize',20)
-plot3(squeeze(N_null(gc,dim,trix)),squeeze(N_potent(gc,2,trix)),squeeze(N_potent(gc,1,trix)),'g.','MarkerSize',20)
-
-trix = randsample(lhit,nPlot);
-plot3(squeeze(N_null(101:end,dim,trix)),squeeze(N_potent(101:end,2,trix)),squeeze(N_potent(101:end,1,trix)),'r')
-plot3(squeeze(N_null(101,dim,trix)),squeeze(N_potent(101,2,trix)),squeeze(N_potent(101,1,trix)),'r.','MarkerSize',20)
-plot3(squeeze(N_null(gc,dim,trix)),squeeze(N_potent(gc,2,trix)),squeeze(N_potent(gc,1,trix)),'g.','MarkerSize',20)
-
-hold off
-xlabel('Null 1')
-ylabel('Potent 2')
-zlabel('Potent 1')
+figure(2); sgtitle('Potent Space Projections')
+for i = 1:size(rez.N_potent,2) % num null dims
+    subplot(size(rez.N_potent,2),1,i); hold on
+    for j = 1:numel(rhit)
+        patchline(obj.time,squeeze(rez.N_potent(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+    end
+    for j = 1:numel(lhit)
+        patchline(obj.time,squeeze(rez.N_potent(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+    end
+    xlim([obj.time(100) obj.time(end)])
+    hold off
+end
 
 
-
-nPlot = 20;
-gc = round(numel(obj.time)/2);
-figure; hold on
-trix = randsample(rhit,nPlot);
-plot3(squeeze(N_null(101:end,dim,trix)),squeeze(N_null(101:end,2,trix)),squeeze(N_potent(101:end,1,trix)),'b')
-plot3(squeeze(N_null(101,dim,trix)),squeeze(N_potent(101,2,trix)),squeeze(N_potent(101,1,trix)),'b.','MarkerSize',20)
-plot3(squeeze(N_null(gc,dim,trix)),squeeze(N_potent(gc,2,trix)),squeeze(N_potent(gc,1,trix)),'g.','MarkerSize',20)
-
-trix = randsample(lhit,nPlot);
-plot3(squeeze(N_null(101:end,dim,trix)),squeeze(N_null(101:end,2,trix)),squeeze(N_potent(101:end,1,trix)),'r')
-plot3(squeeze(N_null(101,dim,trix)),squeeze(N_potent(101,2,trix)),squeeze(N_potent(101,1,trix)),'r.','MarkerSize',20)
-plot3(squeeze(N_null(gc,dim,trix)),squeeze(N_potent(gc,2,trix)),squeeze(N_potent(gc,1,trix)),'g.','MarkerSize',20)
-
-hold off
-xlabel('Null 1')
-ylabel('Null 2')
-zlabel('Potent 1')
-
-
+%% dPCA (TODO)
 
 
 

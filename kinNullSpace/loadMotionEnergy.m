@@ -27,10 +27,11 @@ me.data = me.data(trialnums);
 % trim trial length (me.data contains motion energy for each time point in
 % trial at 400 Hz). Want to align to params.alignEvent and want to put it
 % in same dt as neural data
+taxis = obj.time + params.advance_movement;
 alignTimes = obj.bp.ev.(params.alignEvent)(trialnums);
 me.newdata = zeros(numel(obj.time),numel(trialnums));
 for i = 1:numel(trialnums)
-    me.newdata(:,i) = interp1(obj.traj{1}(trialnums(i)).frameTimes-0.5-alignTimes(i),me.data{i},obj.time);
+    me.newdata(:,i) = interp1(obj.traj{1}(trialnums(i)).frameTimes-0.5-alignTimes(i),me.data{i},taxis);
 end
 
 % replace me.data with me.newdata

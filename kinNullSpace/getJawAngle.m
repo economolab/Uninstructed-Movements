@@ -1,6 +1,8 @@
-function jawAngle = getJawAngle(taxis, obj, trialnums, alignEv)
+function jawAngle = getJawAngle(obj, trialnums, alignEv, advance)
 
 %jaw angle
+
+taxis = obj.time + advance;
 
 Ntrials = numel(trialnums);
 jawAngle = zeros(numel(taxis), Ntrials);

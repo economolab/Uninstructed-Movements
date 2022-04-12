@@ -1,6 +1,11 @@
 function best_lambda = cross_validate(Y,X,lambdas)
+
+% Y: target matrix
+% X: data matrix 
+% lambdas: vector of scalars
+
 n = size(X,1); % num observations (time)
-K = 5; % fraction of data held out for testing
+K = 3; % fraction of data held out for testing
 c = cvpartition(n,'Kfold',K);
 % for each alpha
 %   for each k in k-fold

@@ -3,7 +3,7 @@ function [kin,featLeg] = getKinematicsFromVideo(obj,params,trialnums)
 
 feats = params.traj_features;
 
-taxis = obj.time;
+taxis = obj.time + params.advance_movement;
 
 
 % get x/y position and velocity for each feature in feats

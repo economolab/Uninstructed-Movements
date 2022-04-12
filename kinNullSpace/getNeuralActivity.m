@@ -9,12 +9,17 @@ switch params.lfads_or_fa
         dat = loadLFADSInOutData(meta.datapth,meta.anm,meta.date,params.lfads_run);
         obj = dat.obj;
         % get params used to create lfads input data
+        % have to redfine all additonal params, FIND A BETTER WAY TO DO
+        % THIS (TODO)
         temp = dat.preprocess_params;
         temp.traj_features = params.traj_features;
         temp.lfads_or_fa = params.lfads_or_fa;
         temp.lfads_run = params.lfads_run;
         temp.feat_varToExplain = params.feat_varToExplain;
         temp.full_or_reduced = params.full_or_reduced;
+        temp.prep = params.prep;
+        temp. move = params.move;
+        temp.advance_movement = params.advance_movement;
         params = temp; clear temp
         % get rid of stuff we no longer need
         dat = rmfield(dat,{'preprocess_params','obj','train_percent','bin_spikes',...
