@@ -6,7 +6,17 @@ function featix = findDLCFeatIndex(traj,view,featName)
 % returns the index of obj.traj{view}(trialix).featNames that corresponds
 % to featName input argument
 
-[~,mask] = patternMatchCellArray(traj{view}(1).featNames,featName,'all'); % use trial 1's featNames field to find index, should be same for all trials
+% find first trial without dummy data
+for i = 1:numel(traj{view})
+    feats = traj{view}(i).featNames;
+    [~,mask] = patternMatchCellArray(feats,featName,'all');
+    if any(mask)
+        break
+    end
+end
+trix = i;
+
+[~,mask] = patternMatchCellArray(traj{view}(trix).featNames,featName,'all'); % use trial trix's featNames field to find index, should be same for all trials
 featix = find(mask);
 
 if isempty(featix)
@@ -14,7 +24,7 @@ if isempty(featix)
 end
 
 if numel(featix) > 1
-    fns = traj{view}(1).featNames;
+    fns = traj{view}(trix).featNames;
     keep = false(size(featix));
     for i = 1:numel(featix)
         if strcmpi(featName,fns{featix(i)})
@@ -23,6 +33,7 @@ if numel(featix) > 1
     end
     featix = featix(keep);
 end
+
 
 
 end % findDLCFeatIndex

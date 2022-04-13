@@ -20,12 +20,12 @@ for i = 1:numel(trialnums)                        % For each trial
         ypos(:,i) = tsinterp(:,2);
         
         % fill missing values for all features except tongue
-        if contains(feat,'tongue')
-            continue
-        else
-            xpos(:,i) = fillmissing(xpos(:,i),'nearest');
-            ypos(:,i) = fillmissing(ypos(:,i),'nearest');
-        end
+%         if contains(feat,'tongue')
+%             continue
+%         else
+%             xpos(:,i) = fillmissing(xpos(:,i),'nearest');
+%             ypos(:,i) = fillmissing(ypos(:,i),'nearest');
+%         end
         
     end
 end

@@ -17,12 +17,16 @@ addpath(genpath(pwd))
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
-meta.anm = 'JEB7'; % 'JEB7'  'EKH3'  'JGR2'
-meta.date = '2021-04-29'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta.anm = 'EEL20'; % 'JEB7'  'EKH3'  'JGR2'
+meta.date = '2021-06-20'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
 
 
 % --SPECIFY PATH TO DATA HERE
-meta.datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+if ispc
+    meta.datapth = 'C:\Code\uninstructedMovements-Munib/data';
+else
+    meta.datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+end
 % the data should be stored in the following structure:
 % /params.datapth/
 %  --- /DataObjects/
@@ -45,10 +49,10 @@ params = getDefaultParams();
 % 1) load data that's ALREADY been passed through an lfads model
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
-params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
+params.lfads_or_fa = 'fa'; % 'lfads' or 'fa'
 params.lfads_run = ''; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
-params.feat_varToExplain = 90; % num factors for dim reduction of video features should explain this much variance
+params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
 % using the full data will require another method, the system seems to be
 % highly overfit as is
@@ -90,19 +94,19 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 %% VIDEO FEATURES
 
 % getKinematicsFromVideo() returns 2 variables
-% - kin: feature matrix of size (time,features,trials). Features defined in
+% - kin: feature matrix of size (time,trials,features). Features defined in
 %         params.traj_features
 % - featLeg: legend corresponding to features in kin (for 2nd dimension)
 [kin,dat.featLeg] = getKinematicsFromVideo(obj,params,dat.trials);
 
-
-% JAW ANGLE
-jawAngle = getJawAngle(obj, dat.trials, params.alignEvent, params.advance_movement); % (time, trials)
-dat.featLeg{end+1} = 'jaw_angle';
+% TONGUE ANGLE AND LENGTH
+[ang,len] = getLickAngleAndLength(dat,kin);
+dat.featLeg{end+1} = 'tongue_angle';
+dat.featLeg{end+1} = 'tongue_length';
 
 % create feature matrix, feats, and assign to a field in dat
-dat.feats = cat(2,kin,reshape(jawAngle,size(jawAngle,1),1,size(jawAngle,2)));
-
+dat.feats = cat(3,kin,reshape(ang,size(ang,1),size(ang,2),1));
+dat.feats = cat(3,dat.feats,reshape(len,size(len,1),size(len,2),1));
 
 % MOTION ENERGY
 % me is a struct with fields
@@ -113,11 +117,17 @@ dat.feats = cat(2,kin,reshape(jawAngle,size(jawAngle,1),1,size(jawAngle,2)));
 %               a motionEnergy*.mat file is found, 0 if file not found
 me = loadMotionEnergy(obj,meta,params,dat.trials); 
 if me.use
-    dat.feats = cat(2,dat.feats,reshape(me.data,size(me.data,1),1,size(me.data,2))); 
+    dat.feats = cat(3,dat.feats,reshape(me.data,size(me.data,1),size(me.data,2),1)); 
     dat.featLeg{end+1} = 'motion_energy';
 end
 % To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
 
+
+% STANDARDIZE FEATUERS (ZERO MEAN, UNIT VARIANCE)
+k = reshape(dat.feats, size(dat.feats, 1).*size(dat.feats, 2), size(dat.feats, 3));
+k = (k-nanmean(k, 1))./nanstd(k, [], 1);
+k = reshape(k, size(dat.feats, 1), size(dat.feats, 2), size(dat.feats, 3));
+dat.feats = k;
 
 % DIMENSIONALITY REDUCTION
 % many of the video features will be highly correlated, so we will perform PCA/FA
@@ -127,11 +137,11 @@ dat.feats_reduced = reduceDimensionVideoFeatures(dat.feats,params.feat_varToExpl
 
 disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
-% for i = 1:size(dat.feats_reduced,2)
+% for i = 1:size(dat.feats_reduced,3)
 %     figure(i)
 % %     plot(obj.time,squeeze(dat.feats_reduced(:,i,1:numel(params.trialid{1}))))
 % %     imagesc(obj.time,dat.trials,squeeze(dat.feats(:,i,:))'); title(dat.featLeg{i},'Interpreter','none')
-%     imagesc(obj.time,dat.trials,squeeze(dat.feats_reduced(:,i,:))')
+%     imagesc(obj.time,dat.trials,squeeze(dat.feats_reduced(:,:,i))')
 % %     colorbar
 % %     caxis([-500 200])
 % end
@@ -143,8 +153,8 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 % - factors:       neural data that's been reduced using lfads or factor analysis (time,factors,trials)
 % - rates:         denoised single trial neural data from lfads or smoothing (time,cells,trials)
 % - featLeg:       cell array of strings describing the features in dat.feats (2nd dim)
-% - feats:         displacements, velocity, jaw angle, and motion energy (time,feature,trials)
-% - feats_reduced: pca reduced dat.feats (time,factors,trials);
+% - feats:         displacements, velocity, jaw angle, and motion energy (time,trials,feature)
+% - feats_reduced: pca reduced dat.feats (time,trials,factors);
 
 
 %% REGRESSION
@@ -207,7 +217,7 @@ lhit = find(mask);
 
 figure(1); sgtitle('Null Space Projections')
 for i = 1:size(rez.N_null,2) % num null dims
-    subplot(3,1,i); hold on
+    subplot(size(rez.N_null,2),1,i); hold on
     for j = 1:numel(rhit)
         patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
     end

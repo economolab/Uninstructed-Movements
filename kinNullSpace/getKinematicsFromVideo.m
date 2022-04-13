@@ -1,6 +1,6 @@
 function [kin,featLeg] = getKinematicsFromVideo(obj,params,trialnums)
 
-
+NvarsPerFeat = 4;
 feats = params.traj_features;
 
 taxis = obj.time + params.advance_movement;
@@ -28,46 +28,38 @@ end
 
 % compute displacement from origin from x/y pos for each feature
 
-featDisp = cell(2,1);
+featMat = cell(2,1);
+viewNum = cell(2,1);
 for viewix = 1:numel(feats) % loop through cam0 and cam1
-    featDisp{viewix} = nan(size(xpos{viewix}));
+    featMat{viewix} = nan(size(xpos{viewix}, 1), size(xpos{viewix}, 2), size(xpos{viewix}, 3).*NvarsPerFeat);
     for featix = 1:numel(feats{viewix}) % loop through number of features for current cam
         tempx = xpos{viewix}(:,:,featix);
         tempy = ypos{viewix}(:,:,featix);
-        featDisp{viewix}(:,:,featix) = sqrt(tempx.^2 + tempy.^2);
+
+%         featDisp{viewix}(:,:,featix) = sqrt((tempx.^2 + tempy.^2);
+        featMat{viewix}(:,:,(featix*NvarsPerFeat)-3) = tempx;
+        featMat{viewix}(:,:,featix*NvarsPerFeat-2) = tempy;
+        featMat{viewix}(:,:,featix*NvarsPerFeat-1) = xvel{viewix}(:, :, featix);
+        featMat{viewix}(:,:,featix*NvarsPerFeat) = yvel{viewix}(:, :, featix);
+        viewNum{viewix}(featix) = viewix;
     end
 end
 
-% concatenate features into one big matrix of size (time,features,trials)
+% concatenate features into one big matrix of size (time,features*2,trials)
 % (displacement + xvel + yvel)
 
-featDispMat = cat(3, featDisp{:});
-xvelMat = cat(3, xvel{:});
-yvelMat = cat(3, yvel{:});
+kin = cat(3, featMat{:});
+v = cat(2, viewNum{:});
+kin(1:10, :, :) = kin(1:10, :, :).*0; % remove any smoothing artifacts at beginning of trials
+% kin(1:10,:,:) = 0; 
 
-kin = cat(3,featDispMat,xvelMat,yvelMat);
-kin = permute(kin,[1,3,2]);
-
-kin(1:10,:,:) = 0; % remove any smoothing artifacts at beginning of trials
-
-% feature legend
-
-dispFeatNames = cell(2,1);
-xvelFeatNames = cell(2,1);
-yvelFeatNames = cell(2,1);
-for viewix = 1:numel(feats) % loop through cam0 and cam1
-    for featix = 1:numel(feats{viewix}) % loop through number of features for current cam
-        feat = feats{viewix}{featix};
-        dispFeatNames{viewix}{featix} = [feat '_disp_' num2str(viewix-1)];
-        xvelFeatNames{viewix}{featix} = [feat '_xvel_' num2str(viewix-1)];
-        yvelFeatNames{viewix}{featix} = [feat '_yvel_' num2str(viewix-1)];
-    end
+allfeats = cat(2, feats{:});
+featLeg = cell(size(kin, 3), 1);
+for i = 1:numel(allfeats)
+    featLeg{i*NvarsPerFeat-3} = [allfeats{i} '_xdisp_view' num2str(v(i))];
+    featLeg{i*NvarsPerFeat-2} = [allfeats{i} '_ydisp_view' num2str(v(i))];
+    featLeg{i*NvarsPerFeat-1} = [allfeats{i} '_xvel_view' num2str(v(i))];
+    featLeg{i*NvarsPerFeat} = [allfeats{i} '_xvel_view' num2str(v(i))];
 end
-disps = cat(2, dispFeatNames{:})';
-xvels = cat(2, xvelFeatNames{:})';
-yvels = cat(2, yvelFeatNames{:})';
-
-featLeg = cat(1,disps,xvels,yvels);
-
 
 end
