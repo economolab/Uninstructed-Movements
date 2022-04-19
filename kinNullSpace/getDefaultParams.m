@@ -39,8 +39,8 @@ params.quality = {'all'}; % accepts any cell array of strings - special characte
 
 % video features to use
 % cell array for {cam0_features,cam1_features}
-params.traj_features = {{'tongue','jaw','nose'},...
-                        {'top_tongue','topleft_tongue','bottom_tongue','leftbottom_tongue','top_paw','bottom_paw','jaw'}};
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+                        {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','top_paw','bottom_paw','jaw'}};
 
 end
 
