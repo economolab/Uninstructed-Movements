@@ -23,12 +23,13 @@ for i = 1:numel(trialnums)                        % For each trial
     %Find the difference between the feat velocity and the
     %baseline feature velocity (NOT FOR TONGUE)
     if contains(feat,'tongue') %|| strcmp(traj(trix).featNames{feat},'nose')
-        xvel(:,i) = abs(myDiff(tsinterp(:, 1),1/400));
-        yvel(:,i) = abs(myDiff(tsinterp(:, 2),1/400));
+        xvel(:,i) = myDiff(tsinterp(:, 1),1/400);
+        yvel(:,i) = myDiff(tsinterp(:, 2),1/400);
     else
-        xvel(:,i) = abs(myDiff(tsinterp(:, 1),1/400)-basederiv(1));
-        yvel(:,i) = abs(myDiff(tsinterp(:, 2),1/400)-basederiv(2));
+        xvel(:,i) = myDiff(tsinterp(:, 1),1/400)-basederiv(1);
+        yvel(:,i) = myDiff(tsinterp(:, 2),1/400)-basederiv(2);
     end
+    
     
 end
 

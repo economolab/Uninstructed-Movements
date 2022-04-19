@@ -12,7 +12,9 @@ fn = patternMatchCellArray({contents.name}',{'motionEnergy',meta.date},'all');
 if numel(fn) == 1
     fn = fn{1};
 else
-    disp(['UNABLE TO LOCATE A MOTION ENERGY FILE IN: ' mepth ' . Continuing without motion energy as a feature']);
+    disp('UNABLE TO LOCATE A MOTION ENERGY FILE IN: ')
+    disp(mepth)
+    disp('      Continuing without motion energy as a feature')
     me.use = 0; 
     return
 end

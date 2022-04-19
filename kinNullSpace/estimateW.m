@@ -27,13 +27,11 @@ V_move = V(moveix,:,:);
 N = permute(N,[1 3 2]);
 N = reshape(N,size(N,1)*size(N,2),size(N,3));
 
-V = permute(V,[1 3 2]);
 V = reshape(V,size(V,1)*size(V,2),size(V,3));
 
 N_move = permute(N_move,[1 3 2]);
 N_move = reshape(N_move,size(N_move,1)*size(N_move,2),size(N_move,3));
 
-V_move = permute(V_move,[1 3 2]);
 V_move = reshape(V_move,size(V_move,1)*size(V_move,2),size(V_move,3));
 
 assert(size(N_move,1)==size(V_move,1)) % N and V must have same elements in first dimension, something went wrong otherwise
