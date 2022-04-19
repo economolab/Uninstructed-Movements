@@ -37,17 +37,14 @@ V_move = reshape(V_move,size(V_move,1)*size(V_move,2),size(V_move,3));
 assert(size(N_move,1)==size(V_move,1)) % N and V must have same elements in first dimension, something went wrong otherwise
 
 
-% standardize neural and video data
-N_move = zscore(N_move);
-V_move = zscore(V_move);
-
 % cross validate to find regularization parameter to use
-lambdas = linspace(0,10000,1000);
-disp('Finding best regularization parameter, lambda, for regression')
-lambda = cross_validate(V_move,N_move,lambdas);
-disp('DONE')
+% lambdas = linspace(0,10000,1000);
+% disp('Finding best regularization parameter, lambda, for regression')
+% lambda = cross_validate(V_move,N_move,lambdas);
+% disp('DONE')
 % lambda = 1.2112e+03; % JEB7, 4-29
 % lambda = 10;
+lambda = 0;
 
 % compute transformation matrix, W, using ridge regression
 W = my_ridge_regression(V_move,N_move,lambda);

@@ -17,8 +17,8 @@ addpath(genpath(pwd))
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
-meta.anm = 'EEL20'; % 'JEB7'  'EKH3'  'JGR2'
-meta.date = '2021-06-20'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta.anm = 'JEB7'; % 'JEB7'  'EKH3'  'JGR2'
+meta.date = '2021-04-29'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
 
 
 % --SPECIFY PATH TO DATA HERE
@@ -49,7 +49,7 @@ params = getDefaultParams();
 % 1) load data that's ALREADY been passed through an lfads model
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
-params.lfads_or_fa = 'fa'; % 'lfads' or 'fa'
+params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
 params.lfads_run = ''; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
@@ -72,6 +72,7 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 % - params: parameters used for preprocessing lfads input data
 % - obj: preprocessed data obj
 [meta,params,obj,dat] = getNeuralActivity(meta,params);
+dat.factors = standardizeFactors(dat.factors);
 
 % for i = 1:size(dat.factors,2)
 %     figure(i)
@@ -99,14 +100,17 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 % - featLeg: legend corresponding to features in kin (for 2nd dimension)
 [kin,dat.featLeg] = getKinematicsFromVideo(obj,params,dat.trials);
 
+
 % TONGUE ANGLE AND LENGTH
 [ang,len] = getLickAngleAndLength(dat,kin);
 dat.featLeg{end+1} = 'tongue_angle';
 dat.featLeg{end+1} = 'tongue_length';
 
+
 % create feature matrix, feats, and assign to a field in dat
 dat.feats = cat(3,kin,reshape(ang,size(ang,1),size(ang,2),1));
 dat.feats = cat(3,dat.feats,reshape(len,size(len,1),size(len,2),1));
+
 
 % MOTION ENERGY
 % me is a struct with fields
@@ -123,17 +127,17 @@ end
 % To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
 
 
-% STANDARDIZE FEATUERS (ZERO MEAN, UNIT VARIANCE)
-k = reshape(dat.feats, size(dat.feats, 1).*size(dat.feats, 2), size(dat.feats, 3));
-k = (k-nanmean(k, 1))./nanstd(k, [], 1);
-k = reshape(k, size(dat.feats, 1), size(dat.feats, 2), size(dat.feats, 3));
-dat.feats = k;
+% STANDARDIZE FEATURES (ZERO MEAN, UNIT VARIANCE)
+dat.feats = standardizeFeatures(dat.feats);
+
 
 % DIMENSIONALITY REDUCTION
 % many of the video features will be highly correlated, so we will perform PCA/FA
 % on the matrix of features to reduce the dimensionality to a set of factors that
 % best explain the movement captured by the video recordings
 dat.feats_reduced = reduceDimensionVideoFeatures(dat.feats,params.feat_varToExplain,size(dat.factors,2));
+
+
 
 disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
@@ -175,9 +179,9 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 rez = estimateW(dat,params,obj.time); % N,V are zscored neural activity and feature matrix
 
 
-% V_ = N*W;
+% V_ = rez.N*rez.W;
 % ft = 1;
-% figure; plot(V(1:1000,ft)); hold on; plot(V_(1:1000,ft))
+% figure; plot(rez.V(2000:3000,ft)); hold on; plot(V_(2:3000,ft))
 
     
 %% NULL AND POTENT SPACE OF W
@@ -240,6 +244,21 @@ for i = 1:size(rez.N_potent,2) % num null dims
     xlim([obj.time(100) obj.time(end)])
     hold off
 end
+
+figure(3); sgtitle('Null Space Projections')
+for i = 1:size(rez.N_null,2) % num null dims
+    subplot(size(rez.N_null,2),1,i);
+    tempdat = squeeze(rez.N_null(:,i,[rhit;lhit]))';
+    imagesc(tempdat)
+end
+
+figure(4); sgtitle('Potent Space Projections')
+for i = 1:size(rez.N_potent,2) % num null dims
+    subplot(size(rez.N_potent,2),1,i);
+    tempdat = squeeze(rez.N_potent(:,i,[rhit;lhit]))';
+    imagesc(squeeze(rez.N_potent(:,i,:))')
+end
+
 
 
 %% dPCA (TODO)

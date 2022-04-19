@@ -11,12 +11,14 @@ t1y = kin(:, :, ix1);
 t2y = kin(:, :, ix2);
 
 ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottom_tongue_xdisp')));
-t3x = kin(:, :, ix1(1));
-t4x = kin(:, :, ix1(2));
+ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottomleft_tongue_xdisp')));
+t3x = kin(:, :, ix1);
+t4x = kin(:, :, ix2);
 
 ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottom_tongue_ydisp')));
-t3y = kin(:, :, ix1(1));
-t4y = kin(:, :, ix1(2));
+ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottomleft_tongue_ydisp')));
+t3y = kin(:, :, ix1);
+t4y = kin(:, :, ix2);
 
 ix1 = (~cellfun(@isempty, strfind(dat.featLeg, 'jaw_xdisp_view2')));
 jx = kin(:, :, ix1);

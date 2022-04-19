@@ -11,7 +11,7 @@ numFactors = numComponentsToExplainVariance(explained, varToExplain);
 if numFactors>(nNeuralDims-3)
     numFactors = nNeuralDims-3;
 end
-% numFactors = nNeuralDims / 2; % if you want to calc prep tuning
+numFactors = nNeuralDims / 2; % if you want to calc prep tuning
 
 % [~,feats_reduced]  = pca(feats_rsz,'NumComponents',numFactors);       % Reduce the number of dimensions
 
