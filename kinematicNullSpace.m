@@ -188,6 +188,13 @@ rez = estimateW(dat,params,obj.time); % N,V are zscored neural activity and feat
 
 [rez.W_null,rez.W_potent,rez.N_null,rez.N_potent] = getNullPotentSpaces_SVD(rez.W',rez,dat); % transposing W b/c we found W by solving V'=N'*W, rather than V = WN
 
+% correlation between V and V_hat = rez.N * rez.W 
+rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
+
+% variance explained by null and potent space
+% (this is how much variance is explained out of max variance to be
+% explained from total number of null and potent dims)
+rez = calVarExp(rez);
 
 %% PREP TUNING
 
