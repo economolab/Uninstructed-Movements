@@ -1,12 +1,16 @@
 function fn = findDataFn(meta)
-contents = dir(meta.datapth);
-contents = {contents.name}';
+objpth = fullfile(meta.datapth,'DataObjects',meta.anm); 
+contents = dir(objpth);
+contents = contents(~[contents.isdir]);
 
-strToFind = {'data_structure' , meta.anm, meta.date};
+fns = {contents.name}';
 
-[fn,~] = patternMatchCellArray(contents, strToFind, 'all');
-if iscell(fn)
+fn = patternMatchCellArray({contents.name}',{'data_structure',meta.date},'all');
+
+if numel(fn) == 1
     fn = fn{1};
+else
+    error(['Found multiple data_structures containing strings: ' meta.anm ' and/or ' meta.date ' in: ' objpth]);
 end
 
-end % findDataFn
+end

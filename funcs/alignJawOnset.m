@@ -5,6 +5,9 @@ jawOnset = obj.bp.ev.goCue; % start with go cue, replace with jaw onset time or 
 for trix = 1:obj.bp.Ntrials
     tm = obj.traj{view}(trix).frameTimes;
     fs = 1./median(diff(tm));
+    if any(isnan(fs))
+        fs = 400;
+    end
     vidx = obj.traj{view}(trix).ts(:, 1, feat);
     vidy = obj.traj{view}(trix).ts(:, 2, feat);
     
@@ -16,6 +19,7 @@ for trix = 1:obj.bp.Ntrials
     % filter jaw position
     Wn = opts.f_cut/fs/2;
     [b, a] = butter(opts.f_n, Wn);
+
     filtJawPos = filtfilt(b, a, jawPos);
     
     % find peaks in jaw position with min peak dist and min pk prominance

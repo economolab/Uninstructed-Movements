@@ -38,8 +38,8 @@ assert(size(N_move,1)==size(V_move,1)) % N and V must have same elements in firs
 
 
 % cross validate to find regularization parameter to use
-% lambdas = linspace(0,10000,1000);
-% disp('Finding best regularization parameter, lambda, for regression')
+lambdas = linspace(0,10000,1000);
+disp('Finding best regularization parameter, lambda, for regression')
 % lambda = cross_validate(V_move,N_move,lambdas);
 % disp('DONE')
 % lambda = 1.2112e+03; % JEB7, 4-29

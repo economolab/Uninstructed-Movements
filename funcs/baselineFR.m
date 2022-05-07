@@ -12,9 +12,9 @@ for i = 1:numel(params.cluid{prbnum})
     curClu = params.cluid{prbnum}(i);
     for j = 1:numel(params.condition)
         trix = params.trialid{j};
-        spkix = ismember(obj.clu{params.probe(prbnum)}(curClu).trial, trix);
+        spkix = ismember(obj.clu{prbnum}(curClu).trial, trix);
 
-        N = histc(obj.clu{params.probe(prbnum)}(curClu).trialtm(spkix), edges);
+        N = histc(obj.clu{prbnum}(curClu).trialtm(spkix), edges);
         N = N(1:end-1);
 
         psth(:,i,j) = mySmooth(N./numel(trix)./params.dt, params.smooth);  % trial-averaged separated by trial type

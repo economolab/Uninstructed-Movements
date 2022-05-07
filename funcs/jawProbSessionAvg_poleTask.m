@@ -24,17 +24,26 @@ for i = 1:numel(conditions)
     % find number of time points across all trials
     alltrials = [trials.R ; trials.L];
     for tt = 1:numel(alltrials)
-        n(tt) = size(traj(tt).ts,1);
+        n(tt) = size(traj(alltrials(tt)).ts,1);
     end
-    if ~numel(unique(n)) == 1
-        error('trial lengths are not equal, check this out...')
+    skip = [];
+    for tt = 1:numel(n)
+        if n(tt) ~= mode(n)
+            skip = [skip ; alltrials(tt)];
+        end
     end
     
-    jaw = nan(n(1), length(trix));
+    
+    jaw = nan(n(10), length(trix));
 %     jawvel = jaw;
 
     for ii = 1:length(trix)
+
         q = trix(ii);
+        
+        if ismember(q,skip)
+            continue
+        end
         
         ts = mySmooth(traj(q).ts(:, 2, featix), 21);
         basederiv = median(diff(ts),"omitnan");                   %Find the median jaw velocity (aka baseline)

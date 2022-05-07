@@ -10,8 +10,9 @@ for i = 1:numel(params.cluid{prbnum})
     curClu = params.cluid{prbnum}(i);
     for j = 1:numel(params.condition)
         trix = params.trialid{j};
-        spkix = ismember(obj.clu{params.probe(prbnum)}(curClu).trial, trix);
         
+        spkix = ismember(obj.clu{prbnum}(curClu).trial, trix);
+
         % if no spikes found for current set of trials (trix), move on to
         % next set
         if all(~spkix)
@@ -19,9 +20,9 @@ for i = 1:numel(params.cluid{prbnum})
         end
         
         if params.timeWarp
-            N = histc(obj.clu{params.probe(prbnum)}(curClu).trialtm_aligned_warped(spkix), edges);
+            N = histc(obj.clu{prbnum}(curClu).trialtm_aligned_warped(spkix), edges);
         else
-            N = histc(obj.clu{params.probe(prbnum)}(curClu).trialtm_aligned(spkix), edges);
+            N = histc(obj.clu{prbnum}(curClu).trialtm_aligned(spkix), edges);
         end
         N = N(1:end-1);
         
@@ -36,7 +37,7 @@ for i = 1:numel(params.cluid{prbnum})
     curClu = params.cluid{prbnum}(i);
     for j = 1:obj.bp.Ntrials
                 
-        spkix = ismember(obj.clu{params.probe(prbnum)}(curClu).trial, j);
+        spkix = ismember(obj.clu{prbnum}(curClu).trial, j);
         
         % if no spikes found for current trial (j), move on to
         % next trial
@@ -45,9 +46,9 @@ for i = 1:numel(params.cluid{prbnum})
         end
 
         if params.timeWarp
-            N = histc(obj.clu{params.probe(prbnum)}(curClu).trialtm_aligned_warped(spkix), edges);
+            N = histc(obj.clu{prbnum}(curClu).trialtm_aligned_warped(spkix), edges);
         else
-            N = histc(obj.clu{params.probe(prbnum)}(curClu).trialtm_aligned(spkix), edges);
+            N = histc(obj.clu{prbnum}(curClu).trialtm_aligned(spkix), edges);
         end
         N = N(1:end-1);
         if size(N,2) > size(N,1)

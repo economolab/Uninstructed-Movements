@@ -1,6 +1,9 @@
 clear,clc,close all
 
-% finds null/potent spaces for a single session based on the linear equation
+% finds null/potent spaces for a single session based on 2 methods:
+
+
+% METHOD 1: the linear equation
 
 %               V = WN, 
 
@@ -10,7 +13,15 @@ clear,clc,close all
 % the null space of W and colspace(W) is a basis for the row space of W (which
 % is the potent space).
 
-% * (all functions associated with this script are in the kinNullSpace directory) *
+% METHOD 2: elsayed optimization method on single trials
+
+% the variance of movement and prepatory epochs are maximized
+% simultaneously in low dimensional null and potent subspaces. Here, rather
+% than splitting trials into continuous planning and then movment epochs,
+% we label each time point as either moving or non-moving. So the activity
+% that is used to find the null and potent spaces are discontinuous in time
+
+% * (most functions associated with this script are in the kinNullSpace directory) *
 
 addpath(genpath(pwd))
 
@@ -50,7 +61,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = ''; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run3'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -189,11 +200,13 @@ rez = estimateW(dat,params,obj.time); % N,V are zscored neural activity and feat
 [rez.W_null,rez.W_potent,rez.N_null,rez.N_potent] = getNullPotentSpaces_SVD(rez.W',rez,dat); % transposing W b/c we found W by solving V'=N'*W, rather than V = WN
 
 % correlation between V and V_hat = rez.N * rez.W 
-rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
+% rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
 
 % variance explained by null and potent space
 % (this is how much variance is explained out of max variance to be
 % explained from total number of null and potent dims)
+% TODO: var explained of trial averaged data, not single trials b/c the
+% variability messes things up...
 rez = calVarExp(rez);
 
 %% PREP TUNING
@@ -210,7 +223,7 @@ end
 % We now have a struct, rez, that contains results from regression (and
 % data used)
 
-%% random plots
+%% plot projections
 
 % % for fa data
 % figure; 
@@ -218,62 +231,36 @@ end
 % trix = (numel(params.trialid{1})+1):((numel(params.trialid{1})+1) + numel(params.trialid{2}));
 % plot(obj.time,squeeze(N_potent(:,1,trix)),'r')
 
-% for lfads data
-rhit = find(obj.bp.R & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
-lhit = find(obj.bp.L & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
-mask = ismember(dat.trials,rhit);
-rhit = find(mask);
-mask = ismember(dat.trials,lhit);
-lhit = find(mask);
-
-figure(1); sgtitle('Null Space Projections')
-for i = 1:size(rez.N_null,2) % num null dims
-    subplot(size(rez.N_null,2),1,i); hold on
-    for j = 1:numel(rhit)
-        patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lhit)
-        patchline(obj.time,squeeze(rez.N_null(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    xlim([obj.time(100) obj.time(end)])
-    hold off
-end
-
-figure(2); sgtitle('Potent Space Projections')
-for i = 1:size(rez.N_potent,2) % num null dims
-    subplot(size(rez.N_potent,2),1,i); hold on
-    for j = 1:numel(rhit)
-        patchline(obj.time,squeeze(rez.N_potent(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lhit)
-        patchline(obj.time,squeeze(rez.N_potent(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    xlim([obj.time(100) obj.time(end)])
-    hold off
-end
-
-figure(3); sgtitle('Null Space Projections')
-for i = 1:size(rez.N_null,2) % num null dims
-    subplot(size(rez.N_null,2),1,i);
-    tempdat = squeeze(rez.N_null(:,i,[rhit;lhit]))';
-    imagesc(tempdat)
-end
-
-figure(4); sgtitle('Potent Space Projections')
-for i = 1:size(rez.N_potent,2) % num null dims
-    subplot(size(rez.N_potent,2),1,i);
-    tempdat = squeeze(rez.N_potent(:,i,[rhit;lhit]))';
-    imagesc(squeeze(rez.N_potent(:,i,:))')
-end
+plotNullPotentProjections(obj,dat,rez)
 
 
+%% activity modes
 
-%% dPCA (TODO)
+[latents,trials_by_type,modes] = activityModes_nullPotent(rez,dat,obj,params);
+
+% TODO: var explained of trial averaged data, not single trials b/c the
+% variability messes things up...
+modes.varexp = activityModes_varexp(modes,rez);
+
+plt.trial_types = [1 2];
+plt.plot_mean = 0;
+plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840]};
+plotAllModes_nullPotent(latents,trials_by_type,plt)
+
+plt.trial_types = [1 2 3 4];
+plt.plot_mean = 1;
+plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840], [0.3010 0.7450 0.9330], [0.8500 0.3250 0.0980]};
+plotAllModes_nullPotent(latents,trials_by_type,plt)
 
 
+%% elsayed method single trials
 
+% TODO: variance explained of trial-averaged data
 
+rez = estimateQ(obj,dat,rez,me);
 
+optimization_varexp();
 
+optimization_plots(rez,obj,dat);
 
 

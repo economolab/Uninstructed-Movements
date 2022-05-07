@@ -58,12 +58,12 @@ if strcmp(params.alignEvent,'jawOnset')
 end
 
 % align spikes to params.alignEvent
-for clu = 1:numel(obj.clu{params.probe(prbnum)})
-    event = obj.bp.ev.(params.alignEvent)(obj.clu{params.probe(prbnum)}(clu).trial);
+for clu = 1:numel(obj.clu{prbnum})
+    event = obj.bp.ev.(params.alignEvent)(obj.clu{prbnum}(clu).trial);
     if params.timeWarp
-        obj.clu{params.probe(prbnum)}(clu).trialtm_aligned_warped = obj.clu{params.probe(prbnum)}(clu).trialtm_warped - event;
+        obj.clu{prbnum}(clu).trialtm_aligned_warped = obj.clu{prbnum}(clu).trialtm_warped - event;
     else
-        obj.clu{params.probe(prbnum)}(clu).trialtm_aligned = obj.clu{params.probe(prbnum)}(clu).trialtm - event;
+        obj.clu{prbnum}(clu).trialtm_aligned = obj.clu{prbnum}(clu).trialtm - event;
     end
 end
 

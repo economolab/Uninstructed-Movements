@@ -4,7 +4,7 @@ function plotAllModes(rez,ev,alignEv,plt)
 [fns,~] = patternMatchCellArray(fieldnames(rez),{'mode'},'all');
 
 psth = rez.psth;
-datacov = cov([psth(:,:,1) ; psth(:,:,2)]);
+datacov = cov([zscore(psth(:,:,1)) ; zscore(psth(:,:,2))]);
 eigsum = sum(eig(datacov));
 
 if strcmpi(alignEv,'gocue')
