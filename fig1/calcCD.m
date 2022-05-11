@@ -1,4 +1,4 @@
-function cd = calcCD(obj,meta,cond,epoch,alignEvent)
+function cd = calcCD(obj,meta,cond,epoch,alignEvent,sessix)
 % 2. choice mode: defined during delay period
 %       ((hitR  - hitL)) / sqrt(sum(sd for each tt ^2));
 
@@ -11,9 +11,9 @@ for trix = 1:obj.bp.Ntrials
     epochix(trix,:) = findedges(obj.time,obj.bp,meta.dt,epoch,trix,alignEvent); % (idx1,idx2)
 end
 
-epochMean = getEpochMean(obj,epochix,trials,meta);
+epochMean = getEpochMean(obj,epochix,trials,meta,sessix);
 
-[mu,sd] = getEpochStats(epochMean,meta,trials);
+[mu,sd] = getEpochStats(epochMean,meta,trials,sessix);
 
 % calculate mode according to definition
 cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));

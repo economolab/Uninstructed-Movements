@@ -1,4 +1,4 @@
-function plotNullPotentProjections(obj,dat,rez)
+function plotNullPotentProjections(obj,dat,rez,params)
 
 % for lfads data
 rhit = find(obj.bp.R & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
@@ -8,9 +8,15 @@ rhit = find(mask);
 mask = ismember(dat.trials,lhit);
 lhit = find(mask);
 
-figure(1); sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
+
+align = mode(obj.bp.ev.(params.alignEvent));
+sample = mode(obj.bp.ev.sample) - align;
+delay = mode(obj.bp.ev.delay) - align;
+
+f = figure(1); sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
+f.Position = [-792    58   431   635];
 for i = 1:size(rez.N_null,2) % num null dims
-    subplot(size(rez.N_null,2),1,i); hold on
+    ax = subplot(size(rez.N_null,2),1,i); hold on
     for j = 1:numel(rhit)
         patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
     end
@@ -18,12 +24,27 @@ for i = 1:size(rez.N_null,2) % num null dims
         patchline(obj.time,squeeze(rez.N_null(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
     end
     xlim([obj.time(20) obj.time(end)])
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    
+    if i~=size(rez.N_null,2)
+        ax.XTick = [];
+    else
+        ax.XLabel.String = 'Time (s) from go cue';
+    end
+    
+    ax.FontSize = 20;
+    
     hold off
 end
 
-figure(2); sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
+f = figure(2); sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
+f.Position = [-792    58   431   635];
 for i = 1:size(rez.N_potent,2) % num null dims
-    subplot(size(rez.N_potent,2),1,i); hold on
+    ax = subplot(size(rez.N_potent,2),1,i); hold on
     for j = 1:numel(rhit)
         patchline(obj.time,squeeze(rez.N_potent(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
     end
@@ -31,27 +52,41 @@ for i = 1:size(rez.N_potent,2) % num null dims
         patchline(obj.time,squeeze(rez.N_potent(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
     end
     xlim([obj.time(20) obj.time(end)])
+
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+     if i~=size(rez.N_potent,2)
+        ax.XTick = [];
+    else
+        ax.XLabel.String = 'Time (s) from go cue';
+    end
+    
+    ax.FontSize = 20;
+    
     hold off
 end
 
-% plot means
-figure(3); sgtitle(['Mean Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
-for i = 1:size(rez.N_null,2) % num null dims
-    subplot(size(rez.N_null,2),1,i); hold on
-    plot(obj.time,mean(squeeze(rez.N_null(:,i,rhit)),2),'LineWidth',2)
-    plot(obj.time,mean(squeeze(rez.N_null(:,i,lhit)),2),'LineWidth',2)
-    xlim([obj.time(20) obj.time(end)])
-    hold off
-end
-
-figure(4); sgtitle(['Mean Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
-for i = 1:size(rez.N_potent,2) % num null dims
-    subplot(size(rez.N_potent,2),1,i); hold on
-    plot(obj.time,mean(squeeze(rez.N_potent(:,i,rhit)),2),'LineWidth',2)
-    plot(obj.time,mean(squeeze(rez.N_potent(:,i,lhit)),2),'LineWidth',2)
-    xlim([obj.time(20) obj.time(end)])
-    hold off
-end
+% % plot means
+% figure(3); sgtitle(['Mean Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
+% for i = 1:size(rez.N_null,2) % num null dims
+%     subplot(size(rez.N_null,2),1,i); hold on
+%     plot(obj.time,mean(squeeze(rez.N_null(:,i,rhit)),2),'LineWidth',2)
+%     plot(obj.time,mean(squeeze(rez.N_null(:,i,lhit)),2),'LineWidth',2)
+%     xlim([obj.time(20) obj.time(end)])
+%     hold off
+% end
+% 
+% figure(4); sgtitle(['Mean Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
+% for i = 1:size(rez.N_potent,2) % num null dims
+%     subplot(size(rez.N_potent,2),1,i); hold on
+%     plot(obj.time,mean(squeeze(rez.N_potent(:,i,rhit)),2),'LineWidth',2)
+%     plot(obj.time,mean(squeeze(rez.N_potent(:,i,lhit)),2),'LineWidth',2)
+%     xlim([obj.time(20) obj.time(end)])
+%     hold off
+% end
 
 
 % figure(3); sgtitle('Null Space Projections')

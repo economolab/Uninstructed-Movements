@@ -39,7 +39,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run3'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run5'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -62,7 +62,7 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 % - obj: preprocessed data obj
 [meta,params,obj,dat] = getNeuralActivity(meta,params);
 
-%%
+%% correlations
 
 lfads = dat.rates;
 pop = obj.trialdat(:,:,dat.trials);
@@ -88,6 +88,7 @@ for i = 1:size(pop,2)
 end
 
 %%
+
 close all
 figure; 
 nbins = round(size(pop,2) / 3);
@@ -110,7 +111,60 @@ h2.Parent.YLabel.String = '';
 h2.Parent.Title.String = 'CDF';
 h2.Parent.FontSize = 15;
 
+%%
 
+clear condition
+condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
+condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
+trialid = findTrials(obj,condition);
+
+mask = ismember(dat.trials,trialid{1});
+trialid{1} = find(mask);
+mask = ismember(dat.trials,trialid{2});
+trialid{2} = find(mask);
+
+psth = zeros(size(dat.rates,1),size(dat.rates,2),numel(trialid));
+factors_avg = zeros(size(dat.factors,1),size(dat.factors,2),numel(trialid));
+for i = 1:numel(trialid)
+    psth(:,:,i) = mean(dat.rates(:,:,trialid{i}),3);
+    factors_avg(:,:,i) = mean(dat.factors(:,:,trialid{i}),3);
+end
+
+%%
+
+sample = mode(obj.bp.ev.sample) - mode(obj.bp.ev.(params.alignEvent));
+delay = mode(obj.bp.ev.delay) - mode(obj.bp.ev.(params.alignEvent));
+
+f = figure;
+for i = 1:size(pop,2)
+    clf(f); hold on;
+    
+    plot(obj.time,mean(lfads(:,i,:),3),'r','LineWidth',3)
+    plot(obj.time,mySmooth(mean(pop(:,i,:),3),51),'k','LineWidth',3)
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    
+    xlabel('Time (s) from go cue')
+    ylabel('Firing Rate (spikes/s)')
+    title(['Cell ' num2str(params.cluid(i))])
+    legend({'LFADS','Smoothing'},'Location','best')
+    ax = gca;
+    ax.FontSize = 20;
+    xlim([obj.time(10) obj.time(end)])
+    
+    pause
+    hold off;
+    
+%     if rand > 0.95
+%         pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/lfads_psth';
+%         fn = ['cell' num2str(params.cluid(i)) '_jeb7-2021-04-29_lfadsrun_3_sm_51_dt_005'  ];
+%         mysavefig(f,pth,fn)
+%     end
+    
+end
 
 
 

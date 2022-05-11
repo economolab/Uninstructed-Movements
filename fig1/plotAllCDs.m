@@ -1,7 +1,7 @@
 function plotAllCDs(rez,ev,alignEv,plt,toPlot)
 
 if nargin > 4
-    rez.psth = rez.(toPlot)
+    rez.psth = rez.(toPlot);
 end
 
 % get field names for each mode

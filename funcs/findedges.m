@@ -16,7 +16,7 @@ function edges = findedges(time,bp,dt,epoch,trial,alignEvent)
             e1 = bp.ev.delay(trial);
             e2 = bp.ev.goCue(trial) - 0.05;
         case 'latedelay'
-            e1 = bp.ev.goCue(trial) - 0.5;
+            e1 = bp.ev.goCue(trial) - 0.51;
             e2 = bp.ev.goCue(trial) - 0.01;
         case 'prego'
             e1 = bp.ev.goCue(trial) - 0.1;
@@ -35,7 +35,7 @@ function edges = findedges(time,bp,dt,epoch,trial,alignEvent)
             e2 = bp.ev.goCue(trial) + 0.3;
         case 'go'
             e1 = bp.ev.goCue(trial) + 0.01;
-            e2 = bp.ev.goCue(trial) + 0.4;
+            e2 = bp.ev.goCue(trial) + 0.41;
     end
    % align edges to params.alignEvent
    e1 = e1 - bp.ev.(alignEvent)(trial);
