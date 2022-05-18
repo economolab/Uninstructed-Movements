@@ -39,7 +39,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run5'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run3'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -50,7 +50,7 @@ assert(strcmpi(params.full_or_reduced,'reduced'),'method to use full dimensional
 % --SPECIFY TIME POINTS AND LAG TO USE
 params.prep = [-2.5 -0.05]; % initial and final time points (seconds) defining prep epoch, relative to alignevent
 params.move = [-2.5 1.5];   % initial and final time points (seconds) defining move epoch, relative to alignevent
-params.advance_movement = 0.025; % seconds, amount of time to advance movement data relative to neural data
+params.advance_movement = 0.0; % seconds, amount of time to advance movement data relative to neural data
 
 %% NEURAL ACTIVITY
 
@@ -62,109 +62,96 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 % - obj: preprocessed data obj
 [meta,params,obj,dat] = getNeuralActivity(meta,params);
 
-%% correlations
+%% lfads factors and gaussian smoothed single trials projected onto first nFactors pcs
 
-lfads = dat.rates;
-pop = obj.trialdat(:,:,dat.trials);
+lfads = dat.factors;
 
-sm = 31;
+gauss = obj.trialdat(:,:,dat.trials);
 
-% f = figure;
-corrs = zeros(size(pop,2),1);
-for i = 1:size(pop,2)
-%     clf(f); hold on;
-%     
-%     plot(obj.time,mean(lfads(:,i,:),3))
-%     plot(obj.time,mySmooth(mean(pop(:,i,:),3),51))
-%     
-%     pause; hold off;
-
-    lfadspsth = mean(lfads(:,i,:),3);
-    poppsth = mySmooth(mean(pop(:,i,:),3),sm);
-    
-    temp = corrcoef(lfadspsth,poppsth);
-    corrs(i) = temp(1,2);
-
+sm = 31; winsize = sm*params.dt;
+for i = 1:size(gauss,2) % for each clu
+    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm); % causal gaussian filter
 end
 
-%%
+temp = permute(gauss,[1 3 2]);
+temp = reshape(temp,size(temp,1)*size(temp,2),size(temp,3));
+[~,gauss] = pca(temp,'NumComponents',size(lfads,2));
 
-close all
-figure; 
-nbins = round(size(pop,2) / 3);
-h = histogram(corrs,nbins,'EdgeColor','none');
-hold on;
-xline(mean(corrs),'k','LineWidth',3)
-xlabel('Correlation')
-ylabel('Count')
-ax = gca;
-ax.FontSize = 20;
 
-% create smaller axes in top right, and plot on it
-axes('Position',[.2 .6 .3 .25])
-box on
-h2 = cdfplot(corrs);
-h2.LineWidth = 2;
-ax = h2.Parent;
-h2.Parent.XLabel.String = '';
-h2.Parent.YLabel.String = '';
-h2.Parent.Title.String = 'CDF';
-h2.Parent.FontSize = 15;
+%% plot one cluster, all trials, as a sanity check
+% 
+% figure; 
+% subplot(211)
+% plot(squeeze(lfads(:,1,:)));
+% subplot(212)
+% plot(squeeze(gauss(:,1,:)));
 
-%%
+%% trials
 
 clear condition
 condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
 condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
-trialid = findTrials(obj,condition);
 
-mask = ismember(dat.trials,trialid{1});
+trialNums = findTrials(obj, condition);
+
+mask = ismember(dat.trials,trialNums{1});
 trialid{1} = find(mask);
-mask = ismember(dat.trials,trialid{2});
+mask = ismember(dat.trials,trialNums{2});
 trialid{2} = find(mask);
 
-psth = zeros(size(dat.rates,1),size(dat.rates,2),numel(trialid));
-factors_avg = zeros(size(dat.factors,1),size(dat.factors,2),numel(trialid));
-for i = 1:numel(trialid)
-    psth(:,:,i) = mean(dat.rates(:,:,trialid{i}),3);
-    factors_avg(:,:,i) = mean(dat.factors(:,:,trialid{i}),3);
-end
+
+
+%% tongue angle
+
+[kin,dat.featLeg] = getKinematicsFromVideo(obj,params,dat.trials);
+
+[~,mask] = patternMatchCellArray(dat.featLeg,{'jaw_xvel_view1'},'all');
+ix = find(mask);
+ix = ix(2);
+jawvel_y = kin(:,:,ix);
+
+jawvel_y = fillmissing(jawvel_y,'nearest');
+
+jawvel_y = mySmooth(jawvel_y,51);
 
 %%
 
-sample = mode(obj.bp.ev.sample) - mode(obj.bp.ev.(params.alignEvent));
-delay = mode(obj.bp.ev.delay) - mode(obj.bp.ev.(params.alignEvent));
+[yup,ylow] = envelope(jawvel_y,51,'rms');
 
-f = figure;
-for i = 1:size(pop,2)
-    clf(f); hold on;
-    
-    plot(obj.time,mean(lfads(:,i,:),3),'r','LineWidth',3)
-    plot(obj.time,mySmooth(mean(pop(:,i,:),3),51),'k','LineWidth',3)
-    
-    xline(sample,'k--','LineWidth',2)
-    xline(delay,'k--','LineWidth',2)
-    xline(0,'k--','LineWidth',2)
-    
-    
-    xlabel('Time (s) from go cue')
-    ylabel('Firing Rate (spikes/s)')
-    title(['Cell ' num2str(params.cluid(i))])
-    legend({'LFADS','Smoothing'},'Location','best')
-    ax = gca;
-    ax.FontSize = 20;
-    xlim([obj.time(10) obj.time(end)])
-    
-    pause
-    hold off;
-    
-%     if rand > 0.95
-%         pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/lfads_psth';
-%         fn = ['cell' num2str(params.cluid(i)) '_jeb7-2021-04-29_lfadsrun_3_sm_51_dt_005'  ];
-%         mysavefig(f,pth,fn)
-%     end
-    
-end
+
+%%
+
+% n = 15;
+% r = randsample(trialid{1},n);
+% l = randsample(trialid{2},n);
+% 
+% % close all
+% figure(1)
+% % plot(jawvel_y(:,trialid{1}),'b'); hold on; plot(jawvel_y(:,trialid{2}),'r')
+% plot(yup(:,r),'b'); hold on; 
+% plot(yup(:,l),'r')
+% plot(ylow(:,r),'b');
+% plot(ylow(:,l),'r')
+
+
+%% save data
+
+lfads = permute(lfads,[1 3 2]);
+lfads = reshape(lfads,size(lfads,1)*size(lfads,2),size(lfads,3));
+
+% gauss = permute(gauss,[1 3 2]);
+% gauss = reshape(gauss,size(gauss,1)*size(gauss,2),size(gauss,3));
+
+yup = reshape(yup,size(yup,1)*size(yup,2),1);
+ylow = reshape(ylow,size(ylow,1)*size(ylow,2),1);
+
+
+save('jeb7_decoding','lfads','gauss','ylow','yup')
+
+
+
+
+
 
 
 

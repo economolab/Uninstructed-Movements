@@ -12,6 +12,7 @@ switch params.lfads_or_fa
         % have to redfine all additonal params, FIND A BETTER WAY TO DO
         % THIS (TODO)
         temp = dat.preprocess_params;
+        temp.dt = params.dt;
         temp.traj_features = params.traj_features;
         temp.lfads_or_fa = params.lfads_or_fa;
         temp.lfads_run = params.lfads_run;

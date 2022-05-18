@@ -117,6 +117,11 @@ params.cluid = params.cluid(use);
 
 clearvars -except objs meta params 
 
+tt1 = [0:0.05:1.0];
+tt2 = tt1 + 0.4;
+
+for ii = 1:numel(tt1)
+
 for sessix = 1:numel(objs)
     
     
@@ -137,8 +142,8 @@ for sessix = 1:numel(objs)
     cond{2} = params.modecondition{2};
     epoch = 'sample';
     
-    e1 = mode(ev.delay) - 0.4 - mode(ev.(params.alignEvent));
-    e2 = mode(ev.delay) - 0.0 - mode(ev.(params.alignEvent));
+    e1 = mode(ev.sample) + tt1(ii) - mode(ev.(params.alignEvent));
+    e2 = mode(ev.sample) + tt2(ii) - mode(ev.(params.alignEvent));
     
     times.early = rez(sessix).time>e1 & rez(sessix).time<e2;
     tempdat = rez(sessix).psth(:,:,[1,2]);
@@ -201,8 +206,10 @@ for sessix = 1:numel(objs)
     orthModes = gschmidt(modes);
     
     for i = 1:numel(fns)
-        rez(sessix).(fns{i}) = orthModes(:,i);
+        rez(sessix).(fns{i}) = modes(:,i);
     end
+    
+    angs(ii,sessix) = acosd((modes(:,1)'*modes(:,3)) ./ (norm(modes(:,1)) * norm(modes(:,2))));
     
     % lastly, othogonalize early mode to go mode
 %     tempmodes = [rez(sessix).cdGo_mode rez(sessix).cdEarly_mode];
@@ -250,6 +257,7 @@ for sessix = 1:numel(objs)
     
     
 end
+end
 
 %% concatenate latents, find mean and stderror
 
@@ -284,7 +292,7 @@ alph = 0.5;
 sample = mode(rez(1).ev.sample - rez(1).ev.(params.alignEvent));
 delay = mode(rez(1).ev.delay - rez(1).ev.(params.alignEvent));
 
-sav = 1;
+sav = 0;
 for i = 1:numel(fns)
     f(i) = figure; ax = axes(f(i)); hold on
     tempmean = eval([fns{i}(1:end-5) '_latent_mean']);
@@ -331,115 +339,35 @@ end
 
 %% orthogonality of modes
 % close all
-% dotProductModes(rez,orthModes,'Orthogonality of Coding Directions')
+% dotProductModes(rez,modes,'Orthogonality of Coding Directions')
 % f=gcf;
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
-% fn = ['orthogonality_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
-% mysavefig(f,pth,fn);
+% % % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
+% % % fn = ['orthogonality_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
+% % % mysavefig(f,pth,fn);
 
+%% angle b/w cdEarly and cdGo as you sweep cdEarly through the sample period
+close all
 
-%% selectivity
+f = figure; 
+violinplot(angs(:,:)',arrayfun(@num2str, tt1, 'UniformOutput', 0), 'ViolinAlpha',{0.1,1});
+hold on;
+yline(90,'k--','LineWidth',4)
+ylim([min(min(angs))-5,max(max(angs))+5])
+xlabel('cdEarly start time (s) from sample')
+ylabel('Angle between cdEarly and cdGo')
 
-selpsth = objs{1}.psth;
-cdEarly_cat = rez(1).cdEarly_mode;
-cdLate_cat = rez(1).cdLate_mode;
-cdGo_cat = rez(1).cdGo_mode;
-for sessix = 2:numel(objs)
-    obj = objs{sessix};    
-    selpsth = cat(2,selpsth,obj.psth);
-    
-    cdEarly_cat = cat(1,cdEarly_cat,rez(sessix).cdEarly_mode);
-    cdLate_cat = cat(1,cdLate_cat,rez(sessix).cdLate_mode);
-    cdGo_cat = cat(1,cdGo_cat,rez(sessix).cdGo_mode);
-end
-
-selpsth(isnan(psth)) = 0;
-selpsth(isinf(psth)) = 0;
-
-
-cond = [1,2];
-latent_cdearly = zeros(size(selpsth,1),numel(cond));
-latent_cdlate = zeros(size(selpsth,1),numel(cond));
-latent_cdgo = zeros(size(selpsth,1),numel(cond));
-for i = 1:numel(cond)
-    c = cond(i);
-    latent_cdearly(:,i) = selpsth(:,:,c)*cdEarly_cat;
-    latent_cdlate(:,i) = selpsth(:,:,c)*cdLate_cat;
-    latent_cdgo(:,i) = selpsth(:,:,c)*cdGo_cat;
-end
-
-
-sm = 31;
-
-psth_selectivity = mySmooth(selpsth(:,:,1) - selpsth(:,:,2),sm);
-cdearly_selectivity = mySmooth(latent_cdearly(:,1) - latent_cdearly(:,2),sm);
-cdlate_selectivity = mySmooth(latent_cdlate(:,1) - latent_cdlate(:,2),sm);
-cdgo_selectivity = mySmooth(latent_cdgo(:,1) - latent_cdgo(:,2),sm);
-
-%%
-sample = mode(rez(1).ev.sample) - mode(rez(1).ev.(params.alignEvent));
-delay  = mode(rez(1).ev.delay) - mode(rez(1).ev.(params.alignEvent));
-
-lw = 4;
-figure; 
-plot(rez(1).time,sum(psth_selectivity.^2,2),'k','LineWidth',lw)
-hold on
-plot(rez(1).time,sum(cdearly_selectivity.^2,2),'b','LineWidth',lw)
-plot(rez(1).time,sum(cdlate_selectivity.^2,2),'g','LineWidth',lw)
-plot(rez(1).time,sum(cdgo_selectivity.^2,2),'m','LineWidth',lw)
-plot(rez(1).time,(cdearly_selectivity.^2 + cdgo_selectivity.^2 + cdlate_selectivity.^2),'c','LineWidth',lw)
-
-xline(sample,'k--','LineWidth',0.5);
-xline(delay,'k--','LineWidth',0.5);
-xline(0,'k--','LineWidth',0.5);
-
-xlabel('Time (s) from go cue')
-ylabel('Squared Sum Selectivity')
-legend('Total selectivity','early','late','go','early + late + go')
-xlim([rez(1).time(1)+0.2,rez(1).time(end)])
 ax = gca;
 ax.FontSize = 20;
 
 
-%% correlation pop selectivity vector
 
-corr_matrix_selectivity = zeros(size(psth_selectivity,1),size(psth_selectivity,1));
 
-for i = 1:size(corr_matrix_selectivity,1)
-    for j = 1:size(corr_matrix_selectivity,1)
-        temp = corrcoef(psth_selectivity(i,:),psth_selectivity(j,:));
-        corr_matrix_selectivity(i,j) = temp(1,2);
-    end
-end
 
-%% plot selectivity correlation matrix
-close all
-f = figure; hold on;
-imagesc(obj.time,obj.time,corr_matrix_selectivity);
-colorbar; caxis([0 max(max(corr_matrix_selectivity))]);
 
-lw = 4;
-ls = '--';
-col = [88, 245, 112] ./ 255;
-xline(sample,ls,'Color',col,'LineWidth',lw); yline(sample,ls,'Color',col,'LineWidth',lw)
-xline(delay,ls,'Color',col,'LineWidth',lw); yline(delay,ls,'Color',col,'LineWidth',lw)
-xline(0,ls,'Color',col,'LineWidth',lw); yline(0,ls,'Color',col,'LineWidth',lw)
 
-xlim([rez(1).time(1)+0.2,rez(1).time(end)]);
-ylim([rez(1).time(1)+0.2,rez(1).time(end)])
-xlabel('Time (s) from go cue')
-ylabel('Time (s) from go cue')
-ax = gca;
-hold off
-colormap(hot)
-a = colorbar;
-a.Label.String = 'Correlation of population selectivity vector';
-ax.FontSize = 25;
 
-% 
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/selectivity';
-% fn = 'popselectivitycorr_hits_anmList1_sessionList1_psthsm_51_dt_0_005_lowFR_1';
-% mysavefig(f,pth,fn);
+
+
 
 
 

@@ -3,8 +3,8 @@ function [latents,trials_by_type,modes] = cdNullSpace(rez,dat,obj,params)
 
 %% trial types
 
-rhit = find(obj.bp.R & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
-lhit = find(obj.bp.L & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
+rhit = params.trialid{1};
+lhit = params.trialid{2};
 mask = ismember(dat.trials,rhit);
 trials.rhit = find(mask);
 mask = ismember(dat.trials,lhit);
@@ -14,6 +14,11 @@ trials.lhit = find(mask);
 %% epochs
 
 alignment = mode(obj.bp.ev.(params.alignEvent));
+
+% early sample epoch
+e1 = obj.bp.ev.sample(dat.trials) - alignment; 
+e2 = obj.bp.ev.sample(dat.trials) + 0.4 - alignment;
+early = obj.time>=mode(e1) & obj.time <= mode(e2);
 
 % late delay epoch
 e1 = obj.bp.ev.goCue(dat.trials) - 0.41 - alignment; 
@@ -25,6 +30,43 @@ e1 = obj.bp.ev.goCue(dat.trials) + 0.01 - alignment;
 e2 = obj.bp.ev.goCue(dat.trials) + 0.41 - alignment;
 go = obj.time>=mode(e1) & obj.time <= mode(e2);
 
+%%
+
+%% early sample cd
+
+conditions = fieldnames(trials);
+datnull = cell(numel(conditions),1);
+datpotent = cell(numel(conditions),1);
+meannull_time = cell(numel(conditions),1);
+meanpotent_time = cell(numel(conditions),1);
+mu_null = nan(size(rez.N_null,2),numel(conditions));
+mu_potent = nan(size(rez.N_potent,2),numel(conditions));
+sd_null = nan(size(rez.N_null,2),numel(conditions));
+sd_potent = nan(size(rez.N_potent,2),numel(conditions));
+for i = 1:numel(conditions)
+    datnull{i} = rez.N_null(early,:,trials.(conditions{i}));
+    datpotent{i} = rez.N_potent(early,:,trials.(conditions{i}));
+    
+    meannull_time{i} = squeeze(mean(datnull{i},1));
+    meanpotent_time{i} = squeeze(mean(datpotent{i},1));
+    
+    mu_null(:,i) = nanmean(meannull_time{i},2);
+    mu_potent(:,i) = nanmean(meanpotent_time{i},2);
+   
+    sd_null(:,i) = nanstd(meannull_time{i},[],2);
+    sd_potent(:,i) = nanstd(meanpotent_time{i},[],2);
+    
+end
+
+
+% calculate mode according to definition
+modes.null.early = (mu_null(:,1)-mu_null(:,2))./ sqrt(sum(sd_null.^2,2));
+modes.null.early(isnan(modes.null.early)) = 0;
+modes.null.early = modes.null.early./sum(abs(modes.null.early)); % (ncells,1)
+
+modes.potent.early = (mu_potent(:,1)-mu_potent(:,2)) ./ sqrt(sum(sd_potent.^2,2));
+modes.potent.early(isnan(modes.potent.early)) = 0;
+modes.potent.early = modes.potent.early./sum(abs(modes.potent.early)); % (ncells,1)
 
 %% late delay cd
 
@@ -99,10 +141,10 @@ modes.potent.go = modes.potent.go./sum(abs(modes.potent.go)); % (ncells,1)
 
 %% othogonalize
 
-nullModes = [modes.null.late modes.null.go];
+nullModes = [modes.null.early modes.null.late modes.null.go];
 nullModes_orth = gschmidt(nullModes);
 
-potentModes = [modes.potent.late modes.potent.go];
+potentModes = [modes.potent.early modes.potent.late modes.potent.go];
 potentModes_orth = gschmidt(potentModes);
 
 %% projections

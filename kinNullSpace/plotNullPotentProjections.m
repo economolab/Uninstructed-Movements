@@ -1,28 +1,34 @@
 function plotNullPotentProjections(obj,dat,rez,params)
 
 % for lfads data
-rhit = find(obj.bp.R & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
-lhit = find(obj.bp.L & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
+rhit = params.trialid{2};
+lhit = params.trialid{3};
 mask = ismember(dat.trials,rhit);
 rhit = find(mask);
 mask = ismember(dat.trials,lhit);
 lhit = find(mask);
 
+clrs = getColors();
+
+lw = 6;
 
 align = mode(obj.bp.ev.(params.alignEvent));
 sample = mode(obj.bp.ev.sample) - align;
 delay = mode(obj.bp.ev.delay) - align;
 
 f = figure(1); sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
-f.Position = [-792    58   431   635];
+f.Position = [-1473        -129         385         908];
 for i = 1:size(rez.N_null,2) % num null dims
     ax = subplot(size(rez.N_null,2),1,i); hold on
-    for j = 1:numel(rhit)
-        patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lhit)
-        patchline(obj.time,squeeze(rez.N_null(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
+    plot(obj.time,mean(squeeze(rez.N_null(:,i,rhit)),2),'Color',clrs.rhit,'LineWidth',lw)
+    plot(obj.time,mean(squeeze(rez.N_null(:,i,lhit)),2),'Color',clrs.lhit,'LineWidth',lw)
+    
+%     for j = 1:numel(rhit)
+%         patchline(obj.time,squeeze(rez.N_null(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
+%     for j = 1:numel(lhit)
+%         patchline(obj.time,squeeze(rez.N_null(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
     xlim([obj.time(20) obj.time(end)])
     
     xline(sample,'k--','LineWidth',2)
@@ -36,21 +42,25 @@ for i = 1:size(rez.N_null,2) % num null dims
         ax.XLabel.String = 'Time (s) from go cue';
     end
     
-    ax.FontSize = 20;
+    ax.FontSize = 35;
     
     hold off
 end
 
 f = figure(2); sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
-f.Position = [-792    58   431   635];
+f.Position = [-1473        -129         385         908];
 for i = 1:size(rez.N_potent,2) % num null dims
     ax = subplot(size(rez.N_potent,2),1,i); hold on
-    for j = 1:numel(rhit)
-        patchline(obj.time,squeeze(rez.N_potent(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lhit)
-        patchline(obj.time,squeeze(rez.N_potent(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
+    
+    plot(obj.time,mean(squeeze(rez.N_potent(:,i,rhit)),2),'Color',clrs.rhit,'LineWidth',lw)
+    plot(obj.time,mean(squeeze(rez.N_potent(:,i,lhit)),2),'Color',clrs.lhit,'LineWidth',lw)
+    
+%     for j = 1:numel(rhit)
+%         patchline(obj.time,squeeze(rez.N_potent(:,i,rhit(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
+%     for j = 1:numel(lhit)
+%         patchline(obj.time,squeeze(rez.N_potent(:,i,lhit(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
     xlim([obj.time(20) obj.time(end)])
 
     
@@ -64,7 +74,7 @@ for i = 1:size(rez.N_potent,2) % num null dims
         ax.XLabel.String = 'Time (s) from go cue';
     end
     
-    ax.FontSize = 20;
+    ax.FontSize = 35;
     
     hold off
 end

@@ -109,12 +109,12 @@ cond = [3,4];
 trialOffset = 0;
 for i = 1:numel(cond)
     f = figure(i); hold on;
-    f.Position = [-1682         170         327         624];
+    f.Position = [-1682         170         400         500];
     
     trix = params.trialid{cond(i)};
-        
+    trialOffset = 1;
     for j = 1:numel(trix)
-        trialOffset = trialOffset+1;
+%         trialOffset = trialOffset+1;
         
         
         
@@ -132,21 +132,34 @@ for i = 1:numel(cond)
         plot([goCue goCue], trialOffset+[-0.5 0.5], 'k--', 'LineWidth', 2);
         
         if ~isempty(lickL)
-            plot(lickL, trialOffset*ones(size(lickL)), '.', 'Color', clrs.lhit);
+            plot(lickL, trialOffset*ones(size(lickL)), '.', 'Color', clrs.lhit, 'MarkerSize',10);
+            check1 = 1;
         end
         
         if ~isempty(lickR)
-            plot(lickR, trialOffset*ones(size(lickR)), '.', 'Color', clrs.rhit);
+            plot(lickR, trialOffset*ones(size(lickR)), '.', 'Color', clrs.rhit, 'MarkerSize',10);
+            check2 = 1;
+        end
+        
+        if check1 || check2
+            trialOffset = trialOffset + 1;
         end
         
         
         
     end
     xlim([-2.5 2.5])
+    ylim([0 trialOffset])
     xlabel('Time (s) from go cue')
     ylabel('Trials')
     ax = gca;
-    ax.FontSize = 20;
+    ax.YTick = [];
+    ax.FontSize = 35;
+    
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/lickraster';
+    fn = ['JEB7_2021_04_29_hitmissno_notearly_' num2str(cond(i))];
+    mysavefig(f,pth,fn);
+    
 end
 
 

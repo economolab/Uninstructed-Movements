@@ -10,9 +10,10 @@ end
 % handle unlabeled cluster qualities
 for i = 1:numel(qualityList)
     if isempty(qualityList{i})
+        qualityList(i)
         qualityList(i) = {'nan'};
     end
-    qualityList(i) = lower(qualityList(i));
+%     qualityList(i) = lower(qualityList(i));
 end
 
 [~,mask] = patternMatchCellArray(qualityList, qualities, 'any');

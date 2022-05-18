@@ -69,6 +69,11 @@ end % plotSingleTrials
 
 function plotMeanAcrossTrials(obj,params,latents,trials_by_type,plt)
 
+align = mode(obj.bp.ev.(params.alignEvent));
+sample = mode(obj.bp.ev.sample) - align;
+delay = mode(obj.bp.ev.delay) - align;
+
+
 plotTimeIx = latents.plotTimeIx;
 
 trialfns = fieldnames(trials_by_type);
@@ -78,18 +83,32 @@ latentfns = fieldnames(latents);
 [~,mask] = patternMatchCellArray(latentfns,{'proj'},'all');
 latentfns = latentfns(mask);
 
+lw = 6;
 
 for latentix = 1:numel(latentfns)
-    figure(220 + latentix); clf
+    f = figure(220 + latentix); clf
+    f.Position = [-1623        -102         396         898];
     for i = 1:size(latents.(latentfns{latentix}),2) % number of modes
-        subplot(3,2,i); hold on;
+        subplot(3,1,i); hold on;
         for j = 1:numel(trialfns)
-            plot(latents.time(plotTimeIx),mean(squeeze(latents.(latentfns{latentix})(plotTimeIx,i,trials_by_type.(trialfns{j}))),2),'Color',plt.colors{j},'LineWidth',3)
+            plot(latents.time(plotTimeIx),mean(squeeze(latents.(latentfns{latentix})(plotTimeIx,i,trials_by_type.(trialfns{j}))),2),...
+                'Color',plt.colors{j},'LineWidth',lw)
         end
-        hold off
+        
+        xline(sample,'k--','LineWidth',2)
+        xline(delay,'k--','LineWidth',2)
+        xline(0,'k--','LineWidth',2)
+        
+        hold off            
         title(latents.names{i})
         ax = gca;
-        ax.FontSize = 20;
+        ax.FontSize = 35;
+        if i ~= 3
+            ax.XTick = [];
+        else
+            xlabel('Time (s) from go cue')
+        end
+        
     end
     sgtitle(latentfns{latentix},'Interpreter','none')
 end

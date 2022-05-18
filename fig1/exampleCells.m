@@ -132,14 +132,15 @@ cols{2} = clrs.lhit;
 sample = mode(ev.sample) - mode(ev.(params.alignEvent));
 delay = mode(ev.delay) - mode(ev.(params.alignEvent));
 
-lw = 4;
+lw = 6;
+lwx = 2;
 
-sm = 51;
+sm = 101;
 
 cond = [1,2];
 
 f = figure();
-f.Position = [-1351          40         872         695];
+f.Position = [-1351         382         483         353];
 for i = 1:size(psth,2)
     clf(f); hold on
     for j = 1:numel(cond)
@@ -148,7 +149,7 @@ for i = 1:size(psth,2)
         plot(objs{1}.time, temp,'Color',cols{j},'LineWidth',lw)
         
     end
-    lwx = 2;
+    
     xline(sample,'k--','LineWidth',lwx);
     xline(delay,'k--','LineWidth',lwx); 
     xline(0,'k--','LineWidth',lwx); 
@@ -158,11 +159,14 @@ for i = 1:size(psth,2)
     ylabel('Firing Rate (spikes/s)')
     title(['Cell ' num2str(i)])
     ax = gca;
-    ax.FontSize = 20;
+    ax.FontSize = 30;
     hold off
     pause
 end
 
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/example_cells';
+% fn = [num2str(i) '_anmList1_sessionList1_excludeTrialTypeCount_sm_' num2str(params.smooth)];
+% mysavefig(f,pth,fn);
 
 
 

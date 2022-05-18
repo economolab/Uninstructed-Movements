@@ -65,8 +65,6 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 
 
 
-%% right and left hits 
-
 %% lfads and gaussian smoothed single trials (left and right hits only)
 
 lfads = dat.rates;
@@ -115,59 +113,87 @@ lfadslatents = cat(3,lfads{1},lfads{2});
 
 %% choice decoding
 
-nTrials = min(numel(rhits),numel(lhits));
-
-nFolds = 2;
-
 k = 1; % number of iterations (bootstrap)
 
 acc_lfads = zeros(size(lfadslatents,1),k);
 acc_pca = zeros(size(gausslatents,1),k);
 
+train = 0.8;
+nTrials = min(numel(rhits),numel(lhits));
+nTrain = round(train*nTrials); % per condition
+nTest  = nTrials - nTrain;     % per condition
+
 for j = 1:k
     
-%     r = 1:numel(rhits);
-%     l = (numel(rhits)+1):(numel(rhits) + numel(lhits));
-%     
-%     rhit = randsample(r,nTrials);
-%     lhit = randsample(l,nTrials);
-%     
-%     y = cat(1,ones(numel(rhit),1),2*ones(numel(lhit),1));
+    disp(['Iteration ' num2str(j) '/' num2str(k)])
     
-    rhit = [1:numel(rhits)]';
-    lhit = [(numel(rhits)+1):(numel(rhits) + numel(lhits))]';
-    y = cat(1,ones(numel(rhit),1),2*ones(numel(lhit),1));
+    r = 1:numel(rhits);
+    l = (numel(rhits)+1):(numel(rhits) + numel(lhits));
+    
+    rhit_train = randsample(r,nTrain);
+    lhit_train = randsample(l,nTrain);
+    
+    rhitremain = find(~ismember(r,rhit_train));
+    lhitremain = find(~ismember(l,lhit_train));
+    
+    rhit_test = randsample(rhitremain,nTest);
+    lhit_test = randsample(lhitremain,nTest);
+    
+    y_train = cat(1,0*ones(numel(rhit_train),1),1*ones(numel(lhit_train),1));
+    
+    y_test = cat(1,0*ones(numel(rhit_test),1),1*ones(numel(lhit_test),1));
+    
 
     
     %%
     
     % LFADS factors
     
-    X = lfadslatents(:,:,[rhit;lhit]);
-    
-    
-    
-    for i = 1:size(X,1) % each timepoint
-        x = squeeze(X(i,:,:)); % (factors,trials) for timepoint i
-        [Mdl_lfads] = fitclinear(x',y,'KFold',nFolds,...
-            'Learner','logistic');
-        %     ce_lfads(i) = kfoldLoss(Mdl_lfads);
-        acc_lfads(i,j) = sum(Mdl_lfads.kfoldPredict == y) / numel(y);
+    X_train = lfadslatents(:,:,[rhit_train;lhit_train]);
+    X_test = lfadslatents(:,:,[rhit_test;lhit_test]);
+
+    for i = 1:size(X_train,1) % each timepoint
+        x_train = squeeze(X_train(i,:,:)); % (factors,trials) for timepoint i
+%         mdl = fitclinear(x_train',y_train);
+        mdl = fitcsvm(x_train',y_train);
+        x_test = squeeze(X_test(i,:,:)); % (factors,trials) for timepoint i
+        pred = predict(mdl,x_test');
+%         unique(pred)
+        acc_lfads(i,j) = sum(pred == y_test) / numel(y_test);
     end
     
-    % FA factors
+    % PCA factors
     
     
-    X = gausslatents(:,:,[rhit;lhit]);
+    X_train = gausslatents(:,:,[rhit_train;lhit_train]);
+    X_test = gausslatents(:,:,[rhit_test;lhit_test]);
     
     
-    for i = 1:size(X,1) % each timepoint
-        x = squeeze(X(i,:,:)); % (factors,trials) for timepoint i
-        [Mdl_pca] = fitclinear(x',y,'KFold',nFolds,...
-            'Learner','logistic');
-        %     ce_pca(i) = kfoldLoss(Mdl_pca);
-        acc_pca(i,j) = sum(Mdl_pca.kfoldPredict == y) / numel(y);
+    for i = 1:size(X_train,1) % each timepoint
+        x_train = squeeze(X_train(i,:,:)); % (factors,trials) for timepoint i
+        mdl = fitcsvm(x_train',y_train);
+        x_test = squeeze(X_test(i,:,:)); % (factors,trials) for timepoint i
+        pred = predict(mdl,x_test');
+        acc_pca(i,j) = sum(pred == y_test) / numel(y_test);
     end
+    
+    
+    lfads_r = lfadslatents(:,:,rhit_train);
+    lfads_l = lfadslatents(:,:,lhit_train);
+    dist_r = zeros(size(lfads_r));
+    dist_l = zeros(size(lfads_l));
+    for i = 1:size(X_train_lfads,1) % each timepoint
+        dist_r(i,:,:) = squeeze(lfads_r(i,:,:));
+        dist_l(i,:,:) = squeeze(lfads_l(i,:,:));
+        
+%         histogram(r(:),'FaceColor','b'); hold on;
+%         histogram(l(:),'FaceColor','r');
+%         pause
+%         hold off
+    end
+    test = dist_r - dist_l;
+    
+    
 end
 
 
@@ -176,10 +202,18 @@ align = mode(obj.bp.ev.(params.alignEvent));
 sample = mode(obj.bp.ev.sample) - align;
 delay = mode(obj.bp.ev.delay) - align;
 
-figure(11); clf; hold on;
+f = figure(11); ax = axes(f); hold on;
 
-plot(obj.time,acc_lfads,'Color',[70, 176, 106]./255,'LineWidth',3)
-plot(obj.time,acc_pca,'Color',[115, 68, 130]./255,'LineWidth',3)
+stderr = mySmooth(std(acc_lfads,[],2) ./ k, 31);
+means = mySmooth(mean(acc_lfads,2) , 31);
+shadedErrorBar(obj.time, means, stderr, {'Color',[70, 176, 106]./255,'LineWidth',1.5},0.5, ax);
+
+stderr = mySmooth(std(acc_pca,[],2) ./ k, 31);
+means = mySmooth(mean(acc_pca,2) , 31);
+shadedErrorBar(obj.time, means, stderr, {'Color',[115, 68, 130]./255,'LineWidth',1.5},0.5, ax);
+
+% plot(obj.time,mean(acc_lfads,2),'Color',[70, 176, 106]./255,'LineWidth',3)
+% plot(obj.time,mean(acc_pca,2),'Color',[115, 68, 130]./255,'LineWidth',3)
 
 xline(sample,'k--','LineWidth',2)
 xline(delay,'k--','LineWidth',2)
@@ -188,13 +222,15 @@ xline(0,'k--','LineWidth',2)
 title([meta.anm ' ' meta.date ' | LFADS ' params.lfads_run ])
 xlabel('Time (s) from go cue')
 ylabel('Accuracy')
-legend({'LFADS','PCA'})
+% legend({'LFADS','PCA'})
 ax = gca;
 ax.FontSize = 20;
 xlim([obj.time(30) obj.time(end)])
 hold off
 
-
+pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/choiceDecoder';
+fn = [meta.anm '_' meta.date '_' params.lfads_run ];
+mysavefig(f,pth,fn)
 
 
 

@@ -19,10 +19,19 @@ datin = temp.lfads; clear temp;
 % --lfads output data
 % there are 2 files, one for the training set, one for the validation set
 % we will load both and concatenate the trials from each
-outprefix = {'model_runs_h5_train_posterior_sample_and_average_',...
-             'model_runs_h5_valid_posterior_sample_and_average_'};
+outprefix = {'train',...
+             'valid'};
 for i = 1:numel(outprefix)
-    outfn = [outprefix{i} anm_date '_' runix];
+    
+    outpatterns = {outprefix{i},[ anm_date '_' runix]};
+    contents = dir(fullfile(pth,'output'));
+    [~,mask] = patternMatchCellArray({contents.name}',outpatterns','all');
+    
+    if sum(mask)==1
+        outfn = contents(mask).name;
+    else
+        error(['Found multiple matching files for lfads' outprefix{i}])
+    end
     
     % the outputs of lfads are stored as hdf5 datasets
     % let's store this in a struct
@@ -46,5 +55,6 @@ dat = datin;
 dat.trials = datout.trials;
 dat.factors = permute(datout.factors,[2,1,3]);
 dat.rates = permute(datout.rates,[2,1,3]);
-
+dat.rates = dat.rates(:,:,dat.trials); % only keep training trials (which is all trials from a session)
+dat.factors = dat.factors(:,:,dat.trials);
 end

@@ -61,7 +61,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run3'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -233,14 +233,14 @@ end
 
 plotNullPotentProjections(obj,dat,rez,params)
 
-% f = gcf;
+% f = figure(1);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'null_JEB7_2021-04-29_lfadsrun3';
+% fn = 'null_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 % 
-% f = gcf;
+% f = figure(2);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'potent_JEB7_2021-04-29_lfadsrun3';
+% fn = 'potent_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 
 
@@ -254,26 +254,25 @@ plotNullPotentProjections(obj,dat,rez,params)
 
 modes.varexp = activityModes_varexp(modes,rez);
 
+latents = rmfield(latents,{'proj_potent_null','proj_null_potent'});
+
+%%
+
 plt.trial_types = [1 2];
-plt.plot_mean = 0;
+plt.plot_mean = 1;
 plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840]};
 plotAllModes_nullPotent(obj,params,latents,trials_by_type,plt)
 
-% f = figure(211);
+% f = figure(221);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun3';
+% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 % 
-% f = figure(214);
+% f = figure(222);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun3';
+% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 
-
-% plt.trial_types = [1 2 3 4];
-% plt.plot_mean = 1;
-% plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840], [0.3010 0.7450 0.9330], [0.8500 0.3250 0.0980]};
-% plotAllModes_nullPotent(latents,trials_by_type,plt)
 
 
 

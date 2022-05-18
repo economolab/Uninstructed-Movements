@@ -2,8 +2,8 @@ function optimization_plots(rez,obj,dat,params)
 
 
 % for lfads data
-rhit = find(obj.bp.R & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
-lhit = find(obj.bp.L & obj.bp.hit & ~obj.bp.autowater & ~obj.bp.early);
+rhit = params.trialid{2};
+lhit = params.trialid{3};
 mask = ismember(dat.trials,rhit);
 rhit = find(mask);
 mask = ismember(dat.trials,lhit);
@@ -25,18 +25,22 @@ catch
     N_potent = rez.N_potent;
 end
 
+lw = 6;
+clrs = getColors();
 
-
-f = figure(20); clf;  sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null)])
+f = figure(20); clf;  sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
 f.Position = [-856  -124   431   937];
 for i = 1:size(N_null,2) % num null dims
     ax = subplot(size(N_null,2),1,i); hold on
-    for j = 1:numel(rmask)
-        patchline(obj.time,squeeze(N_null(:,i,rmask(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lmask)
-        patchline(obj.time,squeeze(N_null(:,i,lmask(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
+    plot(obj.time,mean(squeeze(N_null(:,i,rmask)),2),'Color',clrs.rhit,'LineWidth',lw)
+    plot(obj.time,mean(squeeze(N_null(:,i,lmask)),2),'Color',clrs.lhit,'LineWidth',lw)
+    
+%     for j = 1:numel(rmask)
+%         patchline(obj.time,squeeze(N_null(:,i,rmask(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
+%     for j = 1:numel(lmask)
+%         patchline(obj.time,squeeze(N_null(:,i,lmask(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
@@ -49,22 +53,26 @@ for i = 1:size(N_null,2) % num null dims
         ax.XLabel.String = 'Time (s) from go cue';
     end
     
-    ax.FontSize = 20;
+    ax.FontSize = 30;
         
     xlim([obj.time(20) obj.time(end)])
     hold off
 end
 
-f = figure(21);  clf; sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent)])
+f = figure(21);  clf; sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
 f.Position = [-856  -124   431   937];
 for i = 1:size(N_potent,2) % num null dims
     ax = subplot(size(N_potent,2),1,i); hold on
-    for j = 1:numel(rmask)
-        patchline(obj.time,squeeze(N_potent(:,i,rmask(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
-    for j = 1:numel(lmask)
-        patchline(obj.time,squeeze(N_potent(:,i,lmask(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
-    end
+    
+    plot(obj.time,mean(squeeze(N_potent(:,i,rmask)),2),'Color',clrs.rhit,'LineWidth',lw)
+    plot(obj.time,mean(squeeze(N_potent(:,i,lmask)),2),'Color',clrs.lhit,'LineWidth',lw)
+    
+%     for j = 1:numel(rmask)
+%         patchline(obj.time,squeeze(N_potent(:,i,rmask(j))),'EdgeColor','b','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
+%     for j = 1:numel(lmask)
+%         patchline(obj.time,squeeze(N_potent(:,i,lmask(j))),'EdgeColor','r','EdgeAlpha',0.4,'LineWidth',1.5);
+%     end
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
@@ -76,28 +84,8 @@ for i = 1:size(N_potent,2) % num null dims
         ax.XLabel.String = 'Time (s) from go cue';
     end
     
-    ax.FontSize = 20;
+    ax.FontSize = 30;
     
     xlim([obj.time(20) obj.time(end)])
     hold off
 end
-
-
-% % plot means
-% figure(22); clf; sgtitle(['Mean Null'])
-% for i = 1:size(N_null,2) % num null dims
-%     subplot(size(N_null,2),1,i); hold on
-%     plot(obj.time,mean(squeeze(N_null(:,i,rmask)),2),'b','LineWidth',2)
-%     plot(obj.time,mean(squeeze(N_null(:,i,lmask)),2),'r','LineWidth',2)
-%     xlim([obj.time(20) obj.time(end)])
-%     hold off
-% end
-% 
-% figure(23); clf;  sgtitle(['Mean Potent'])
-% for i = 1:size(N_potent,2) % num null dims
-%     subplot(size(N_potent,2),1,i); hold on
-%     plot(obj.time,mean(squeeze(N_potent(:,i,rmask)),2),'b','LineWidth',2)
-%     plot(obj.time,mean(squeeze(N_potent(:,i,lmask)),2),'r','LineWidth',2)
-%     xlim([obj.time(20) obj.time(end)])
-%     hold off
-% end

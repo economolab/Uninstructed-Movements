@@ -43,7 +43,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run3'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -94,7 +94,7 @@ dat.factors = standardizeFactors(dat.factors);
 % - use:        0 or 1, indicating whether to use me.data. 1 if
 %               a motionEnergy*.mat file is found, 0 if file not found
 me = loadMotionEnergy(obj,meta,params,dat.trials); 
-
+me.moveThresh = me.moveThresh + 5;
 % To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
 
 
@@ -111,7 +111,7 @@ me = loadMotionEnergy(obj,meta,params,dat.trials);
 
 % TODO: variance explained of trial-averaged data
 
-rates_or_factors = 'factors';
+rates_or_factors = 'rates';
 
 findcd = 0; % find CDs using elsayed method
 
@@ -124,15 +124,15 @@ rez = calVarExp_elsayed(rez);
 
 optimization_plots(rez,obj,dat,params);
 
-f = figure(20);
-pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-fn = 'null_JEB7_2021-04-29_lfadsrun3';
-mysavefig(f,pth,fn);
-
-f = figure(21);
-pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-fn = 'potent_JEB7_2021-04-29_lfadsrun3';
-mysavefig(f,pth,fn);
+% f = figure(20);
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
+% fn = 'null_JEB7_2021-04-29_lfadsrun12';
+% mysavefig(f,pth,fn);
+% 
+% f = figure(21);
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
+% fn = 'potent_JEB7_2021-04-29_lfadsrun12';
+% mysavefig(f,pth,fn);
 
 
 %% activity modes
@@ -148,19 +148,21 @@ rez.N_potent = rez.optim.N_potent;
 
 modes.varexp = activityModes_varexp(modes,rez);
 
+
+%%
 plt.trial_types = [1 2];
-plt.plot_mean = 0;
+plt.plot_mean = 1;
 plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840]};
 plotAllModes_nullPotent(obj,params,latents,trials_by_type,plt)
 % 
-% f = figure(211);
+% f = figure(221);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun3';
+% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 % 
-% f = figure(214);
+% f = figure(222);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun3';
+% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun12';
 % mysavefig(f,pth,fn);
 
 

@@ -44,21 +44,21 @@ params.smooth = 51;
 
 % cluster qualities to use
 % params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
-params.quality = {'Poor,','Fair','Good','Great','Excellent','single'}; 
+params.quality = {'Fair','Good','Great','Excellent','single'}; 
 
 %% SET METADATA
 
 datapth = '/Users/Munib/Documents/Economo-Lab/data/';
 
 meta = [];
-meta = loadJEB4_ALMVideo(meta,datapth); % done
-meta = loadJEB5_ALMVideo(meta,datapth); % done
-meta = loadJEB6_ALMVideo(meta,datapth); % done
+% meta = loadJEB4_ALMVideo(meta,datapth); % done
+% meta = loadJEB5_ALMVideo(meta,datapth); % done
+% meta = loadJEB6_ALMVideo(meta,datapth); % done
 meta = loadJEB7_ALMVideo(meta,datapth); % done
-meta = loadEKH1_ALMVideo(meta,datapth); % done
-meta = loadEKH3_ALMVideo(meta,datapth); % done
-meta = loadJGR2_ALMVideo(meta,datapth); % done
-meta = loadJGR3_ALMVideo(meta,datapth); % done
+% meta = loadEKH1_ALMVideo(meta,datapth); % done
+% meta = loadEKH3_ALMVideo(meta,datapth); % done
+% meta = loadJGR2_ALMVideo(meta,datapth); % done
+% meta = loadJGR3_ALMVideo(meta,datapth); % done
 
 
 params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
@@ -94,15 +94,13 @@ disp(' ')
 
 %% Remove unwanted sessions
 
-% remove sessions if:
-% 1) less than 40 trials of rhit and lhit each (same as
-% 2) atleast 10 clusters of quality that is not noise
+% remove sessions with less than 40 trials of rhit and lhit each (same as
+% hidehiko ppn paper)
 use = false(size(objs));
 for i = 1:numel(use)
-    check(1) = numel(params.trialid{i}{1}) > 40;
-    check(2) = numel(params.trialid{i}{2}) > 40;
-    check(3) = numel(params.cluid{i}) >= 10;
-    if all(check)
+    check1 = numel(params.trialid{i}{1}) > 40;
+    check2 = numel(params.trialid{i}{2}) > 40;
+    if check1 && check2
         use(i) = true;
     end
 end
@@ -113,9 +111,18 @@ params.probe = params.probe(use);
 params.trialid = params.trialid(use);
 params.cluid = params.cluid(use);
 
-%% CODING DIMENSIONS
+%% get one session
 
-clearvars -except objs meta params 
+use = 1; % jeb7 2021-04-29
+meta = meta(use);
+objs = objs{use};
+params.trialid = params.trialid{use};
+params.cluid = params.cluid{use};
+
+temp = objs;
+objs = {temp};
+
+%% CODING DIMENSIONS
 
 for sessix = 1:numel(objs)
     
@@ -137,13 +144,13 @@ for sessix = 1:numel(objs)
     cond{2} = params.modecondition{2};
     epoch = 'sample';
     
-    e1 = mode(ev.delay) - 0.4 - mode(ev.(params.alignEvent));
-    e2 = mode(ev.delay) - 0.0 - mode(ev.(params.alignEvent));
+    e1 = mode(ev.sample) - mode(ev.(params.alignEvent));
+    e2 = mode(ev.sample) - mode(ev.(params.alignEvent)) + 0.4;
     
-    times.early = rez(sessix).time>e1 & rez(sessix).time<e2;
+    times = rez(sessix).time>e1 & rez(sessix).time<e2;
     tempdat = rez(sessix).psth(:,:,[1,2]);
-    mu = squeeze(mean(tempdat(times.early,:,:),1));
-    sd = squeeze(std(tempdat(times.early,:,:),[],1));
+    mu = squeeze(mean(tempdat(times,:,:),1));
+    sd = squeeze(std(tempdat(times,:,:),[],1));
     cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
     cd(isnan(cd)) = 0;
     cd = cd./sum(abs(cd)); % (ncells,1)
@@ -158,11 +165,10 @@ for sessix = 1:numel(objs)
     cond{2} = params.modecondition{2};
     epoch = 'latedelay';
     
-    
-    times.late = rez(sessix).time>-0.41 & rez(sessix).time<-0.01;
+    times = rez(sessix).time>-0.41 & rez(sessix).time<-0.01;
     tempdat = rez(sessix).psth(:,:,[1,2]);
-    mu = squeeze(mean(tempdat(times.late,:,:),1));
-    sd = squeeze(std(tempdat(times.late,:,:),[],1));
+    mu = squeeze(mean(tempdat(times,:,:),1));
+    sd = squeeze(std(tempdat(times,:,:),[],1));
     cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
     cd(isnan(cd)) = 0;
     cd = cd./sum(abs(cd)); % (ncells,1)
@@ -177,10 +183,10 @@ for sessix = 1:numel(objs)
     cond{2} = params.modecondition{2};
     epoch = 'go';
     
-    times.go = rez(sessix).time>0.01 & rez(sessix).time<0.41;
+    times = rez(sessix).time>0.01 & rez(sessix).time<0.41;
     tempdat = rez(sessix).psth(:,:,[1,2]);
-    mu = squeeze(mean(tempdat(times.go,:,:),1));
-    sd = squeeze(std(tempdat(times.go,:,:),[],1));
+    mu = squeeze(mean(tempdat(times,:,:),1));
+    sd = squeeze(std(tempdat(times,:,:),[],1));
     cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
     cd(isnan(cd)) = 0;
     cd = cd./sum(abs(cd)); % (ncells,1)
@@ -204,11 +210,6 @@ for sessix = 1:numel(objs)
         rez(sessix).(fns{i}) = orthModes(:,i);
     end
     
-    % lastly, othogonalize early mode to go mode
-%     tempmodes = [rez(sessix).cdGo_mode rez(sessix).cdEarly_mode];
-%     orthModes = gschmidt(tempmodes);
-%     rez(sessix).cdEarly_mode = orthModes(:,2);
-    
     %% projections and normalize
     % when pooling trajectories across sessions from hidehikos ppn paper:
     % CD_late projections normalized by mean activity just before go cue
@@ -216,9 +217,9 @@ for sessix = 1:numel(objs)
     % CD_go projections normalized by mean activity after go cue
     % (t_go<t<0.4)
     
-%     normTimes{1} = rez(sessix).time>e1 & rez(sessix).time<e2; % sample
-%     normTimes{2} = rez(sessix).time>-0.6 & rez(sessix).time<0; % delay
-%     normTimes{3} = rez(sessix).time>0 & rez(sessix).time<0.4; % go
+    normTimes{1} = rez(sessix).time>e1 & rez(sessix).time<e2; % sample
+    normTimes{2} = rez(sessix).time>-0.6 & rez(sessix).time<0; % delay
+    normTimes{3} = rez(sessix).time>0 & rez(sessix).time<0.4; % go
     
     cond = [1 2];
     for i = 1:numel(fns)
@@ -228,7 +229,7 @@ for sessix = 1:numel(objs)
             
             tempdat = rez(sessix).psth(:,:,c)*rez(sessix).(fns{i});
             
-%             normfactor = abs(nanmean(tempdat(normTimes{i})));
+            normfactor = abs(nanmean(tempdat(normTimes{i})));
             normfactor = 1;
             
             rez(sessix).([fns{i}(1:end-5) '_latent'])(:,j) = tempdat ./ normfactor;
@@ -291,11 +292,7 @@ for i = 1:numel(fns)
     temperror = eval([fns{i}(1:end-5) '_latent_error']);
     shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
     shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
-    
     xlim([rez(1).time(15);rez(1).time(end)])
-    ylims = [min(min(tempmean))-5, max(max(tempmean))+5];
-    ylim(ylims);
-    
     title(fns{i},'Interpreter','none')
     xlabel('Time (s) from go cue')
     ylabel('Activity (a.u.)')
@@ -306,140 +303,15 @@ for i = 1:numel(fns)
     xline(delay,'k--','LineWidth',2)
     xline(0,'k--','LineWidth',2)
     
-    curmodename = fns{i};
-    timefns = fieldnames(times);
-    mask = strfind(timefns,lower(curmodename(3:end-5)));
-    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
-    ix = ~cell2mat(ix);
-    shadetimes = objs{1}.time(times.(timefns{ix}));
-    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
-    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
-    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
-    fl.FaceAlpha = 0.3;
-    fl.EdgeColor = 'none';
-    
-    ylim(ylims);
-    
     
     if sav
-        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
-        fn = [fns{i} '_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd_jeb7';
+        fn = [fns{i} '_anmList1_sessionList1_excludeTrialTypeCount_sm_' num2str(params.smooth)];
         mysavefig(f(i),pth,fn);
     end
     
 end
 
-%% orthogonality of modes
-% close all
-% dotProductModes(rez,orthModes,'Orthogonality of Coding Directions')
-% f=gcf;
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
-% fn = ['orthogonality_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
-% mysavefig(f,pth,fn);
-
-
-%% selectivity
-
-selpsth = objs{1}.psth;
-cdEarly_cat = rez(1).cdEarly_mode;
-cdLate_cat = rez(1).cdLate_mode;
-cdGo_cat = rez(1).cdGo_mode;
-for sessix = 2:numel(objs)
-    obj = objs{sessix};    
-    selpsth = cat(2,selpsth,obj.psth);
-    
-    cdEarly_cat = cat(1,cdEarly_cat,rez(sessix).cdEarly_mode);
-    cdLate_cat = cat(1,cdLate_cat,rez(sessix).cdLate_mode);
-    cdGo_cat = cat(1,cdGo_cat,rez(sessix).cdGo_mode);
-end
-
-selpsth(isnan(psth)) = 0;
-selpsth(isinf(psth)) = 0;
-
-
-cond = [1,2];
-latent_cdearly = zeros(size(selpsth,1),numel(cond));
-latent_cdlate = zeros(size(selpsth,1),numel(cond));
-latent_cdgo = zeros(size(selpsth,1),numel(cond));
-for i = 1:numel(cond)
-    c = cond(i);
-    latent_cdearly(:,i) = selpsth(:,:,c)*cdEarly_cat;
-    latent_cdlate(:,i) = selpsth(:,:,c)*cdLate_cat;
-    latent_cdgo(:,i) = selpsth(:,:,c)*cdGo_cat;
-end
-
-
-sm = 31;
-
-psth_selectivity = mySmooth(selpsth(:,:,1) - selpsth(:,:,2),sm);
-cdearly_selectivity = mySmooth(latent_cdearly(:,1) - latent_cdearly(:,2),sm);
-cdlate_selectivity = mySmooth(latent_cdlate(:,1) - latent_cdlate(:,2),sm);
-cdgo_selectivity = mySmooth(latent_cdgo(:,1) - latent_cdgo(:,2),sm);
-
-%%
-sample = mode(rez(1).ev.sample) - mode(rez(1).ev.(params.alignEvent));
-delay  = mode(rez(1).ev.delay) - mode(rez(1).ev.(params.alignEvent));
-
-lw = 4;
-figure; 
-plot(rez(1).time,sum(psth_selectivity.^2,2),'k','LineWidth',lw)
-hold on
-plot(rez(1).time,sum(cdearly_selectivity.^2,2),'b','LineWidth',lw)
-plot(rez(1).time,sum(cdlate_selectivity.^2,2),'g','LineWidth',lw)
-plot(rez(1).time,sum(cdgo_selectivity.^2,2),'m','LineWidth',lw)
-plot(rez(1).time,(cdearly_selectivity.^2 + cdgo_selectivity.^2 + cdlate_selectivity.^2),'c','LineWidth',lw)
-
-xline(sample,'k--','LineWidth',0.5);
-xline(delay,'k--','LineWidth',0.5);
-xline(0,'k--','LineWidth',0.5);
-
-xlabel('Time (s) from go cue')
-ylabel('Squared Sum Selectivity')
-legend('Total selectivity','early','late','go','early + late + go')
-xlim([rez(1).time(1)+0.2,rez(1).time(end)])
-ax = gca;
-ax.FontSize = 20;
-
-
-%% correlation pop selectivity vector
-
-corr_matrix_selectivity = zeros(size(psth_selectivity,1),size(psth_selectivity,1));
-
-for i = 1:size(corr_matrix_selectivity,1)
-    for j = 1:size(corr_matrix_selectivity,1)
-        temp = corrcoef(psth_selectivity(i,:),psth_selectivity(j,:));
-        corr_matrix_selectivity(i,j) = temp(1,2);
-    end
-end
-
-%% plot selectivity correlation matrix
-close all
-f = figure; hold on;
-imagesc(obj.time,obj.time,corr_matrix_selectivity);
-colorbar; caxis([0 max(max(corr_matrix_selectivity))]);
-
-lw = 4;
-ls = '--';
-col = [88, 245, 112] ./ 255;
-xline(sample,ls,'Color',col,'LineWidth',lw); yline(sample,ls,'Color',col,'LineWidth',lw)
-xline(delay,ls,'Color',col,'LineWidth',lw); yline(delay,ls,'Color',col,'LineWidth',lw)
-xline(0,ls,'Color',col,'LineWidth',lw); yline(0,ls,'Color',col,'LineWidth',lw)
-
-xlim([rez(1).time(1)+0.2,rez(1).time(end)]);
-ylim([rez(1).time(1)+0.2,rez(1).time(end)])
-xlabel('Time (s) from go cue')
-ylabel('Time (s) from go cue')
-ax = gca;
-hold off
-colormap(hot)
-a = colorbar;
-a.Label.String = 'Correlation of population selectivity vector';
-ax.FontSize = 25;
-
-% 
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/selectivity';
-% fn = 'popselectivitycorr_hits_anmList1_sessionList1_psthsm_51_dt_0_005_lowFR_1';
-% mysavefig(f,pth,fn);
 
 
 

@@ -14,8 +14,8 @@ addpath(genpath(pwd))
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
-meta.anm = 'JEB7'; % 'JEB7'  'EKH3'  'JGR2'
-meta.date = '2021-04-29'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta.anm = 'JEB6'; % 'JEB7'  'JEB6'  'JGR2'
+meta.date = '2021-04-18'; % '2021-04-29'  '2021-04-18'  '2021-11-17'
 
 
 % --SPECIFY PATH TO DATA HERE
@@ -47,7 +47,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
+params.lfads_run = ''; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -98,71 +98,89 @@ dat.factors = standardizeFactors(dat.factors);
 % - use:        0 or 1, indicating whether to use me.data. 1 if
 %               a motionEnergy*.mat file is found, 0 if file not found
 me = loadMotionEnergy(obj,meta,params,dat.trials); 
-me.moveThresh = me.moveThresh + 5;
+
 % To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
 
+%%
 
-%% 
+close all
 
-% We now have a struct, dat, that contains:
-% - trials:        trial numbers in use
-% - factors:       neural data that's been reduced using lfads or factor analysis (time,factors,trials)
-% - rates:         denoised single trial neural data from lfads or smoothing (time,cells,trials)
+trialOffset = 0;
+f = figure; hold on;
+f.Position = [-1323        -145         574         968];
+for i = 1:30:size(me.data,2)
+    temp = mySmooth(me.data(:,i),21);
+    
+    ix = me.data(:,i)>(me.moveThresh+5);
+    z = temp;
+    z(~ix) = nan;
+    ztime = obj.time;
+    patchline(obj.time,trialOffset + temp,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',4);
+    plot(obj.time,trialOffset + z,'r','LineWidth',2)
+    trialOffset = trialOffset + 90;
+end
+xlabel('Time (s) from go cue')
+ylabel('Motion Energy')
+xlim([obj.time(15),obj.time(end)]);
+ax = gca;
+ax.YTick = [];
+ax.FontSize = 35;
 
+align = mode(obj.bp.ev.(params.alignEvent));
+sample = mode(obj.bp.ev.sample) - align;
+delay = mode(obj.bp.ev.delay) - align;
+xline(sample,'k--','LineWidth',2)
+xline(delay,'k--','LineWidth',2)
+xline(0,'k--','LineWidth',2)
 
+hold off
 
-%% elsayed method single trials
-
-% TODO: variance explained of trial-averaged data
-
-rates_or_factors = 'factors';
-
-rez = findNullPotent_pca(obj,dat,me,rates_or_factors);
-
-rez = calVarExp_pca(rez);
-
-
-%% plot projections
-
-optimization_plots(rez,obj,dat,params);
-
-% f = figure(20);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/pcaNullSpace/';
-% fn = ['null_' rates_or_factors '_JEB7_2021-04-29_lfadsrun12'];
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/motionEnergy/';
+% fn = ['motionEnergy_JEB7_2021-04-29_threshincreasedby5'];
 % mysavefig(f,pth,fn);
+
+
+%%
+close all
+
+data = me.data;
+
+z = data - (me.moveThresh+5);
+z(z<=0) = -max(max(z));
+
+f = figure; hold on;
+f.Position = [-1311        -179         798        1003];
+imagesc(obj.time,1:size(z,2),z')
+
+xline(sample,'k--','LineWidth',3)
+xline(delay,'k--','LineWidth',3)
+xline(0,'k--','LineWidth',3)
+
+hold off
+
+ylim([1,size(z,2)])
+
+a = colorbar;
+a.Label.String = '(Motion Energy - Threshold) > 0';
+xlabel('Time (s) from go cue')
+ylabel('Trials')
+ax = gca;
+ax.FontSize = 30;
+
+colormap cool
 % 
-% f = figure(21);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/pcaNullSpace/';
-% fn = ['potent_' rates_or_factors '_JEB7_2021-04-29_lfadsrun12'];
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/motionEnergy/';
+% fn = ['motionEnergyMap_JEB7_2021-04-29_threshincreasedby5'];
 % mysavefig(f,pth,fn);
 
 
-%% activity modes
-
-% [latents,trials_by_type,modes] = activityModes_nullPotent(rez,dat,obj,params);
-% TODO: var explained of trial averaged data, not single trials b/c the
-% variability messes things up...
 
 
-[latents,trials_by_type,modes] = cdNullSpace_elsayed(rez,dat,obj,params);
 
-modes.varexp = activityModes_varexp(modes,rez);
 
-plt.trial_types = [1 2];
-plt.plot_mean = 1;
-clrs = getColors();
-plt.colors = {clrs.rhit , clrs.lhit};
-plotAllModes_nullPotent(obj,params,latents,trials_by_type,plt)
-% % 
-% f = figure(221);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/pcaNullSpace/';
-% fn = ['nullCDs_' rates_or_factors '_JEB7_2021-04-29_lfadsrun12'];
-% mysavefig(f,pth,fn);
-% 
-% f = figure(222);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/pcaNullSpace/';
-% fn = ['potentCDs_' rates_or_factors '_JEB7_2021-04-29_lfadsrun12'];
-% mysavefig(f,pth,fn);
-% 
+
+
+
+
 
 

@@ -9,16 +9,21 @@ end
 dots = modes'*modes;
 
 f = figure;
-set(f,'units','normalized','Position',[0.45,0.25,0.45,0.6])
+set(f,'units','normalized','Position',[0.45,0.18,0.55,0.7])
 imagesc(dots);
-colorbar
+h = colorbar;
+h.Label.String = 'Dot Product';
 cmap = flip(gray);
 colormap(cmap)
-caxis([min(min(dots)),max(max(dots))])
+caxis([-1 1])
+% caxis([min(min(dots)),max(max(dots))])
 xticks([1:1+numel(modenames)])
 xticklabels(modenames)
 yticks([1:1+numel(modenames)])
 yticklabels(modenames)
 title(titleStr)
+
+ax = gca;
+ax.FontSize = 35;
 
 end % dotProductModes
