@@ -10,11 +10,11 @@
 % In each cell array will contain the projection of the trial-averaged PSTH
 % for that condition onto the corresponding mode
 
-function latentChoice = getChoiceModeProjection(obj,choice_mode,smooth,conditions)
+function latentChoice = getChoiceModeProjection_Multi(multipsth,choice_mode,smooth,conditions)
 latentChoice = cell(1,numel(conditions));     % Cell array: 1 x # projection conditions
 
-%psth = obj.psth - mean(obj.psth,1);     % Mean center the PSTHs
-psth = obj.psth;
+psth = multipsth - mean(multipsth,1);     % Mean center the PSTHs
+% psth = multipsth;
 
 for j = 1:numel(conditions)             % For each condition...
     cond = conditions(j);

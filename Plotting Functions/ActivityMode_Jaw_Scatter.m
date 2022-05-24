@@ -14,24 +14,15 @@ for j = conditions                              % For all conditions
     trialid = met.trialid{j};                   % Get the trials that correspond to those conditions
     nTrials = length(trialid);
     if cnt == 0
-        jawToUse = jawVel(cnt+1:nTrials);
+        TrialsToUse = cnt+1:nTrials;
     else
-        jawToUse = jawVel(cnt:nTrials); 
+        TrialsToUse = cnt:cnt+nTrials-1; 
     end
     cnt = cnt+1+nTrials;
 
-    if strcmp(params.earlytrials,'motionEnergy')
-        temp = find(obj.earlyMoveix);
-        %earlycond = ismember(trialid,temp)
-    else
-        temp = obj.earlyMoveix;
-    end
-    earlyTrialid = ismember(trialid,temp);
-    regTrialid = ~ismember(trialid,temp);
     color = clrs{j};                     
-    scatter(jawToUse(regTrialid),avgChoice(regTrialid),'MarkerFaceColor',color)     % Make a scatter plot comparing these values 
+    scatter(jawVel(TrialsToUse),avgChoice(TrialsToUse),'MarkerFaceColor',color)     % Make a scatter plot comparing these values                                                                       % for the desired trials, colored according to condition
     hold on;
-    scatter(jawToUse(earlyTrialid),avgChoice(earlyTrialid),'MarkerFaceColor',color,'Marker','diamond')                                                                        % for the desired trials, colored according to condition
 end
 ax = gca;
 ax.FontSize = 12;
