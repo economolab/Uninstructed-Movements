@@ -5,31 +5,48 @@
 % OUTPUT = [ntrials x length of trial] array of jaw velocity values (for a single
 % trial)
 
-function jaw = findJawVelocity(edges, obj,conditions, met)
+function jaw = findJawVelocity(edges, obj,conditions, met,toplot)
 traj = obj.traj{1};                             % Get the video data
 jaw = cell(1,numel(conditions));
+jawstd = cell(1,numel(conditions));
 
 for cond = 1:numel(conditions)
     nTrials = numel(met.trialid{cond});
-    tempjaw = nan(numel(edges), nTrials);    % (time x num trials in curr condition)
-
+    temptri = nan(numel(edges), nTrials);    % (time x num trials in curr condition)
+    derivthresh = 0.5;
     for i = 1:nTrials                        % For every trial in the condition
-        trix = met.trialid{cond}(i);                      
-        if isnan(traj(trix).NdroppedFrames )                       % If the video data from this trial isn't good, skip it
-            continue;
+        trix = met.trialid{cond}(i);
+        if isfield(traj,'NdroppedFrames')
+            if isnan(traj(trix).NdroppedFrames )                       % If the video data from this trial isn't good, skip it
+                continue;
+            end
+
+            if ~isnan(traj(trix).frameTimes)                               % If the video data from this trial is good...
+                ts = mySmooth(traj(trix).ts(:, 2, 4), 21);                                               % Side-view, up and down position of the jaw, smoothed
+                tsinterp = interp1(traj(trix).frameTimes-0.5-obj.bp.ev.goCue(trix), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
+                basederiv = median(diff(tsinterp),'omitnan');                                         % Find the median jaw velocity (aka baseline)
+            end
+
+        else
+            ts = mySmooth(traj(trix).ts(:, 2, 4), 21);                                               % Side-view, up and down position of the jaw, smoothed
+            nFrames = length(ts);
+            trialLen = nFrames*(1/400);
+            frameTimes = 0:(1/400):trialLen;
+            tsinterp = interp1(frameTimes(2:end)-obj.bp.ev.goCue(trix), ts, edges);                           % Linear interpolation of jaw position to keep number of time points consistent across trials
+            basederiv = median(diff(tsinterp),'omitnan');                                            % Find the median jaw velocity (aka baseline)
         end
 
-        if ~isnan(traj(trix).frameTimes)                           % If the video data from this trial is good...
-            ts = mySmooth(traj(trix).ts(:, 2, 2), 21);                                               % Side-view, up and down position of the jaw, smoothed
-            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
-            basederiv = median(diff(tsinterp),'omitnan');                                         % Find the median jaw velocity (aka baseline)
-        end
         %Find the difference between the jaw velocity and the
         %baseline jaw velocity
-        tempjaw(2:end, i) = abs(diff(tsinterp)-basederiv);      % Values > 0 = jaw is moving
+        if strcmp(toplot,'prob')
+            temptri(2:end, i) = abs(diff(tsinterp)-basederiv)>derivthresh;      % Values > 0 = jaw is moving
+        elseif strcmp(toplot,'vel')
+            temptri(2:end, i) = abs(diff(tsinterp)-basederiv);              % Values > 0 = jaw is moving
+        end
     end
-
-    jaw{cond} = tempjaw;
+    jawstd{cond} = std(temptri,0,2,'omitnan');
+    jaw{cond} = temptri;
 end
+
 
 end  % findJawVelocity
