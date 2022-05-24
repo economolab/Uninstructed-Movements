@@ -29,50 +29,61 @@ addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'))
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
-toSave = 'yes';
+toSave = 'no';
 %% SET RUN PARAMS
 
 % Which method you want to use to identify early movement trials:
 % 'motionEnergy' or 'DeepLabCut'
-params.earlytrials         =  'motionEnergy';
+params.earlytrials         =  'DeepLabCut';
 params.moveThresh          = 0.15;      % What percentage of the delay period you want to use for identifying early move trials
 params.alignEvent          = 'goCue';   % goCue or firstLick
 params.lowFR               = 1; % remove clusters firing less than this val
 params.dt = 0.05;
 
 % set conditions to use for projections
-params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off
-params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw off
-params.condition(3) = {'R&miss&~stim.enable&autowater.nums==2&~early'};   % error right, no stim, aw off
-params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % error left, no stim, aw off
-params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
-params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
-params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
-params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
-params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
+params.condition(1) = {'R&hit&~stim.enable&~early'}; % right hits, no stim, aw off
+params.condition(2) = {'L&hit&~stim.enable&~early'}; % left hits, no stim, aw off
+params.condition(3) = {'R&hit&(stim.num==1)&~early'}; % right hits, stim = full delay, aw off
+params.condition(4) = {'L&hit&(stim.num==1)&~early'}; % right hits, stim = full delay, aw off
+% params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off
+% params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw of
+% params.condition(3) = {'R&miss&~stim.enable&autowater.nums==2&~early'};   % error right, no stim, aw off
+% params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % error left, no stim, aw off
+% params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
+% params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
+% params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
+% params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
+% params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
 
 
 % set conditions used for finding the modes
 aw = '2'; % 1-on, 2-off
 stim = '0'; % 0-off
-params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
-params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
-params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
-params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
-params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
-params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
-
+params.modecondition(1) = {['R&hit&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
+params.modecondition(2) = {['L&hit&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
+params.modecondition(3) = {['R&miss&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
+params.modecondition(4) = {['L&miss&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
+params.modecondition(5) = {['hit&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
+params.modecondition(6) = {['hit&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
+% params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
+% params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
+% params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
+% params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
+% params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
+% params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
 meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
-meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
+% meta = loadJEB5_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
 % meta = loadEKH1_ALMVideo(meta);
-meta = loadEKH3_ALMVideo(meta);
-meta = loadJGR2_ALMVideo(meta);
-meta = loadJGR3_ALMVideo(meta);
+% meta = loadEKH3_ALMVideo(meta);
+% meta = loadJGR2_ALMVideo(meta);
+% meta = loadJGR3_ALMVideo(meta);
+meta = loadEEL6_Video(meta);
+meta = loadEEL7_Video(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
@@ -94,7 +105,7 @@ for i = 1:numel(meta)
     objs{i} = obj;
 end
 %%
-for gg = 1:length(meta)         % For all loaded sessions...
+for gg = 1%:length(meta)         % For all loaded sessions...
     ff = figure(gg);
     ff.WindowState = 'maximized';
     obj = objs{gg};
@@ -144,9 +155,9 @@ for gg = 1:length(meta)         % For all loaded sessions...
 
     % PANEL A: Plot prob of jaw velocity for both trial types
     subplot(3,2,1)
-    conditions = {1,2};
+    conditions = {1,2,3,4};
     colors = {[0 0 1],[1 0 0],[0.5 0.5 1],[1 0.5 0.5]};
-    plotJawProb_SessAvg(obj,met,conditions,colors)
+    plotJawProb_SessAvg(objs,meta,conditions,colors)
     legend('Right','Left')
 
     % Find the jaw velocity at all time points in the session for trials of
@@ -243,8 +254,8 @@ for gg = 1:length(meta)         % For all loaded sessions...
     title('Avg choice mode latents for each group')
     hold off;
 
-    sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'LateDelay');  % Name/title for session
-    sgtitle(sesstitle,'FontSize',16)
+%     sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'LateDelay');  % Name/title for session
+%     sgtitle(sesstitle,'FontSize',16)
 
     if strcmp(toSave,'yes')
         saveas(gcf,fullfile(outputdir,sesstitle),'jpeg')

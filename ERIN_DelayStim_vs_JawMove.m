@@ -133,6 +133,7 @@ for gg = 1%:length(meta)         % For all loaded sessions...
     title('Avg jaw velocity (across 5 sessions)','FontSize',13)
 end
 
+figure();
 ERIN_plotJawVelHeatmap(alljaw)
 c= colorbar;
 ylabel(c,'Velocity')
