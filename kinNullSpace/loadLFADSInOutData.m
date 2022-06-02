@@ -46,15 +46,17 @@ train = rmfield(datout{1},remov);
 valid = rmfield(datout{2},remov);
 
 clear datout
-datout.trials = cat(1,datin.train_trials,datin.valid_trials);
-datout.factors = cat(3,train.factors,valid.factors);
-datout.rates = cat(3,train.output_dist_params,valid.output_dist_params);
+datout.trials = sort(cat(1,datin.train_trials,datin.valid_trials));
+datout.factors = train.factors;
+datout.rates = train.output_dist_params; 
+% datout.factors = cat(3,train.factors,valid.factors);
+% datout.rates = cat(3,train.output_dist_params,valid.output_dist_params);
 
 % -- create one struct dat
 dat = datin;
 dat.trials = datout.trials;
 dat.factors = permute(datout.factors,[2,1,3]);
 dat.rates = permute(datout.rates,[2,1,3]);
-dat.rates = dat.rates(:,:,dat.trials); % only keep training trials (which is all trials from a session)
-dat.factors = dat.factors(:,:,dat.trials);
+% dat.rates = dat.rates(:,:,dat.trials); % only keep training trials (which is all trials from a session)
+% dat.factors = dat.factors(:,:,dat.trials);
 end

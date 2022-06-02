@@ -277,10 +277,18 @@ classdef Violin < handle
             obj.ShowWhiskers = args.ShowWhiskers;
 
             if not(isempty(args.ViolinColor))
-                if size(args.ViolinColor{1},1) > 1
-                    ViolinColor{1} = args.ViolinColor{1}(pos,:);
-                else
-                    ViolinColor{1} = args.ViolinColor{1};
+                try
+                    if size(args.ViolinColor{1},1) > 1
+                        ViolinColor{1} = args.ViolinColor{1}(pos,:);
+                    else
+                        ViolinColor{1} = args.ViolinColor{1};
+                    end
+                catch
+                    if size(args.ViolinColor,1) > 1
+                        ViolinColor{1} = args.ViolinColor(pos,:);
+                    else
+                        ViolinColor{1} = args.ViolinColor;
+                    end
                 end
                 if length(args.ViolinColor)==2
                     if size(args.ViolinColor{2},1) > 1

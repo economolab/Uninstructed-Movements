@@ -51,7 +51,6 @@ end
 kin = cat(3, featMat{:});
 v = cat(2, viewNum{:});
 kin(1:10, :, :) = kin(1:10, :, :).*0; % remove any smoothing artifacts at beginning of trials
-% kin(1:10,:,:) = 0; 
 
 allfeats = cat(2, feats{:});
 featLeg = cell(size(kin, 3), 1);
@@ -59,7 +58,7 @@ for i = 1:numel(allfeats)
     featLeg{i*NvarsPerFeat-3} = [allfeats{i} '_xdisp_view' num2str(v(i))];
     featLeg{i*NvarsPerFeat-2} = [allfeats{i} '_ydisp_view' num2str(v(i))];
     featLeg{i*NvarsPerFeat-1} = [allfeats{i} '_xvel_view' num2str(v(i))];
-    featLeg{i*NvarsPerFeat} = [allfeats{i} '_xvel_view' num2str(v(i))];
+    featLeg{i*NvarsPerFeat} = [allfeats{i} '_yvel_view' num2str(v(i))];
 end
 
 end

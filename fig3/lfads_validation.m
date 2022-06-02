@@ -44,7 +44,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = ''; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run1'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -67,15 +67,16 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 % - obj: preprocessed data obj
 [meta,params,obj,dat] = getNeuralActivity(meta,params);
 
+
 %% lfads and gaussian smoothed single trials (all trials used to train lfads)
 
 lfads = dat.rates;
 
 gauss = obj.trialdat(:,:,dat.trials);
 
-sm = 31; winsize = sm*params.dt;
+sm = 31; sigma = 30; winsize = sm*params.dt/2;
 for i = 1:size(gauss,2) % for each clu
-    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm); % causal gaussian filter
+    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm,sigma); % causal gaussian filter
 end
 %% save some random cells
 sample = mode(obj.bp.ev.sample) - mode(obj.bp.ev.(params.alignEvent));
@@ -127,14 +128,10 @@ clear temp
 
 lfads = dat.rates;
 
-gauss = obj.trialdat(:,:,dat.trials);
+gauss = obj.trialdat;
 
 rhits = params.trialid{2};
 lhits = params.trialid{3};
-[~,mask] = ismember(dat.trials,rhits);
-rhits = find(mask);
-[~,mask] = ismember(dat.trials,lhits);
-lhits = find(mask);
 
 temp{1} = lfads(:,:,rhits);
 temp{2} = lfads(:,:,lhits);
@@ -146,11 +143,10 @@ temp{2} = gauss(:,:,lhits);
 
 gauss = temp; clear temp
 
-
-sm = 31; winsize = sm*params.dt;
+sm = 31; sigma = 10;
 for j = 1:2
     for i = 1:size(gauss{j},2) % for each clu
-        gauss{j}(:,i,:) = mySmooth(squeeze(gauss{j}(:,i,:)),sm); % causal gaussian filter
+        gauss{j}(:,i,:) = mySmooth(squeeze(gauss{j}(:,i,:)),sm,sigma); % causal gaussian filter
     end
 end
 %% save same cells as above
@@ -210,6 +206,12 @@ end
 %% plot all cells in a big plot
 clear temp
 
+clrs = {[0 0.4470 0.7410],[0.6350 0.0780 0.1840],...
+        [184, 146, 79]./255,[78, 186, 96]./255};
+    
+sample = mode(obj.bp.ev.sample) - mode(obj.bp.ev.(params.alignEvent));
+delay = mode(obj.bp.ev.delay) - mode(obj.bp.ev.(params.alignEvent));
+
 
 f = figure;
 alph = 1;
@@ -264,11 +266,11 @@ end
 
 lfads = dat.rates;
 
-gauss = obj.trialdat(:,:,dat.trials);
+gauss = obj.trialdat;
 
-sm = 31; winsize = sm*params.dt;
+sm = 51; sigma = 51;
 for i = 1:size(gauss,2) % for each clu
-    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm); % causal gaussian filter
+    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm,sigma); % causal gaussian filter
 end
 
 
@@ -277,7 +279,7 @@ for i = 1:size(gauss,2)
 
 
     lfadspsth = mean(lfads(:,i,:),3);
-    poppsth = mySmooth(mean(gauss(:,i,:),3),sm);
+    poppsth = mySmooth(mean(gauss(:,i,:),3),sm,sigma);
     
     temp = corrcoef(lfadspsth,poppsth);
     corrs(i) = temp(1,2);
@@ -308,9 +310,9 @@ h2.Parent.YLabel.String = '';
 h2.Parent.Title.String = 'CDF';
 h2.Parent.FontSize = 15;
 
-pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/lfads_psth_corr';
-fn = 'lfads_psthcorr_JEB7_2021-04-29_run12_gausssm_31_rhit_lhit';
-mysavefig(f,pth,fn)
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/lfads_psth_corr';
+% fn = 'lfads_psthcorr_JEB7_2021-04-29_run12_gausssm_31_rhit_lhit';
+% mysavefig(f,pth,fn)
 
 
 
@@ -326,24 +328,19 @@ mysavefig(f,pth,fn)
 
 lfads = dat.rates;
 
-gauss = obj.trialdat(:,:,dat.trials);
+gauss = obj.trialdat;
 
 rhits = params.trialid{2};
 lhits = params.trialid{3};
-[~,mask] = ismember(dat.trials,rhits);
-rhits = find(mask);
-[~,mask] = ismember(dat.trials,lhits);
-lhits = find(mask);
 
-trials = 1:numel([rhits;lhits]); % using right and left hit trials only 
+trials = [rhits;lhits]; % using right and left hit trials only 
 
 lfads = lfads(:,:,trials);
 
 gauss = gauss(:,:,trials);
 
-sm = 31; winsize = sm*params.dt;
 for i = 1:size(gauss,2) % for each clu
-    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm); % causal gaussian filter
+    gauss(:,i,:) = mySmooth(squeeze(gauss(:,i,:)),sm,sigma); % causal gaussian filter
 end
 
 
@@ -396,12 +393,8 @@ lfads = dat.factors;
 
 rhits = params.trialid{2};
 lhits = params.trialid{3};
-[~,mask] = ismember(dat.trials,rhits);
-rhits = find(mask);
-[~,mask] = ismember(dat.trials,lhits);
-lhits = find(mask);
 
-trials = 1:numel([rhits;lhits]); % using right and left hit trials only 
+trials = [rhits;lhits]; % using right and left hit trials only 
 
 temp{1} = lfads(:,:,rhits);
 temp{2} = lfads(:,:,lhits);
@@ -492,20 +485,15 @@ end
 
 
 %% show condition-averaged psth, lfads single trials, gaussian smoothed single trials
+
 clear temp
 
 lfads = dat.rates;
 
-gauss = obj.trialdat(:,:,dat.trials);
+gauss = obj.trialdat;
 
 rhits = params.trialid{2};
 lhits = params.trialid{3};
-rmiss = params.trialid{4};
-lmiss = params.trialid{5};
-[~,mask] = ismember(dat.trials,rhits);
-rhits = find(mask);
-[~,mask] = ismember(dat.trials,lhits);
-lhits = find(mask);
 
 
 temp{1} = lfads(:,:,rhits);
@@ -521,13 +509,14 @@ temp{2} = gauss(:,:,lhits);
 gauss = temp; clear temp
 
 
-sm = 101; winsize = sm*params.dt;
+
+sm = 51; sigma = 51; winsize = sigma;
 for j = size(gauss)
     for i = 1:size(gauss{j},2) % for each clu
-        gauss{j}(:,i,:) = mySmooth(squeeze(gauss{j}(:,i,:)),sm); % causal gaussian filter
+        gauss{j}(:,i,:) = mySmooth(squeeze(gauss{j}(:,i,:)),sm,sigma); % causal gaussian filter
     end
 end
-%% save same cells as above
+% save same cells as above
 
 close all
 sample = mode(obj.bp.ev.sample) - mode(obj.bp.ev.(params.alignEvent));
@@ -537,7 +526,8 @@ clrs = {[0 0.4470 0.7410],[0.6350 0.0780 0.1840],...
         [184, 146, 79]./255,[78, 186, 96]./255};
 
 alph = 0.5;
-clus =  [22,27,63];
+% clus =  randsample(params.cluid,1);
+clus = [21,34,54];
 for i = 1:numel(clus)
     f = figure;
     f.Position= [-1666         165        1144         273];
@@ -565,7 +555,7 @@ for i = 1:numel(clus)
     ax = subplot(1,3,2); hold on
     for j = 1:numel(lfads)
         temp = squeeze(lfads{j}(:,ix,:));
-        plot(obj.time,mySmooth(temp,10),'Color',clrs{j})
+        plot(obj.time,temp,'Color',clrs{j})
     end
     xlim([obj.time(10) obj.time(end)])
     title('LFADS')
@@ -582,7 +572,7 @@ for i = 1:numel(clus)
         temp = squeeze(gauss{j}(:,ix,:));
         plot(obj.time,temp,'Color',clrs{j})
     end
-    title(['Gaussian | winsize=' num2str(winsize) ' s'])
+    title(['Gaussian | sigma=' num2str(sigma) ' ms'])
     xlim([obj.time(10) obj.time(end)])
     xlabel('Time (s) from go cue')
     ax.YTick = [];
@@ -591,19 +581,13 @@ for i = 1:numel(clus)
     hold off
     
     
-%     pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/psth_lfads_gauss_compare';
-%     fn = [meta.anm '_' meta.date '_' params.lfads_run '_cell_' num2str(clus(i)) ];
-%     mysavefig(f,pth,fn)
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/psth_lfads_gauss_compare';
+    fn = [meta.anm '_' meta.date '_' params.lfads_run '_cell_' num2str(clus(i)) ];
+    mysavefig(f,pth,fn)
     
-%     pause(10)
+    pause(10)
     
 end
-    
-    
-
-
-
-
 
 
 

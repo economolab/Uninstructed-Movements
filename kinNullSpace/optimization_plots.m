@@ -4,10 +4,6 @@ function optimization_plots(rez,obj,dat,params)
 % for lfads data
 rhit = params.trialid{2};
 lhit = params.trialid{3};
-mask = ismember(dat.trials,rhit);
-rhit = find(mask);
-mask = ismember(dat.trials,lhit);
-lhit = find(mask);
 
 trials = [rhit; lhit];
 rmask = 1:numel(rhit);
@@ -28,7 +24,7 @@ end
 lw = 6;
 clrs = getColors();
 
-f = figure(20); clf;  sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
+f = figure; clf;  sgtitle(['Null Space Projections | %VE=' num2str(rez.varexp_null*100)])
 f.Position = [-856  -124   431   937];
 for i = 1:size(N_null,2) % num null dims
     ax = subplot(size(N_null,2),1,i); hold on
@@ -59,7 +55,7 @@ for i = 1:size(N_null,2) % num null dims
     hold off
 end
 
-f = figure(21);  clf; sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
+f = figure;  clf; sgtitle(['Potent Space Projections | %VE=' num2str(rez.varexp_potent*100)])
 f.Position = [-856  -124   431   937];
 for i = 1:size(N_potent,2) % num null dims
     ax = subplot(size(N_potent,2),1,i); hold on

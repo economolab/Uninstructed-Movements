@@ -1,22 +1,19 @@
-function out = mySmooth(x, N)
+function [out,kernsd] = mySmooth(x, N)
 % operates on first dimension only
-% gaussian kernel with window size N
+% gaussian kernel with window size N, std dev sigma
 
-    if N==1
-        out = x;
-        return;
-    end
+% returns:
+% - out: filtered data
+% - kernsd: std dev of gaussian kernel
 
     Ncol = size(x, 2);
     Nel = size(x, 1);
-    if mod(N, 2)==0
-        N = N+1;
-    end
     
     kern = gausswin(N);
-    if N>1
-        kern(1:floor(N/2)) = 0; %causal
-    end
+    kernsd = std(1:N);
+    
+    
+    kern(1:floor(numel(kern)/2)) = 0; %causal
     kern = kern./sum(kern);
     
     out = zeros(Nel, Ncol);

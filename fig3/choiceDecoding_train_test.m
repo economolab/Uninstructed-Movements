@@ -3,7 +3,6 @@ clear,clc,close all
 addpath(genpath(pwd))
 
 
-
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
@@ -40,7 +39,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run1'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -65,61 +64,46 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 
 
 
-%% lfads and gaussian smoothed single trials (left and right hits only)
+%% lfads factors, and gaussian smoothed pcs/factors
 
-lfads = dat.rates;
+lfads = dat.factors;
 
-gauss = obj.trialdat(:,:,dat.trials);
+gauss = obj.trialdat;
 
-rhits = params.trialid{2};
-lhits = params.trialid{3};
-[~,mask] = ismember(dat.trials,rhits);
-rhits = find(mask);
-[~,mask] = ismember(dat.trials,lhits);
-lhits = find(mask);
+% project gauss onto first nFactors(lfads) PCs using all data
+% using all trials b/c that's what we did with lfads as well
+nFactors = size(lfads,2);
+temp = permute(gauss,[1 3 2]);
+temp_reshaped = reshape(temp,size(temp,1)*size(temp,2),size(temp,3));
+[pcs,pcalatents] = pca(temp_reshaped,'NumComponents',nFactors);
+[~,~,~,~,falatents] = factoran(temp_reshaped,nFactors);
 
-temp{1} = lfads(:,:,rhits);
-temp{2} = lfads(:,:,lhits);
+pcalatents = reshape(pcalatents,size(temp,1),size(temp,2),nFactors);
+gauss_pca = permute(pcalatents,[1 3 2]);
 
-lfads = temp; clear temp
+falatents = reshape(falatents,size(temp,1),size(temp,2),nFactors);
+gauss_fa = permute(falatents,[1 3 2]);
 
-temp{1} = gauss(:,:,rhits);
-temp{2} = gauss(:,:,lhits);
-
-gauss = temp; clear temp
-
-
-sm = 31; winsize = sm*params.dt;
-for j = 1:2
-    for i = 1:size(gauss{j},2) % for each clu
-        gauss{j}(:,i,:) = mySmooth(squeeze(gauss{j}(:,i,:)),sm); % causal gaussian filter
-    end
+sm = 31; sigma = 31;
+for i = 1:size(gauss_pca,2) % for each factor
+    gauss_pca(:,i,:) = mySmooth(squeeze(gauss_pca(:,i,:)),sm,sigma); % causal gaussian filter
 end
 
-nFactors = size(lfads{1},2);
-temp = cat(3,gauss{1},gauss{2});
-temp2 = permute(temp,[1 3 2]);
-temp_reshaped = reshape(temp2,size(temp2,1)*size(temp2,2),size(temp2,3));
-[pcs,gausslatents] = pca(temp_reshaped,'NumComponents',nFactors);
-% [~,~,~,~,gausslatents] = factoran(temp_reshaped,nFactors);
-
-
-
-
-gausslatents = reshape(gausslatents,size(temp2,1),size(temp2,2),nFactors);
-gausslatents = permute(gausslatents,[1 3 2]);
-
-lfadslatents = cat(3,lfads{1},lfads{2});
 
 %% choice decoding
 
-k = 1; % number of iterations (bootstrap)
+k = 10; % number of iterations (bootstrap)
 
-acc_lfads = zeros(size(lfadslatents,1),k);
-acc_pca = zeros(size(gausslatents,1),k);
+dt = 10; % train/test a model every dt'th time point
+mdlTime = obj.time(1:dt:numel(obj.time));
+numT = numel(mdlTime);
+
+acc_lfads = zeros(numT,k);
+acc_gauss_pca = zeros(numT,k);
+acc_gauss_fa = zeros(numT,k);
 
 train = 0.8;
-nTrials = min(numel(rhits),numel(lhits));
+nTrials = min(numel(params.trialid{2}),numel(params.trialid{3}));
 nTrain = round(train*nTrials); % per condition
 nTest  = nTrials - nTrain;     % per condition
 
@@ -127,14 +111,11 @@ for j = 1:k
     
     disp(['Iteration ' num2str(j) '/' num2str(k)])
     
-    r = 1:numel(rhits);
-    l = (numel(rhits)+1):(numel(rhits) + numel(lhits));
-    
-    rhit_train = randsample(r,nTrain);
-    lhit_train = randsample(l,nTrain);
-    
-    rhitremain = find(~ismember(r,rhit_train));
-    lhitremain = find(~ismember(l,lhit_train));
+    rhit_train = randsample(params.trialid{2},nTrain);
+    lhit_train = randsample(params.trialid{3},nTrain);
+
+    rhitremain = params.trialid{2}(~ismember(params.trialid{2},rhit_train));
+    lhitremain = params.trialid{3}(~ismember(params.trialid{3},lhit_train));
     
     rhit_test = randsample(rhitremain,nTest);
     lhit_test = randsample(lhitremain,nTest);
@@ -143,77 +124,49 @@ for j = 1:k
     
     y_test = cat(1,0*ones(numel(rhit_test),1),1*ones(numel(lhit_test),1));
     
+    X_train_lfads = lfads(:,:,[rhit_train;lhit_train]);
+    X_test_lfads = lfads(:,:,[rhit_test;lhit_test]);
+    
+    X_train_gauss_pca = gauss_pca(:,:,[rhit_train;lhit_train]);
+    X_test_gauss_pca = gauss_pca(:,:,[rhit_test;lhit_test]);
+    
+    X_train_gauss_fa = gauss_fa(:,:,[rhit_train;lhit_train]);
+    X_test_gauss_fa = gauss_fa(:,:,[rhit_test;lhit_test]);
+    
 
-    
-    %%
-    
-    % LFADS factors
-    
-    X_train = lfadslatents(:,:,[rhit_train;lhit_train]);
-    X_test = lfadslatents(:,:,[rhit_test;lhit_test]);
-
-    for i = 1:size(X_train,1) % each timepoint
-        x_train = squeeze(X_train(i,:,:)); % (factors,trials) for timepoint i
-%         mdl = fitclinear(x_train',y_train);
-        mdl = fitcsvm(x_train',y_train);
-        x_test = squeeze(X_test(i,:,:)); % (factors,trials) for timepoint i
-        pred = predict(mdl,x_test');
-%         unique(pred)
-        acc_lfads(i,j) = sum(pred == y_test) / numel(y_test);
-    end
-    
-    % PCA factors
-    
-    
-    X_train = gausslatents(:,:,[rhit_train;lhit_train]);
-    X_test = gausslatents(:,:,[rhit_test;lhit_test]);
-    
-    
-    for i = 1:size(X_train,1) % each timepoint
-        x_train = squeeze(X_train(i,:,:)); % (factors,trials) for timepoint i
-        mdl = fitcsvm(x_train',y_train);
-        x_test = squeeze(X_test(i,:,:)); % (factors,trials) for timepoint i
-        pred = predict(mdl,x_test');
-        acc_pca(i,j) = sum(pred == y_test) / numel(y_test);
-    end
-    
-    
-    lfads_r = lfadslatents(:,:,rhit_train);
-    lfads_l = lfadslatents(:,:,lhit_train);
-    dist_r = zeros(size(lfads_r));
-    dist_l = zeros(size(lfads_l));
-    for i = 1:size(X_train_lfads,1) % each timepoint
-        dist_r(i,:,:) = squeeze(lfads_r(i,:,:));
-        dist_l(i,:,:) = squeeze(lfads_l(i,:,:));
-        
-%         histogram(r(:),'FaceColor','b'); hold on;
-%         histogram(l(:),'FaceColor','r');
-%         pause
-%         hold off
-    end
-    test = dist_r - dist_l;
-    
+    acc_lfads = train_test_choiceDecoder(acc_lfads,X_train_lfads,X_test_lfads,...
+                                         y_train,y_test,j,dt);
+                                     
+    acc_gauss_pca = train_test_choiceDecoder(acc_gauss_pca,X_train_gauss_pca,X_test_gauss_pca,...
+                                         y_train,y_test,j,dt);              
+                                     
+    acc_gauss_fa = train_test_choiceDecoder(acc_gauss_fa,X_train_gauss_fa,X_test_gauss_fa,...
+                                         y_train,y_test,j,dt);      
+       
     
 end
 
 
 %% accuracy
+
+close all
+
 align = mode(obj.bp.ev.(params.alignEvent));
 sample = mode(obj.bp.ev.sample) - align;
 delay = mode(obj.bp.ev.delay) - align;
 
 f = figure(11); ax = axes(f); hold on;
+stderr = std(acc_lfads,[],2) ./ k;
+means = mean(acc_lfads,2);
+shadedErrorBar(mdlTime, means, stderr, {'Color',[70, 176, 106]./255,'LineWidth',3},0.5, ax);
 
-stderr = mySmooth(std(acc_lfads,[],2) ./ k, 31);
-means = mySmooth(mean(acc_lfads,2) , 31);
-shadedErrorBar(obj.time, means, stderr, {'Color',[70, 176, 106]./255,'LineWidth',1.5},0.5, ax);
+stderr = std(acc_gauss_pca,[],2) ./ k;
+means = mean(acc_gauss_pca,2);
+shadedErrorBar(mdlTime, means, stderr, {'Color',[115, 68, 130]./255,'LineWidth',3},0.5, ax);
 
-stderr = mySmooth(std(acc_pca,[],2) ./ k, 31);
-means = mySmooth(mean(acc_pca,2) , 31);
-shadedErrorBar(obj.time, means, stderr, {'Color',[115, 68, 130]./255,'LineWidth',1.5},0.5, ax);
-
-% plot(obj.time,mean(acc_lfads,2),'Color',[70, 176, 106]./255,'LineWidth',3)
-% plot(obj.time,mean(acc_pca,2),'Color',[115, 68, 130]./255,'LineWidth',3)
+stderr = std(acc_gauss_fa,[],2) ./ k;
+means = mean(acc_gauss_fa,2);
+shadedErrorBar(mdlTime, means, stderr, {'Color',[222, 111, 142]./255,'LineWidth',3},0.5, ax);
 
 xline(sample,'k--','LineWidth',2)
 xline(delay,'k--','LineWidth',2)
@@ -225,12 +178,26 @@ ylabel('Accuracy')
 % legend({'LFADS','PCA'})
 ax = gca;
 ax.FontSize = 20;
-xlim([obj.time(30) obj.time(end)])
+xlim([mdlTime(5) mdlTime(end)])
 hold off
 
-pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/choiceDecoder';
-fn = [meta.anm '_' meta.date '_' params.lfads_run ];
-mysavefig(f,pth,fn)
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/choiceDecoder';
+% fn = [meta.anm '_' meta.date '_' params.lfads_run ];
+% mysavefig(f,pth,fn)
 
 
+%% Helper Functions
+
+function acc = train_test_choiceDecoder(acc,X_train,X_test,y_train,y_test,bootiter,dt)
+ix = 1;
+for i = 1:dt:size(X_train,1) % each timepoint
+    x_train = squeeze(X_train(i,:,:)); % (factors,trials) for timepoint i
+    %         mdl = fitclinear(x_train',y_train);
+    mdl = fitcsvm(x_train',y_train);
+    x_test = squeeze(X_test(i,:,:)); % (factors,trials) for timepoint i
+    pred = predict(mdl,x_test');
+    acc(ix,bootiter) = sum(pred == y_test) / numel(y_test);
+    ix = ix + 1;
+end
+end
 

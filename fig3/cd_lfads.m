@@ -39,7 +39,7 @@ params = getDefaultParams();
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
 params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
+params.lfads_run = 'run1'; % 'run3' , leave empty to use most recent run
 params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
@@ -63,45 +63,35 @@ params.advance_movement = 0.025; % seconds, amount of time to advance movement d
 [meta,params,obj,dat] = getNeuralActivity(meta,params);
 
 
-%%
+%% FACTORS , AVERAGED BY CONDITION
 
-clear condition
-condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
-condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
-trialid = findTrials(obj,condition);
+rates(:,:,1) = squeeze(mean(dat.rates(:,:,params.trialid{2}),3));
+rates(:,:,2) = squeeze(mean(dat.rates(:,:,params.trialid{3}),3));
 
-mask = ismember(dat.trials,trialid{1});
-trialid{1} = find(mask);
-mask = ismember(dat.trials,trialid{2});
-trialid{2} = find(mask);
-
-psth = zeros(size(dat.rates,1),size(dat.rates,2),numel(trialid));
-factors_avg = zeros(size(dat.factors,1),size(dat.factors,2),numel(trialid));
-for i = 1:numel(trialid)
-    psth(:,:,i) = mean(dat.rates(:,:,trialid{i}),3);
-    factors_avg(:,:,i) = mean(dat.factors(:,:,trialid{i}),3);
-end
+factors(:,:,1) = squeeze(mean(dat.factors(:,:,params.trialid{2}),3));
+factors(:,:,2) = squeeze(mean(dat.factors(:,:,params.trialid{3}),3));
 
 
-%% coding dimensions with psth
-
+%% coding dimensions with factors
 
 rez.time = obj.time;
-rez.data = psth;
-% rez.data = factors_avg;
-rez.condition = condition;
+rez.psth = factors;
+rez.condition = params.condition;
 rez.alignEvent = params.alignEvent;
 rez.ev = obj.bp.ev;
 
 %% cd early mode
 
-e1 = mode(rez.ev.sample) - mode(rez.ev.(params.alignEvent));
-e2 = mode(rez.ev.sample) - mode(rez.ev.(params.alignEvent)) + 0.4;
+% e1 = mode(rez.ev.delay) - 0.5 - mode(rez.ev.(params.alignEvent));
+% e2 = mode(rez.ev.delay) - 0.1 - mode(rez.ev.(params.alignEvent));
 
-times = rez.time>e1 & rez.time<e2;
-tempdat = rez.data(:,:,[1,2]);
-mu = squeeze(mean(tempdat(times,:,:),1));
-sd = squeeze(std(tempdat(times,:,:),[],1));
+e1 = mode(rez.ev.sample) + 0.4 - mode(rez.ev.(params.alignEvent));
+e2 = mode(rez.ev.sample) + 0.8 - mode(rez.ev.(params.alignEvent));
+
+times.early = rez.time>e1 & rez.time<e2;
+tempdat = rez.psth(:,:,[1,2]);
+mu = squeeze(mean(tempdat(times.early,:,:),1));
+sd = squeeze(std(tempdat(times.early,:,:),[],1));
 cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
 cd(isnan(cd)) = 0;
 cd = cd./sum(abs(cd)); % (ncells,1)
@@ -109,11 +99,13 @@ rez.cdEarly_mode = cd;
 
 %% cd late mode
 
-times = rez.time>-0.41 & rez.time<-0.01;
+e1 = mode(rez.ev.goCue) - 0.5 - mode(rez.ev.(params.alignEvent));
+e2 = mode(rez.ev.goCue) - 0.1 - mode(rez.ev.(params.alignEvent));
 
-tempdat = rez.data(:,:,[1,2]);
-mu = squeeze(mean(tempdat(times,:,:),1));
-sd = squeeze(std(tempdat(times,:,:),[],1));
+times.late = rez.time>e1 & rez.time<e2;
+tempdat = rez.psth(:,:,[1,2]);
+mu = squeeze(mean(tempdat(times.late,:,:),1));
+sd = squeeze(std(tempdat(times.late,:,:),[],1));
 cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
 cd(isnan(cd)) = 0;
 cd = cd./sum(abs(cd)); % (ncells,1)
@@ -122,11 +114,13 @@ rez.cdLate_mode = cd;
 
 %% cd go mode
 
-times = rez.time>0.01 & rez.time<0.41;
+e1 = mode(rez.ev.goCue) + 0.02 - mode(rez.ev.(params.alignEvent));
+e2 = mode(rez.ev.goCue) + 0.42 - mode(rez.ev.(params.alignEvent));
 
-tempdat = rez.data(:,:,[1,2]);
-mu = squeeze(mean(tempdat(times,:,:),1));
-sd = squeeze(std(tempdat(times,:,:),[],1));
+times.go = rez.time>e1 & rez.time<e2;
+tempdat = rez.psth(:,:,[1,2]);
+mu = squeeze(mean(tempdat(times.go,:,:),1));
+sd = squeeze(std(tempdat(times.go,:,:),[],1));
 cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
 cd(isnan(cd)) = 0;
 cd = cd./sum(abs(cd)); % (ncells,1)
@@ -135,7 +129,7 @@ rez.cdGo_mode = cd;
 %% orthogonalize
 
 [fns,~] = patternMatchCellArray(fieldnames(rez),{'mode'},'all');
-modes = zeros(size(rez.data,2),numel(fns));
+modes = zeros(size(rez.psth,2),numel(fns));
 for i = 1:numel(fns)
     modes(:,i) = rez.(fns{i});
 end
@@ -153,9 +147,9 @@ end
 % CD_go projections normalized by mean activity after go cue
 % (t_go<t<0.4)
 
-normTimes{1} = rez.time>e1 & rez.time<e2; % sample
-normTimes{2} = rez.time>-0.6 & rez.time<0; % delay
-normTimes{3} = rez.time>0 & rez.time<0.4; % go
+% normTimes{1} = rez.time>e1 & rez.time<e2; % sample
+% normTimes{2} = rez.time>-0.6 & rez.time<0; % delay
+% normTimes{3} = rez.time>0 & rez.time<0.4; % go
 
 cond = [1 2];
 for i = 1:numel(fns)
@@ -163,9 +157,9 @@ for i = 1:numel(fns)
     for j = 1:numel(cond)
         c = cond(j);
         
-        tempdat = rez.data(:,:,c)*rez.(fns{i});
+        tempdat = rez.psth(:,:,c)*rez.(fns{i});
         
-        normfactor = abs(nanmean(tempdat(normTimes{i})));
+%         normfactor = abs(nanmean(tempdat(normTimes{i})));
         normfactor = 1;
         
         rez.([fns{i}(1:end-5) '_latent'])(:,j) = tempdat ./ normfactor;
@@ -177,7 +171,7 @@ clear cond
 %% variance explained
 
 for i = 1:numel(fns)
-    psth = rez.data;
+    psth = rez.psth;
     datacov = cov([psth(:,:,1) ; psth(:,:,2)]);
     datacov(isnan(datacov)) = 0;
     eigsum = sum(eig(datacov));
@@ -185,25 +179,51 @@ for i = 1:numel(fns)
 end
 
 
-%% PLOT CDs
+%% concatenate latents, find mean and stderror
 
+cdEarly{1} = rez(1).cdEarly_latent(:,1);
+cdEarly{2} = rez(1).cdEarly_latent(:,2);
+cdLate{1} = rez(1).cdLate_latent(:,1);
+cdLate{2} = rez(1).cdLate_latent(:,2);
+cdGo{1} = rez(1).cdGo_latent(:,1);
+cdGo{2} = rez(1).cdGo_latent(:,2);
+for i = 2:numel(rez)
+    for j = 1:2
+        cdEarly{j} = cat(2,cdEarly{j},rez(i).cdEarly_latent(:,j));
+        cdLate{j} = cat(2,cdLate{j},rez(i).cdLate_latent(:,j));
+        cdGo{j} = cat(2,cdGo{j},rez(i).cdGo_latent(:,j));
+    end
+end
+
+cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
+cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
+cdGo_latent_mean = [nanmean(cdGo{1},2) nanmean(cdGo{2},2)];
+
+cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ numel(rez); % std error
+cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
+cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
+
+%%
 close all
 clrs = getColors();
 lw = 6;
 alph = 0.5;
 
-sample = mode(rez.ev.sample - rez.ev.(params.alignEvent));
-delay = mode(rez.ev.delay - rez.ev.(params.alignEvent));
+sample = mode(rez(1).ev.sample - rez(1).ev.(params(1).alignEvent));
+delay = mode(rez(1).ev.delay - rez(1).ev.(params(1).alignEvent));
 
 sav = 0;
 for i = 1:numel(fns)
     f(i) = figure; ax = axes(f(i)); hold on
-    tempmean = eval(['rez.' fns{i}(1:end-5) '_latent']);
-    plot(rez.time,tempmean(:,1),'Color',clrs.rhit,'LineWidth',lw);
-    plot(rez.time,tempmean(:,2),'Color',clrs.lhit,'LineWidth',lw);
+    tempmean = eval([fns{i}(1:end-5) '_latent_mean']);
+    temperror = eval([fns{i}(1:end-5) '_latent_error']);
+    shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
     
+    xlim([rez(1).time(15);rez(1).time(end)])
+    ylims = [min(min(tempmean))-1, max(max(tempmean))+1];
+    ylim(ylims);
     
-    xlim([rez.time(15);rez.time(end)])
     title(fns{i},'Interpreter','none')
     xlabel('Time (s) from go cue')
     ylabel('Activity (a.u.)')
@@ -214,81 +234,126 @@ for i = 1:numel(fns)
     xline(delay,'k--','LineWidth',2)
     xline(0,'k--','LineWidth',2)
     
+    curmodename = fns{i};
+    timefns = fieldnames(times);
+    mask = strfind(timefns,lower(curmodename(3:end-5)));
+    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
+    ix = ~cell2mat(ix);
+    shadetimes = obj(1).time(times.(timefns{ix}));
+    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
+    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
+    fl.FaceAlpha = 0.3;
+    fl.EdgeColor = 'none';
+    
+    ylim(ylims);
+    
     
     if sav
-        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/cd';
-        fn = [fns{i} '_JEB7_2021-04-29_run12_sm_' num2str(params.smooth)];
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
+        fn = [fns{i} '_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
         mysavefig(f(i),pth,fn);
     end
     
 end
 
 
-
 %% selectivity
 
-selpsth = rez.data;
+sumsqselectivity.total = zeros(numel(rez(1).time),numel(rez));
+sumsqselectivity.early = zeros(numel(rez(1).time),numel(rez));
+sumsqselectivity.late = zeros(numel(rez(1).time),numel(rez));
+sumsqselectivity.go = zeros(numel(rez(1).time),numel(rez));
+for i = 1:numel(rez)
+    selectivity.total = rez(i).psth(:,:,1) - rez(i).psth(:,:,2);
+    selectivity.early = rez(i).cdEarly_latent(:,1) - rez(i).cdEarly_latent(:,2);
+    selectivity.late  = rez(i).cdLate_latent(:,1) - rez(i).cdLate_latent(:,2);
+    selectivity.go    = rez(i).cdGo_latent(:,1) - rez(i).cdGo_latent(:,2);
+    selfns = fieldnames(selectivity);
+    for j = 1:numel(selfns)
+        selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
+        sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
+    end
+end
 
-latent_cdearly = rez.cdEarly_latent;
-latent_cdlate = rez.cdLate_latent;
-latent_cdgo = rez.cdGo_latent;
-
-sm = 31;
-
-psth_selectivity = mySmooth(selpsth(:,:,1) - selpsth(:,:,2),sm);
-cdearly_selectivity = mySmooth(latent_cdearly(:,1) - latent_cdearly(:,2),sm);
-cdlate_selectivity = mySmooth(latent_cdlate(:,1) - latent_cdlate(:,2),sm);
-cdgo_selectivity = mySmooth(latent_cdgo(:,1) - latent_cdgo(:,2),sm);
+% selectivity explained
+% calculate variance of selectivity matrix within each of the modes
+clear selectivity
+% only calculate variance explained between start of cdEarly and end of
+% cdGo- all other selectivity is variance that we are not attempting to
+% explain with the three CDs
+ix1 = find(times.early,1,'first');
+ix2 = find(times.go,1,'last');
+for i = 1:numel(rez)
+    selectivity(i).total = rez(i).psth(ix1:ix2,:,1) - rez(i).psth(ix1:ix2,:,2);
+    selectivity(i).early = rez(i).cdEarly_latent(ix1:ix2,1) - rez(i).cdEarly_latent(ix1:ix2,2);
+    selectivity(i).late  = rez(i).cdLate_latent(ix1:ix2,1) - rez(i).cdLate_latent(ix1:ix2,2);
+    selectivity(i).go    = rez(i).cdGo_latent(ix1:ix2,1) - rez(i).cdGo_latent(ix1:ix2,2);
+    
+    varianceInTotalSelectivity = trace(cov(selectivity(i).total));
+    selexp.early(i) = trace(cov(selectivity(i).early)) ./ varianceInTotalSelectivity;
+    selexp.late(i) = trace(cov(selectivity(i).late)) ./ varianceInTotalSelectivity;
+    selexp.go(i) = trace(cov(selectivity(i).go)) ./ varianceInTotalSelectivity;
+    selexp.sum(i) = selexp.early(i) + selexp.late(i)  + selexp.go(i);
+end
+selectivityExplained = [selexp.early' selexp.late' selexp.go' selexp.sum'];
 
 %%
 close all
-sample = mode(rez(1).ev.sample) - mode(rez(1).ev.(params.alignEvent));
-delay  = mode(rez(1).ev.delay) - mode(rez(1).ev.(params.alignEvent));
+sample = mode(rez(1).ev.sample) - mode(rez(1).ev.(params(1).alignEvent));
+delay  = mode(rez(1).ev.delay) - mode(rez(1).ev.(params(1).alignEvent));
+
+clrs = {'k','b','g','m','c'};
 
 lw = 4;
-f = figure; 
-plot(rez(1).time,sum(psth_selectivity.^2,2),'k','LineWidth',lw)
-hold on
-plot(rez(1).time,sum(cdearly_selectivity.^2,2),'b','LineWidth',lw)
-plot(rez(1).time,sum(cdlate_selectivity.^2,2),'g','LineWidth',lw)
-plot(rez(1).time,sum(cdgo_selectivity.^2,2),'m','LineWidth',lw)
-plot(rez(1).time,(cdearly_selectivity.^2 + cdgo_selectivity.^2 + cdlate_selectivity.^2),'c','LineWidth',lw)
+alph = 0.5;
+f = figure; ax = axes(f); hold on;
+summean = zeros(numel(rez(1).time),1);
+sumstd = zeros(numel(rez(1).time),1);
+for i = 1:numel(selfns)
+    temp = sumsqselectivity.(selfns{i});
+    tempmean = nanmean(temp,2);
+    tempstd = nanstd(temp,[],2);
+    shadedErrorBar(rez(1).time,tempmean,...
+                   tempstd./(numel(rez)),...
+                   {'Color',clrs{i},'LineWidth',lw},alph,ax);
+   if ~strcmpi(selfns{i},'total')
+       summean = summean + tempmean;
+       sumstd = sumstd + tempstd;
+   end
+end
+shadedErrorBar(rez(1).time,summean,...
+                   sumstd./(numel(rez)),...
+                   {'Color',clrs{end},'LineWidth',lw},alph,ax);
 
-xline(sample,'k--','LineWidth',0.5);
-xline(delay,'k--','LineWidth',0.5);
-xline(0,'k--','LineWidth',0.5);
+xline(sample,'k--','LineWidth',2)
+xline(delay,'k--','LineWidth',2)
+xline(0,'k--','LineWidth',2)
 
 xlabel('Time (s) from go cue')
 ylabel('Squared Sum Selectivity')
-legend('Total selectivity','early','late','go','early + late + go')
+% legend('Total selectivity','early','late','go','early + late + go')
 xlim([rez(1).time(1)+0.2,rez(1).time(end)])
 ax = gca;
 ax.FontSize = 20;
-
-% create smaller axes in top right, and plot on it
-axes('Position',[.2 .6 .25 .25])
-box on
-times = rez.time>-2.2 & rez.time<-1.2;
-h2 = plot(rez(1).time(times),sum(psth_selectivity(times,:).^2,2),'k','LineWidth',lw);
-hold on
-plot(rez(1).time(times),sum(cdearly_selectivity(times).^2,2),'b','LineWidth',lw)
-plot(rez(1).time(times),sum(cdlate_selectivity(times).^2,2),'g','LineWidth',lw)
-plot(rez(1).time(times),sum(cdgo_selectivity(times).^2,2),'m','LineWidth',lw)
-plot(rez(1).time(times),(cdearly_selectivity(times).^2 + cdgo_selectivity(times).^2 + cdlate_selectivity(times).^2),'c','LineWidth',lw)
-% h2 = cdfplot(corrs);
-% h2.LineWidth = 2;
-ax = h2.Parent;
-ax.XLim = [-2.2 -1.2];
-% h2.Parent.XLabel.String = '';
-% h2.Parent.YLabel.String = '';
-% h2.Parent.Title.String = 'CDF';
-h2.Parent.FontSize = 15;
-
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig3/figs/selectivity';
-% fn = 'sqelectivity_JEB7_2021-04-29_run12';
+ 
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/selectivity';
+% fn = 'sqsumselectivity_hits_anmList1_sessionList1_psthsm_51_dt_0_005_lowFR_1';
 % mysavefig(f,pth,fn);
 
+% variance in selectivity explained
+varfns = fieldnames(selexp);
+f = figure; ax = axes(f);
+vs = violinplot(selectivityExplained,{'early','late','go','sum'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1});
+ylabel('Selectivity Explained')
+ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
 
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/selectivity';
+% fn = 'selexp_hits_anmList1_sessionList1_psthsm_51_dt_0_005_lowFR_1';
+% mysavefig(f,pth,fn);
 
 %% correlation pop selectivity vector
 

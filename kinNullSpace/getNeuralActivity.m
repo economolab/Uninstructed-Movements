@@ -26,9 +26,7 @@ switch params.lfads_or_fa
         dat = rmfield(dat,{'preprocess_params','obj','train_percent','bin_spikes',...
             'train_trials','valid_trials',...
             'train_data','valid_data'});
-        
-        disp('DONE LOADING LFADS DATA')
-        
+                
     case 'fa'
         % if we're performing factor analysis we will use the params and
         % session info defined in PARAMETERS section to:
@@ -46,9 +44,7 @@ switch params.lfads_or_fa
         dat = doFA(obj,params);
         % smooth factors and single trials
         dat = smoothPostFA(dat,obj,params);
-        
-        disp('DONE LOADING DATA AND PERFORMING FACTOR ANALYSIS')
-        
+                
     otherwise
         error('params.lfads_or_fa should be set to either `lfads` or `fa`')
 end
