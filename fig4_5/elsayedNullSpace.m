@@ -6,14 +6,35 @@ addpath(genpath(pwd))
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
-meta(1).anm = 'JEB7'; % 'JEB7'  'EKH3'  'JGR2'
-meta(1).date = '2021-04-29'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta(1).anm = 'JEB7'; 
+meta(1).date = '2021-04-29'; 
 
-meta(end+1).anm = 'JEB6'; % 'JEB7'  'EKH3'  'JGR2'
-meta(end).date = '2021-04-18'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta(1).anm = 'JEB7'; 
+meta(1).date = '2021-04-30'; 
 
-meta(end+1).anm = 'JGR2'; % 'JEB7'  'EKH3'  'JGR2'
-meta(end).date = '2021-11-17'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta(end+1).anm = 'JEB6'; 
+meta(end).date = '2021-04-18'; 
+
+meta(end+1).anm = 'JGR2'; 
+meta(end).date = '2021-11-16';
+
+meta(end+1).anm = 'JGR2'; 
+meta(end).date = '2021-11-17';
+
+meta(end+1).anm = 'JGR3'; 
+meta(end).date = '2021-11-18';
+
+meta(end+1).anm = 'EKH3'; 
+meta(end).date = '2021-08-11';
+
+meta(end+1).anm = 'EKH3'; 
+meta(end).date = '2021-08-07';
+
+meta(end+1).anm = 'EKH1'; 
+meta(end).date = '2021-08-07';
+
+
+
 
 meta = assignDataPath(meta);
 
@@ -55,83 +76,96 @@ dfparams.advance_movement = 0.025; % seconds, amount of time to advance movement
 
 %% NEURAL ACTIVITY
 
-% getNeuralActivity() returns 4 main variables
-% - dat: contains lfads/fa smoothed firing rates, factors, and trial numbers
-%        dat.factors and dat.rates are size (time,factors/clusters,trials)
-% - meta: session meta data
-% - params: parameters used for preprocessing lfads input data
-% - obj: preprocessed data obj
-
+use = true(size(meta));
 for i = 1:numel(meta)
     disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
-    [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
-    gpfa(i) = getGPFAData(meta(i),'run1');
-    me(i) = loadMotionEnergy(obj(i),meta(i),params(i),sort(dat(i).trials)); 
-    
+%     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
+    gpfa(i) = getGPFAData(meta(i),'run2');
+    params(i) = gpfa(i).params;
+    if isfield(gpfa(i).obj,'meta')
+        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
+    end
+    obj(i) = gpfa(i).obj;
+    me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
+    if ~me(i).use
+        use(i) = false;
+    end
     disp('DONE');
     disp(' ');
 end
+
+gpfa = gpfa(use);
+params = params(use);
+meta = meta(use);
+obj = obj(use);
+me = me(use);
 
 %%
 
 clearvars -except meta params obj dat gpfa dfparams me
 
-%% MOTION ENERGY
-% me is a struct with fields
-% - data:       cell array (ntrials,1), with motion energy for each time point
-% - moveThresh: a scalar - below this value of motion energy, animal is
-%               said to be stationary
-% - use:        0 or 1, indicating whether to use me.data. 1 if
-%               a motionEnergy*.mat file is found, 0 if file not found
-
-% To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
-
 
 %% 
 
-% We now have a struct, dat, that contains:
-% - trials:        trial numbers in use
-% - factors:       neural data that's been reduced using lfads or factor analysis (time,factors,trials)
-% - rates:         denoised single trial neural data from lfads or smoothing (time,cells,trials)
+% We now have lfads data (dat.factors, dat.rates)
+% gpfa data (gpfa.gpfalatents)
+% motion energy (me)
 
 
 
 %% elsayed method single trials
+
 clear rez
 
-rates_or_factors = 'factors';
-
 for i = 1:numel(meta)
-    rez(i) = estimateQ(obj(i),gpfa(i),me(i),params(i),rates_or_factors);
+    input_data = gpfa(i).gpfalatents; % dat(i).factors   dat(i).rates
+    rez(i) = elsayedNullandPotentSpace(obj(i),input_data,me(i),params(i));
 end
 
 %% variance explained plots
 close all
 
-varexp_full = [rez(:).varexp_null ; rez(:).varexp_potent]';
+null_total = zeros(size(rez));
+potent_total = zeros(size(rez));
+null_prep = zeros(size(rez));
+null_move = zeros(size(rez));
+potent_move = zeros(size(rez));
+potent_prep = zeros(size(rez));
+for i = 1:numel(rez)
+    null_total(i) = rez(i).ve.null_total;
+    potent_total(i) = rez(i).ve.potent_total;
+    null_prep(i) = rez(i).ve.null_prep;
+    null_move(i) = rez(i).ve.null_move;
+    potent_move(i) = rez(i).ve.potent_move;
+    potent_prep(i) = rez(i).ve.potent_prep;
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 225;
+varexp_full = [null_total ; potent_total]';
 f = figure; ax = axes(f);
 vs = violinplot(varexp_full,{'Null','Potent'},...
-    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1});
-ylabel('Variance Explained of All Data')
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1}, 'ViolinColor', violincols);
+ylabel('Normalized Variance Explained (Whole Trial)')
 ylim([0,1])
 ax = gca;
-ax.FontSize = 25;
-
+ax.FontSize = 20;
+% 
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace';
-% fn = 'run1_allSessions_varexp_allData';
+% fn = 've_total';
 % mysavefig(f,pth,fn);
 
-varexp_sep = [rez(:).varexp_null_nonmove; rez(:).varexp_null_move ; rez(:).varexp_potent_move; rez(:).varexp_potent_nonmove]';
+violincols = [50, 168, 82; 168, 50, 142; 168, 50, 142; 50, 168, 82] ./ 225;
+varexp_sep = [null_prep; null_move ; potent_move; potent_prep]';
 f = figure; ax = axes(f);
 vs = violinplot(varexp_sep,{'Null, Non-move','Null, Move', 'Potent,Move','Potent, Non-move'},...
-    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1});
-ylabel('Variance Explained')
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1},  'ViolinColor', violincols);
+ylabel('Normalized Variance Explained')
 ylim([0,1])
 ax = gca;
-ax.FontSize = 25;
+ax.FontSize = 20;
 
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace';
-% fn = 'run1_allSessions_varexp_allSep';
+% fn = 've_allsep';
 % mysavefig(f,pth,fn);
 
 %% plot projections
@@ -141,30 +175,62 @@ close all
 cols = getColors();
 clrs{1} = cols.rhit;
 clrs{2} = cols.lhit;
-for i = 1:numel(rez)
+lw = 3;
+alph = 0.5;
+for i = 1%:numel(rez)
     %     optimization_plots(rez,obj,dat,params); % old
     
-    temp = rez(i).optim.N_potent;
+    temp = rez(i).N_potent;
     
     f = figure;
-    for dimix = 1:size(temp{1},2)
-        ax = subplot(size(temp{1},2),1,dimix); hold on
+    f.Position = [-1143         -27         357         848];
+    for dimix = 1:size(temp,3)
+        ax = subplot(size(temp,3),1,dimix); hold on
         for j = 1:2
-            plot(obj(1).time,temp{j}(:,dimix),'Color',clrs{j},'LineWidth',3)
+            tempdat = squeeze(temp(:,params(i).trialid{j+1},dimix));
+            means = mean(tempdat,2);
+            stderr = std(tempdat,[],2) ./ numel(params(i).trialid{j+1});
+            shadedErrorBar(obj(1).time,means,stderr,{'Color',clrs{j},'LineWidth',lw},alph, ax)
+%             plot(obj(1).time,means,'Color',clrs{j},'LineWidth',1)
         end
+        title(['Potent ' num2str(dimix)])
         xlim([obj(1).time(15),obj(1).time(end)])
+        
+        align = mode(obj(i).bp.ev.(params(i).alignEvent));
+        sample = mode(obj(i).bp.ev.sample) - align;
+        delay = mode(obj(i).bp.ev.delay) - align;
+        xline(sample,'k--','LineWidth',2)
+        xline(delay,'k--','LineWidth',2)
+        xline(0,'k--','LineWidth',2)
+        
+        ax.FontSize = 20;
         hold off;
     end
     
-    temp = rez(i).optim.N_null;
+    temp = rez(i).N_null;
     
     f = figure;
-    for dimix = 1:size(temp{1},2)
-        ax = subplot(size(temp{1},2),1,dimix); hold on;
+    f.Position = [-1138         178         357         631];
+    for dimix = 1:size(temp,3)
+        ax = subplot(size(temp,3),1,dimix); hold on
         for j = 1:2
-            plot(obj(1).time,temp{j}(:,dimix),'Color',clrs{j},'LineWidth',3)
+            tempdat = squeeze(temp(:,params(i).trialid{j+1},dimix));
+            means = mean(tempdat,2);
+            stderr = std(tempdat,[],2) ./ numel(params(i).trialid{j+1});
+            shadedErrorBar(obj(1).time,means,stderr,{'Color',clrs{j},'LineWidth',lw},alph, ax)
+%             plot(obj(1).time,means,'Color',clrs{j},'LineWidth',1)
         end
+        title(['Null ' num2str(dimix)])
         xlim([obj(1).time(15),obj(1).time(end)])
+        
+        align = mode(obj(i).bp.ev.(params(i).alignEvent));
+        sample = mode(obj(i).bp.ev.sample) - align;
+        delay = mode(obj(i).bp.ev.delay) - align;
+        xline(sample,'k--','LineWidth',2)
+        xline(delay,'k--','LineWidth',2)
+        xline(0,'k--','LineWidth',2)
+        
+        ax.FontSize = 20;
         hold off;
     end
     
@@ -172,47 +238,462 @@ for i = 1:numel(rez)
 end
 
 
-
-% f = figure(20);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'null_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
-% 
-% f = figure(21);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'potent_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
-
-
 %% activity modes
 
-% [latents,trials_by_type,modes] = activityModes_nullPotent(rez,dat,obj,params);
-% TODO: var explained of trial averaged data, not single trials b/c the
-% variability messes things up...
+for i = 1:numel(rez)
+    [cdrez(i),times] = cdNullSpace_elsayed(rez(i),obj(i),params(i));
+end
 
-rez.N_null = rez.optim.N_null;
-rez.N_potent = rez.optim.N_potent;
+rez = cdrez;
 
-[latents,trials_by_type,modes] = cdNullSpace_elsayed(rez,dat,obj,params);
+% modes.varexp = activityModes_varexp(modes,rez);
 
-modes.varexp = activityModes_varexp(modes,rez);
+%% null space cds
 
+% concatenate latents, find mean and stderror
+cdEarly{1} = rez(1).cd.null.cdEarly_latent(:,params(1).trialid{2});
+cdEarly{2} = rez(1).cd.null.cdEarly_latent(:,params(1).trialid{3});
+cdLate{1} = rez(1).cd.null.cdLate_latent(:,params(1).trialid{2});
+cdLate{2} = rez(1).cd.null.cdLate_latent(:,params(1).trialid{3});
+cdGo{1} = rez(1).cd.null.cdGo_latent(:,params(1).trialid{2});
+cdGo{2} = rez(1).cd.null.cdGo_latent(:,params(1).trialid{3});
+for i = 2:numel(rez)
+    for j = 1:2
+        cdEarly{j} = cat(2,cdEarly{j},rez(i).cd.null.cdEarly_latent(:,params(i).trialid{j+1}));
+        cdLate{j} = cat(2,cdLate{j},rez(i).cd.null.cdLate_latent(:,params(i).trialid{j+1}));
+        cdGo{j} = cat(2,cdGo{j},rez(i).cd.null.cdGo_latent(:,params(i).trialid{j+1}));
+    end
+end
+
+cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
+cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
+cdGo_latent_mean = [nanmean(cdGo{1},2) nanmean(cdGo{2},2)];
+
+cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ (numel(rez)); % std error
+cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
+cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
+
+
+close all
+clrs = getColors();
+lw = 6;
+alph = 0.5;
+
+sm = 1;
+
+sample = mode(obj(1).bp.ev.sample - obj(1).bp.ev.(params(1).alignEvent));
+delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
+
+fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
+
+sav = 0;
+for i = 1:numel(fns)
+    f(i) = figure; ax = axes(f(i)); hold on
+    tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
+    temperror = mySmooth(eval([fns{i}(1:end-5) '_latent_error']),sm);
+    shadedErrorBar(obj(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(obj(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
+    
+    xlim([obj(1).time(10);obj(1).time(end)])
+%     ylims = [min(min(tempmean)), max(max(tempmean))+5];
+%     ylim(ylims);
+    
+    title(fns{i},'Interpreter','none')
+    xlabel('Time (s) from go cue')
+    ylabel('Activity (a.u.)')
+    ax = gca;
+    ax.FontSize = 40;
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    curmodename = fns{i};
+    timefns = fieldnames(times);
+    mask = strfind(timefns,lower(curmodename(3:end-5)));
+    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
+    ix = ~cell2mat(ix);
+    shadetimes = obj(1).time(times.(timefns{ix}));
+    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
+    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
+    fl.FaceAlpha = 0.3;
+    fl.EdgeColor = 'none';
+    
+%     ylim(ylims);
+    
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/null';
+        fn = [fns{i}];
+        mysavefig(f(i),pth,fn);
+    end
+    
+end
+
+clear selectivity
+
+sumsqselectivity.total = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
+for i = 1:numel(rez)
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
+    rez(i).gpfa(:,:,1) = temp;
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
+    rez(i).gpfa(:,:,2) = temp;
+    
+    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.early = mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{3}),2);
+    selectivity.late  = mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{3}),2);
+    selectivity.go    = mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{3}),2);
+    selfns = fieldnames(selectivity);
+    for j = 1:numel(selfns)
+        selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
+        sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
+    end
+end
+
+nullselexp_early = mean(sumsqselectivity.total ./ (sumsqselectivity.early),1)';
+nullselexp_late = mean(sumsqselectivity.total ./ (sumsqselectivity.late),1)';
+nullselexp_go = mean(sumsqselectivity.total ./ (sumsqselectivity.go),1)';
+
+nullselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
+nullselexp_tot = mean(nullselexp,1)';
+
+
+
+%% potent space cds
+
+% concatenate latents, find mean and stderror
+
+cdEarly{1} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{2});
+cdEarly{2} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{3});
+cdLate{1} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{2});
+cdLate{2} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{3});
+cdGo{1} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{2});
+cdGo{2} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{3});
+for i = 2:numel(rez)
+    for j = 1:2
+        cdEarly{j} = cat(2,cdEarly{j},rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{j+1}));
+        cdLate{j} = cat(2,cdLate{j},rez(i).cd.potent.cdLate_latent(:,params(i).trialid{j+1}));
+        cdGo{j} = cat(2,cdGo{j},rez(i).cd.potent.cdGo_latent(:,params(i).trialid{j+1}));
+    end
+end
+
+cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
+cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
+cdGo_latent_mean = [nanmean(cdGo{1},2) nanmean(cdGo{2},2)];
+
+cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ numel(rez); % std error
+cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
+cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
+
+
+close all
+clrs = getColors();
+lw = 6;
+alph = 0.5;
+
+sm = 1;
+
+sample = mode(obj(1).bp.ev.sample - obj(1).bp.ev.(params(1).alignEvent));
+delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
+
+fns = patternMatchCellArray(fieldnames(rez(1).cd.potent),{'mode'},'all');
+
+sav = 0;
+for i = 1:numel(fns)
+    f(i) = figure; ax = axes(f(i)); hold on
+    tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
+    temperror = mySmooth(eval([fns{i}(1:end-5) '_latent_error']),sm);
+    shadedErrorBar(obj(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(obj(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
+    
+    xlim([obj(1).time(10);obj(1).time(end)])
+%     ylims = [min(min(tempmean)), max(max(tempmean))+5];
+%     ylim(ylims);
+    
+    title(fns{i},'Interpreter','none')
+    xlabel('Time (s) from go cue')
+    ylabel('Activity (a.u.)')
+    ax = gca;
+    ax.FontSize = 40;
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    curmodename = fns{i};
+    timefns = fieldnames(times);
+    mask = strfind(timefns,lower(curmodename(3:end-5)));
+    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
+    ix = ~cell2mat(ix);
+    shadetimes = obj(1).time(times.(timefns{ix}));
+    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
+    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
+    fl.FaceAlpha = 0.3;
+    fl.EdgeColor = 'none';
+    
+%     ylim(ylims);
+    
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/potent';
+        fn = [fns{i}];
+        mysavefig(f(i),pth,fn);
+    end
+    
+end
+
+clear selectivity
+
+sumsqselectivity.total = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
+for i = 1:numel(rez)
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
+    rez(i).gpfa(:,:,1) = temp;
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
+    rez(i).gpfa(:,:,2) = temp;
+    
+    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.early = mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{3}),2);
+    selectivity.late  = mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{3}),2);
+    selectivity.go    = mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{3}),2);
+    selfns = fieldnames(selectivity);
+    for j = 1:numel(selfns)
+        selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
+        sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
+    end
+end
+
+potentselexp_early = mean(sumsqselectivity.total ./ (sumsqselectivity.early),1)';
+potentselexp_late = mean(sumsqselectivity.total ./ (sumsqselectivity.late),1)';
+potentselexp_go = mean(sumsqselectivity.total ./ (sumsqselectivity.go),1)';
+
+potentselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
+potentselexp_tot = mean(potentselexp,1)';
 
 %%
-plt.trial_types = [1 2];
-plt.plot_mean = 1;
-plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840]};
-plotAllModes_nullPotent(obj,params,latents,trials_by_type,plt)
-% 
-% f = figure(221);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
-% 
-% f = figure(222);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/elsayedNullSpace/';
-% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
+close all
+
+sav = 1;
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_tot 1./potentselexp_tot],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Sum / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_null_potent';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_early 1./potentselexp_early],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Early / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_early';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_late 1./potentselexp_late],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Late / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_late';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_go 1./potentselexp_go],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Go / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_go';
+    mysavefig(f,pth,fn);
+end
+
+%%
+% TODO, concatenate all CD latents, plot 
+close all
+
+lw = 3;
+alph = 0.5;
+
+for snum = 1:numel(rez)
+
+% snum = 6; % session number
+
+% for each of null and potent
+f = figure;
+f.Position = [-1876         108        1815         681];
+ssfn = fieldnames(rez(snum).cd); % subspace filednames
+for ssix = 1:numel(ssfn)
+    tempdat = rez(snum).cd.(ssfn{ssix});
+    
+    [latentfns,~] = patternMatchCellArray(fieldnames(tempdat),{'latent'},'all');
+    for i = 1:numel(latentfns)
+%         f = figure; 
+%         ax = axes(f); hold on
+        ax = nexttile; hold on
+        for j = 1:2 % for each condition (right and left hits)
+            temp = tempdat.(latentfns{i})(:,params(snum).trialid{j+1});
+            means = mean(temp,2);
+            stderr = std(temp,[],2) ./ numel(params(snum).trialid{j+1});
+            shadedErrorBar(obj(1).time,means,stderr,{'Color',clrs{j},'LineWidth',lw},alph, ax)
+            
+        end
+        title([ssfn{ssix} ' | ' latentfns{i}],'Interpreter','none')
+        ax.FontSize = 20;
+        hold off
+    end
+    
+end
+
+end
 
 
+%% motion energy plots and potent space single trial projections
 
+for snum = 1:numel(meta)
+
+close all
+
+fs = 25; % fontsize
+sav = 0;
+
+% snum = 2;
+
+sorttimes = obj(snum).time > -0.5 & obj(snum).time < -0.1; % late delay
+temp = me(snum).data(sorttimes,:);
+[~,sortix] = sort(mean(temp,1),'descend');
+
+trialOffset = 0;
+f = figure; hold on;
+f.Position = [-1323        -110         400         596];
+imagesc(obj(snum).time,1:obj(snum).bp.Ntrials,mySmooth(me(snum).data(:,sortix),15)');
+xlabel('Time (s) from go cue')
+ylabel('Trials')
+title('Motion Energy')
+xlim([obj(snum).time(10),obj(snum).time(end)]);
+ylim([0 obj(snum).bp.Ntrials])
+ax = gca;
+ax.YTick = [];
+ax.FontSize = fs;
+
+align = mode(obj(snum).bp.ev.(params(snum).alignEvent));
+sample = mode(obj(snum).bp.ev.sample) - align;
+delay = mode(obj(snum).bp.ev.delay) - align;
+xline(sample,'k--','LineWidth',2)
+xline(delay,'k--','LineWidth',2)
+xline(0,'k--','LineWidth',2)
+
+hold off
+
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/me/';
+    fn = [meta(snum).anm '_' meta(snum).date];
+    mysavefig(f,pth,fn);
+    pause(3)
+end
+
+% single trial potent space projections
+for j = 1:rez(snum).dMove
+    
+    f = figure; hold on;
+    f.Position = [-1323        -110         400         596];
+    
+    temp = mySmooth(squeeze(rez(snum).N_potent(:,sortix,j)),5);
+    imagesc(obj(snum).time,1:obj(snum).bp.Ntrials,temp');
+    
+    xlabel('Time (s) from go cue')
+    ylabel('Trials')
+    title(['Potent ' num2str(j)])
+    xlim([obj(snum).time(10),obj(snum).time(end)]);
+    ylim([0 obj(snum).bp.Ntrials])
+    ax = gca;
+    ax.YTick = [];
+    ax.FontSize = fs;
+    
+    align = mode(obj(snum).bp.ev.(params(snum).alignEvent));
+    sample = mode(obj(snum).bp.ev.sample) - align;
+    delay = mode(obj(snum).bp.ev.delay) - align;
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    hold off
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/potent/';
+        fn = [meta(snum).anm '_' meta(snum).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
+    
+end
+
+% single trial null space projections
+% single trial potent space projections
+for j = 1:rez(snum).dPrep
+    
+    f = figure; hold on;
+    f.Position = [-1323        -110         400         596];
+    
+    temp = mySmooth(squeeze(rez(snum).N_null(:,sortix,j)),5);
+    imagesc(obj(snum).time,1:obj(snum).bp.Ntrials,temp');
+    
+    xlabel('Time (s) from go cue')
+    ylabel('Trials')
+    title(['Null ' num2str(j)])
+    xlim([obj(snum).time(10),obj(snum).time(end)]);
+    ylim([0 obj(snum).bp.Ntrials])
+    ax = gca;
+    ax.YTick = [];
+    ax.FontSize = fs;
+    
+    align = mode(obj(snum).bp.ev.(params(snum).alignEvent));
+    sample = mode(obj(snum).bp.ev.sample) - align;
+    delay = mode(obj(snum).bp.ev.delay) - align;
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    hold off
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/null/';
+        fn = [meta(snum).anm '_' meta(snum).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
+end
+
+end
