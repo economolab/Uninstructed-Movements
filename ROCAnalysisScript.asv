@@ -20,7 +20,6 @@ params.alignEvent          = 'goCue';   % goCue or firstLick
 params.lowFR               = 1; % remove clusters firing less than this val
 params.dt = 0.05;
 params.Measure             = 'MotionEnergy'; % sideJaw or MotionEnergy
-params.moveThresh          = 0.15;
 
 % set conditions to use for projections
 params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off, no early response
@@ -119,17 +118,15 @@ for gg = 1:length(meta)
     end
 
     %%%% FIND CHOICE MODE %%%%
+    rez.time = objs{1}.time;
+    rez.condition = objs{1}.condition;
+    rez.alignEvent = params.alignEvent;
+
+    % Find CDchoice (coding dimension during delay period)
     cond{1} = params.modecondition{1};
     cond{2} = params.modecondition{2};
-    epoch = 'midsample';
-    CD.early_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'no');
-    % Find CDlate (coding dimension during late delay period)
     epoch = 'latedelay';
-    CD.late_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'yes');
-    % Orthogonalize CD late to CD early
-    CD = orthogModes(CD, obj);
-
-    choice_mode = CD.late_mode;
+    choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,'no');
 
     % Project single trials onto choice mode
     cd = choice_mode;
@@ -225,12 +222,11 @@ for gg = 1:length(meta)
             if strcmp(params.Measure,'sideJaw')
                 figtitle1 = strcat('Jaw velocity; AUC =',' ',strauc);
             elseif strcmp(params.Measure,'MotionEnergy')
-                figtitle1 = strcat('Motion Energy; AUC =',' ',strauc);
-            end
+                figtitle1 = strcat('Jaw velocity; AUC =',' ',strauc);
         elseif oo==2
             AUC.choice(gg) = auc;
             strauc = num2str(auc);
-            figtitle2 = strcat('CDlate; AUC =',' ',strauc);
+            figtitle2 = strcat('Choice mode; AUC =',' ',strauc);
         end
 
         %%% PLOT ROC CURVES FOR GIVEN SESSION %%%
@@ -248,18 +244,11 @@ for gg = 1:length(meta)
 end
 %% Visualize AUC stats across sessions
 figure();
-scatter(AUC.jaw,AUC.choice,'black','filled'); hold on;
-scatter(AUC.jaw(3),AUC.choice(3),'green','filled')
-if strcmp(params.Measure,'sideJaw')
-    xlabel('AUC for jaw velocity','FontSize',13);
-elseif strcmp(params.Measure,'MotionEnergy')
-    xlabel('AUC for Motion Energy','FontSize',13);
-end
-ylabel('AUC for CDlate','FontSize',13);
-xlim([0.45 1])
-xline(0.5,'LineStyle','--')
-yline(0.5,'LineStyle','--')
-ylim([0.45 1])
+scatter(AUC.jaw,AUC.choice,'black','filled'); 
+xlabel('AUC for jaw velocity','FontSize',13); 
+ylabel('AUC for choice mode','FontSize',13);
+xlim([0.5 1])
+ylim([0.5 1])
 title('Trial type decoding across all sessions; avg from late delay','FontSize',14)
 
 goodjaw = sum(AUC.jaw>0.7)/length(AUC.jaw);
@@ -272,4 +261,4 @@ nbins = 10;
 histogram(R,nbins,'FaceColor','black','FaceAlpha',0.5)
 xlabel('R^2 value','FontSize',13)
 ylabel('Num sessions','FontSize',13)
-title('Correlation between motion energy and CDlate','FontSize',14)
+title('Correlation between jaw vel and choice mode','FontSize',14)

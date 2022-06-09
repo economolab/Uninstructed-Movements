@@ -49,14 +49,14 @@ params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-% meta = loadJEB4_ALMVideo(meta);
-% meta = loadJEB5_ALMVideo(meta);
-% meta = loadJEB6_ALMVideo(meta);
-% meta = loadJEB7_ALMVideo(meta);
+meta = loadJEB4_ALMVideo(meta);
+meta = loadJEB5_ALMVideo(meta);
+meta = loadJEB6_ALMVideo(meta);
+meta = loadJEB7_ALMVideo(meta);
 meta = loadEKH1_ALMVideo(meta);
-% meta = loadEKH3_ALMVideo(meta);
-% meta = loadJGR2_ALMVideo(meta);
-% meta = loadJGR3_ALMVideo(meta);
+meta = loadEKH3_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR3_ALMVideo(meta);
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
@@ -77,9 +77,25 @@ for i = 1:numel(meta)
     obj = getPSTHs(obj,meta(i));
     objs{i} = obj;
 end
-%% EXAMPLE HEATMAP OF JAW VELOCITY ON SINGLE TRIALS--SEPARATED BY TRIAL TYPE
+%% Remove unwanted sessions
 
-sesh = 4;
+% remove sessions with less than 40 trials of rhit and lhit each (same as
+% hidehiko ppn paper)
+use = false(size(objs));
+for i = 1:numel(use)
+    met = meta(i);
+    check1 = numel(met.trialid{1}) > 40;
+    check2 = numel(met.trialid{2}) > 40;
+    if check1 && check2
+        use(i) = true;
+    end
+end
+
+meta = meta(use);
+objs = objs(use);
+%% EXAMPLE HEATMAP OF MOTION ENERGY ON SINGLE TRIALS--SEPARATED BY TRIAL TYPE
+
+sesh = 3;                       % 2,3,4 = best sessions
 obj = objs{sesh};     
 met = meta(sesh);
 
@@ -87,31 +103,27 @@ anm = obj.pth.anm;                  % Animal name
 date = obj.pth.dt;                  % Session date
 probenum = string(met.probe);       % Which probe was used
 
-
-% Find the jaw velocity at all time points in the session for trials of
-% specific conditions
+% Find interpolated motion energy
 conditions = {1,2};
-if strcmp(params.jawMeasure,'sideJaw')
-    jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'vel');
-elseif strcmp(params.jawMeasure,'Trident')
-    jaw_by_cond = findTridentVelocity(taxis, obj,conditions,met);
-end
-l1 = size(jaw_by_cond{1},2);      % Number of trials in the first condition
+params.moveThresh          = 0.15;      % What percentage of the delay period you want to use for identifying early move trials
+[met,mov,me] = assignEarlyTrials(obj,met,params);
+[MEinterp,~] = findInterpME(taxis,conditions, met,mov,me,params,obj);
+
 
 % Sort the trials by jaw velocity during the late delay period
 % Find the average jaw velocity during specified time points (on each trial)
     startix = find(taxis>=-0.4, 1, 'first');
     stopix = find(taxis<=-0.05, 1, 'last');
-    val.right = nanmean(jaw_by_cond{1}(startix:stopix, :), 1);
-    val.left = nanmean(jaw_by_cond{2}(startix:stopix, :), 1);
+    val.right = mean(MEinterp{1}(startix:stopix, :), 1,'omitnan');
+    val.left = mean(MEinterp{2}(startix:stopix, :), 1,"omitnan");
     nanix = find(isnan(val.right)); nanix = find(isnan(val.left));                   % Get rid of trials where jaw velocity is always NaN
     val.right(nanix) = [];  val.left(nanix) = [];
     
     % Sort the average jaw velocities in descending order and save the trial
     % order
     sort_by_cond = cell(1,numel(conditions));
-    [sort_by_cond{1}, six1] = sort(val.right, 'descend'); jaw_by_cond{1} = jaw_by_cond{1}(:,six1);
-    [sort_by_cond{2}, six2] = sort(val.left, 'descend'); jaw_by_cond{2} = jaw_by_cond{2}(:,six2);
+    [sort_by_cond{1}, six1] = sort(val.right, 'descend'); MEinterp{1} = MEinterp{1}(:,six1);
+    [sort_by_cond{2}, six2] = sort(val.left, 'descend'); MEinterp{2} = MEinterp{2}(:,six2);
 
 % Plot
 figure();
@@ -124,7 +136,7 @@ for i=1:numel(conditions)
     elseif i==2
         subplot(1,2,1);
     end
-    imagesc(taxis,1:numTrixPlot,jaw_by_cond{i}(:,1:numTrixPlot)'); caxis([0 1.5]); colormap("hot");
+    imagesc(taxis,1:numTrixPlot,MEinterp{i}(:,1:numTrixPlot)'); caxis([0 13]); colormap("hot");
     go = 0;
     delstart = -0.9;
     sampstart = delstart-1.3;
@@ -140,11 +152,11 @@ for i=1:numel(conditions)
         title('Left trials')
     end
     c=colorbar;
-    ylabel(c,'Jaw velocity','FontSize',12,'Rotation',90);
+    ylabel(c,'Motion energy','FontSize',12,'Rotation',90);
 end
 figtitle =  strcat('Example Trials from',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
 sgtitle(figtitle,'FontSize',16)
-%% EXAMPLE SESSION OF PROBABILITY OF JAW MOVEMENT--SEPARATED BY TRIAL TYPE
+%% EXAMPLE SESSION OF AVG ME--SEPARATED BY TRIAL TYPE
 
 obj = objs{sesh};     % 11th data object = JEB7, 04-29 (Classic sesh)
 met = meta(sesh);
@@ -153,17 +165,22 @@ anm = obj.pth.anm;                  % Animal name
 date = obj.pth.dt;                  % Session date
 probenum = string(met.probe);       % Which probe was used
 
-conditions = {1,2};
-colors = {[0 0 1],[1 0 0]};
-
+upperci = cell(1,2);
+lowerci = cell(1,2);
+nTrials = size(MEinterp{1},2);
+for i = 1:2
+    MEstd = std(MEinterp{i},0,2,'omitnan');
+    upperci{i} = mean(MEinterp{i},2,'omitnan')+1.96*(MEstd/nTrials);
+    lowerci{i} = mean(MEinterp{i},2,'omitnan')-1.96*(MEstd/nTrials);
+end
 % Plot
 figure();
-if strcmp(params.jawMeasure,'sideJaw')
-    plotJawProb_SessAvg(obj,met,conditions,colors,taxis,'no',params)
-elseif strcmp(params.jawMeasure,'Trident')
-    plotTridentVel_SessAvg(obj,met,conditions,colors,'no',params)
-end
-legend('Right','Left','Location','best')
+subplot(2,1,1);
+colors = {[0 0 1],[1 0 0]};
+plot(taxis,mySmooth(mean(MEinterp{1},2),31),'Color',colors{1},'LineWidth',2.5); hold on;
+plot(taxis,mySmooth(mean(MEinterp{2},2),31),'Color',colors{2},'LineWidth',2.5);
+%patch([taxis(2:end) fliplr(taxis(2:end))],[lowerci{1}(2:end)' fliplr(upperci{1}(2:end)')],colors{1},'FaceAlpha',0.2,'EdgeColor','none')
+%patch([taxis(2:end) fliplr(taxis(2:end))],[lowerci{2}(2:end)' fliplr(upperci{2}(2:end)')],colors{2},'FaceAlpha',0.2,'EdgeColor','none')
 
 % Add lines at trial times
 go = 0;
@@ -173,10 +190,14 @@ xline(go,'Color','black','LineStyle','--')
 xline(delstart,'Color','black','LineStyle','--')
 xline(sampstart,'Color','black','LineStyle','--')
 xlim([-2.3 0])
+xlabel('Time before go-cue (s)','FontSize',13)
+ylabel('Motion energy','FontSize',13)
+legend('Right','Left','Location','best')
 
-figtitle =  strcat('Example w/ jaw selectivity',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
+figtitle =  strcat('Example w/ move selectivity',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
 title(figtitle,'FontSize',16)
-%% EXAMPLE SESSION OF CHOICE MODE PROJECTIONS, SEPARATED BY TRIAL TYPE
+
+%%EXAMPLE SESSION OF CHOICE MODE PROJECTIONS, SEPARATED BY TRIAL TYPE
 obj = objs{sesh};     % 11th data object = JEB7, 04-29 (Classic sesh)
 met = meta(sesh);
 
@@ -191,16 +212,22 @@ rez.alignEvent = params.alignEvent;
 % Find CDchoice (coding dimension during delay period)
 cond{1} = params.modecondition{1};
 cond{2} = params.modecondition{2};
+epoch = 'midsample';
+CD.early_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,'no');
+% Find CDlate (coding dimension during late delay period)
 epoch = 'latedelay';
-choice_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,'no');
+CD.late_mode = choiceMode(obj,met,cond,epoch,rez.alignEvent,'yes');
+% Orthogonalize CD late to CD early
+CD = orthogModes(CD, obj);
 
 % Get the projection of specified conditions onto the choice mode
+choice_mode = CD.late_mode;
 smooth = 51;
 conditions = [1,2];
 latentChoice = getChoiceModeProjection(obj,choice_mode,smooth,conditions);
 
 % Plot
-figure();
+subplot(2,1,2)
 colors = {[0 0 1],[1 0 0]};
 for c = 1:numel(conditions)
     temp = conditions(c);
@@ -212,7 +239,7 @@ col = 'black';
 addTrialLines(col)
 xlim([-2.3 0])
 xlabel('Time since go-cue')
-ylabel('a.u.')
+ylabel('CDlate a.u.')
 set(gca, 'YDir','reverse')
 legend('Right','Left','Location','best')
 
@@ -220,8 +247,8 @@ figtitle =  strcat('Example CDchoice',anm,date,' ;  ','Probe ',probenum);  % Nam
 title(figtitle,'FontSize',16)
 %% EXAMPLE SESSION--SCATTER PLOT OF SINGLE TRIAL JAW VELOCITY VS CHOICE CD
 
-obj = objs{17};     % 11th data object = JEB7, 04-29 (Classic sesh)
-met = meta(17);
+obj = objs{sesh};     % 11th data object = JEB7, 04-29 (Classic sesh)
+met = meta(sesh);
 
 anm = obj.pth.anm;                  % Animal name
 date = obj.pth.dt;                  % Session date
@@ -235,10 +262,10 @@ rez.alignEvent = params.alignEvent;
 cd = choice_mode;
 latent = getTrialLatents(obj,cd,conditions,met);
 lat_choice = [];
-jaw = [];
+motionE = [];
 for c = 1:numel(conditions)
     lat_choice = [lat_choice,latent{c}];
-    jaw = [jaw,jaw_by_cond{c}];
+    motionE = [motionE,MEinterp{c}];
 end
 
 % Define time intervals: Time frame for late delay period(from -0.4 before go-cue to -0.1)
@@ -248,16 +275,16 @@ lateDelay = late_start:late_stop;
 
 % Get jaw velocity and activity mode averages for late delay
 timeInt = lateDelay;
-jawVel_late = getAverages(timeInt,jaw);
+ME_late = getAverages(timeInt,motionE);
 Choice_late = getAverages(timeInt,lat_choice);
 
 % Make scatter plot
 conditions = 1:2;               % Look only at correct left and right hits during 2AFC
 figure();
-ActivityMode_Jaw_Scatter(jawVel_late,Choice_late,conditions,met,colors,obj,params);
+ActivityMode_Jaw_Scatter(ME_late,Choice_late,conditions,met,colors,obj,params);
 
-nanix = find(isnan(jawVel_late));                    % Find indices where the jaw vel is a NaN
-jv = jawVel_late(~isnan(jawVel_late));               % Get rid of the NaN values
+nanix = find(isnan(ME_late));                    % Find indices where the jaw vel is a NaN
+jv = ME_late(~isnan(ME_late));               % Get rid of the NaN values
 Choice_late(nanix) = [];                             % Indices that were a NaN for jaw vel, get rid of those indices in the choice mode as well
 ch = Choice_late;
 R = corr2(jv,ch);                           % Calculate the correlation coefficient between these two variables
@@ -268,11 +295,12 @@ hline.LineStyle = '--';
 hline.Color = 'k';
 str = strcat('R^2 =',R);
 lgd = legend('Right','Left',str);
-lgd.FontSize = 11;
+lgd.FontSize = 13;
 lgd.Location = 'best';
-xlabel('Avg Jaw Velocity','fontsize',14)
-xlim([0 1.2])
-ylabel('Avg choice mode','fontsize',14)
+xlabel('Avg Motion Energy','fontsize',14)
+xlim([1 12])
+ylabel('Avg CDlate','fontsize',14)
+ylim([-55 0])
 figtitle =  strcat('Example Single trial correlations',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
 sgtitle(figtitle)
 
