@@ -9,7 +9,7 @@
 % params = params variable 
 function plotJawProb_HazardDel(taxis, jawvel,params)
 for g = 1:length(params.delay)                  % For the first four delay lengths...
-    subplot(2,2,g)
+    subplot(2,3,g)
     plot(taxis,jawvel.right{g},'LineWidth',1.5); hold on;   % Plot the avg jaw prob on the right for that delay length
     plot(taxis,jawvel.left{g},'LineWidth',1.5); hold on;    % Same for left
     ylim([0 1])

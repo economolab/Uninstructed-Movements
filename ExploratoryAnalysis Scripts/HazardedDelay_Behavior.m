@@ -21,7 +21,7 @@ toSave = 'no';
 
 % Which method you want to use to identify early movement trials:
 % 'motionEnergy' or 'DeepLabCut'
-params.alignEvent          = 'goCue';   % goCue or firstLick
+params.alignEvent          = 'delay';   % goCue or firstLick
 params.dt = 0.05;
 
 % set conditions to use for projections

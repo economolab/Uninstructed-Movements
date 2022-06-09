@@ -28,15 +28,16 @@ params.dt = 0.05;
 params.condition(1) = {'R&hit&~stim.enable&~early'}; % right hits, no stim, aw off
 params.condition(2) = {'L&hit&~stim.enable&~early'}; % left hits, no stim, aw off
 
-% Delay period length that you want to warp all delay lengths to
-params.desiredDelay = 0.9000;       
-
 % Different delay period lengths that were used in hazarded delay
 params.delay(1) = 0.3000;
 params.delay(2) = 0.6000;
 params.delay(3) = 1.2000;
 params.delay(4) = 1.8000;
 % params.delay(5) = 2.4000;
+
+% Parameters for warping the delay period to 0.9 s
+warp.desiredDelay = 1.4500;                     % Desired start time for delay period within the trial
+warp.desiredGoCue = warp.desiredDelay + 0.9;    % Desired end time for delay period within the trial
 %%  LOAD META DATA
 meta = [];
 meta = loadJEB11_BehavVid(meta);
@@ -68,23 +69,20 @@ for gg = 1:numel(meta)
 
     met = getDelayTrialID(met,conditions,delaylen);     % Group the trials in each condition based on their delay length
 
-    % Find the probability of jaw [Jaw] movement at all time points in the session for trials of
+    [obj] = warpDelayPeriod(obj,met,conditions,warp,'behaviorOnly');
+    
+    % Find the probability of jaw movement at all time points in the session for trials of
     % specific conditions
-    jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'prob');    % (1 x conditions cell array)
-    % Each cell: (time x trials in that condition)
-
-    % Find average jaw velocity for each delay length
-    jawvel.left = cell(1,length(params.delay));         % (1 x number of delay lengths)
-    jawvel.right = cell(1,length(params.delay));
-    for g = 1:length(params.delay)                  % For each delay length...
-        gix = find(met.del_trialid{1}==g);              % Get the trial IDs in the first condition that have the current delay length
-        tempjaw = nanmean(jaw_by_cond{1}(:,gix),2);     % Find avg jaw velocity for first condition trials with that delay
-        jawvel.right{g} = medfilt1(tempjaw,10);         % Apply median filter
-
-        gix = find(met.del_trialid{2}==g);              % Same thing for second condition
-        tempjaw = nanmean(jaw_by_cond{2}(:,gix),2);
-        jawvel.left{g} = medfilt1(tempjaw,10);
+    jaw_by_cond = findWarpedJawVelocity(taxis, obj,conditions,met,'prob');    % (1 x conditions cell array)
+                                                                        % Each cell: (time x trials in that condition)
+    % Get the average prob of jaw movement across warped trials 
+    meanjaw = cell(1,numel(conditions));
+    for c = 1:numel(conditions)
+        temp = jaw_by_cond{c};
+        tempjaw = mean(temp,2,'omitnan');
+        meanjaw{c} = medfilt1(tempjaw,10);
     end
+
 
     % Plot probability of jaw[Jaw] movement for each delay length
     figure();
