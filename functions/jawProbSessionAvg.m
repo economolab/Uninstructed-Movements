@@ -10,6 +10,11 @@
 
 function [jawprob,jawstd] = jawProbSessionAvg(obj,met,conditions,edges,params)
 traj = obj.traj{1};                             % Get the video data
+if strcmp(traj(1).featNames{2},'jaw')
+    featnum = 2;
+elseif strcmp(traj(1).featNames{4},'jaw')
+    featnum = 4;
+end
 jawprob = cell(1,numel(conditions));
 jawstd = cell(1,numel(conditions));
 for c = 1:numel(conditions)
@@ -25,17 +30,16 @@ for c = 1:numel(conditions)
             end
 
             if ~isnan(traj(trix).frameTimes)                               % If the video data from this trial is good...
-                ts = mySmooth(traj(trix).ts(:, 2, 4), 21);                                               % Side-view, up and down position of the jaw, smoothed
+                ts = mySmooth(traj(trix).ts(:, 2, featnum), 21);                                               % Side-view, up and down position of the jaw, smoothed
                 tsinterp = interp1(traj(trix).frameTimes-0.5-obj.bp.ev.(params.alignEvent)(trix), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
                 basederiv = median(diff(tsinterp),'omitnan');                                         % Find the median jaw velocity (aka baseline)
             end
 
         else
-            ts = mySmooth(traj(trix).ts(:, 2, 4), 21);                                               % Side-view, up and down position of the jaw, smoothed
+            ts = mySmooth(traj(trix).ts(:, 2, featnum), 21);                                               % Side-view, up and down position of the jaw, smoothed
             nFrames = length(ts);
-            trialLen = nFrames*(1/400);
-            frameTimes = 0:(1/400):trialLen;
-            tsinterp = interp1(frameTimes(2:end)-obj.bp.ev.(params.alignEvent)(trix), ts, edges);                           % Linear interpolation of jaw position to keep number of time points consistent across trials
+            frameTimes = (1:nFrames)./400;
+            tsinterp = interp1(frameTimes-obj.bp.ev.(params.alignEvent)(trix), ts, edges);                           % Linear interpolation of jaw position to keep number of time points consistent across trials
             basederiv = median(diff(tsinterp),'omitnan');                                            % Find the median jaw velocity (aka baseline)
         end
 
