@@ -1,29 +1,32 @@
-function [ang,len] = getLickAngleAndLength(dat,kin)
+function [ang,len] = getLickAngleAndLength(featLeg,kin)
 
-ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'top_tongue_xdisp')));
-ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'topleft_tongue_xdisp_view2')));
+[~,ix1] = patternMatchCellArray(featLeg,{'top_tongue_xdisp_view2'},'all');
+[~,ix2] = patternMatchCellArray(featLeg,{'topleft_tongue_xdisp_view2'},'all');
 t1x = kin(:, :, ix1);
 t2x = kin(:, :, ix2);
 
-ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'top_tongue_ydisp')));
-ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'topleft_tongue_ydisp_view2')));
+
+[~,ix1] = patternMatchCellArray(featLeg,{'top_tongue_ydisp_view2'},'all');
+[~,ix2] = patternMatchCellArray(featLeg,{'topleft_tongue_ydisp_view2'},'all');
 t1y = kin(:, :, ix1);
 t2y = kin(:, :, ix2);
 
-ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottom_tongue_xdisp')));
-ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottomleft_tongue_xdisp')));
+[~,ix1] = patternMatchCellArray(featLeg,{'bottom_tongue_xdisp_view2'},'all');
+[~,ix2] = patternMatchCellArray(featLeg,{'bottomleft_tongue_xdisp_view2'},'all');
 t3x = kin(:, :, ix1);
 t4x = kin(:, :, ix2);
 
-ix1 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottom_tongue_ydisp')));
-ix2 = find(~cellfun(@isempty, strfind(dat.featLeg, 'bottomleft_tongue_ydisp')));
+
+[~,ix1] = patternMatchCellArray(featLeg,{'bottom_tongue_ydisp_view2'},'all');
+[~,ix2] = patternMatchCellArray(featLeg,{'bottomleft_tongue_ydisp_view2'},'all');
 t3y = kin(:, :, ix1);
 t4y = kin(:, :, ix2);
 
-ix1 = (~cellfun(@isempty, strfind(dat.featLeg, 'jaw_xdisp_view2')));
+
+[~,ix1] = patternMatchCellArray(featLeg,{'jaw_xdisp_view2'},'all');
+[~,ix2] = patternMatchCellArray(featLeg,{'jaw_ydisp_view2'},'all');
 jx = kin(:, :, ix1);
-ix1 = (~cellfun(@isempty, strfind(dat.featLeg, 'jaw_ydisp_view2')));
-jy = kin(:, :, ix1);
+jy = kin(:, :, ix2);
 
 
 

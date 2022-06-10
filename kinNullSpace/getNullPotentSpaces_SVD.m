@@ -1,4 +1,4 @@
-function [W_null,W_potent,N_null,N_potent] = getNullPotentSpaces_SVD(W,rez,dat)
+function [W_null,W_potent,N_null,N_potent,dPrep,dMove] = getNullPotentSpaces_SVD(W,rez,dat)
 % primer on using svd to find spaces of a matrix
 % http://pillowlab.princeton.edu/teaching/statneuro2018/slides/notes03a_SVDandLinSys.pdf
 
@@ -24,10 +24,11 @@ N_potent = rez.N * W_potent;
 N_null   = rez.N * W_null;
 
 N_potent = reshape(N_potent,size(dat.factors,1),size(dat.factors,3),size(N_potent,2));
-N_potent = permute(N_potent,[1,3,2]);
 
 N_null = reshape(N_null,size(dat.factors,1),size(dat.factors,3),size(N_null,2));
-N_null = permute(N_null,[1,3,2]);
+
+dPrep = size(N_null,3);
+dMove = size(N_potent,3);
 
 
 

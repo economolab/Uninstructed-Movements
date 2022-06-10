@@ -177,7 +177,7 @@ clrs{1} = cols.rhit;
 clrs{2} = cols.lhit;
 lw = 3;
 alph = 0.5;
-for i = 1%:numel(rez)
+for i = 1:numel(rez)
     %     optimization_plots(rez,obj,dat,params); % old
     
     temp = rez(i).N_potent;
@@ -207,10 +207,17 @@ for i = 1%:numel(rez)
         hold off;
     end
     
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/potent';
+        fn = [meta(i).anm '_' meta(i).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
     temp = rez(i).N_null;
     
     f = figure;
-    f.Position = [-1138         178         357         631];
+    f.Position = [-1501         187         357         631];
     for dimix = 1:size(temp,3)
         ax = subplot(size(temp,3),1,dimix); hold on
         for j = 1:2
@@ -234,11 +241,21 @@ for i = 1%:numel(rez)
         hold off;
     end
     
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/null';
+        fn = [meta(i).anm '_' meta(i).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
+    
     
 end
 
 
 %% activity modes
+
+clear cdrez times
 
 for i = 1:numel(rez)
     [cdrez(i),times] = cdNullSpace_elsayed(rez(i),obj(i),params(i));
@@ -539,7 +556,7 @@ if sav
 end
 
 %%
-% TODO, concatenate all CD latents, plot 
+
 close all
 
 lw = 3;

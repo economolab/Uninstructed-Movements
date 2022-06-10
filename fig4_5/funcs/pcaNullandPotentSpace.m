@@ -33,6 +33,15 @@ trialsMiss = trialsMiss(:);
 
 trials = [trialsHit ; trialsMiss]; % (minTrials*numCond,1) vector of trials used to estimate null/potent spaces
 
+%% time points to use 
+
+align = mode(obj.bp.ev.(params.alignEvent));
+e1 = mode(obj.bp.ev.delay) - align;
+e2 = mode(obj.bp.ev.goCue) - align;
+timeix = obj.time > e1 & obj.time < e2;
+
+% timeix = logical(ones(size(obj.time)));
+
 
 %% preprocess input data
 
@@ -52,18 +61,21 @@ means = repmat(means,[1 1 size(N,2)]);
 means = permute(means,[1 3 2]);
 N = N - means;
 
-
+N = N(timeix,:,:);
 N = reshape(N,size(N,1)*numel(trials),size(N,3)); % reshape to (time*trials, neurons/factors)
 
 %% label time points as moving and non-moving
 
 % move and non move times
-tempme = me.data(:,trials);
-mask = tempme(:) > (me.moveThresh);
+tempme = me.data(timeix,trials);
+mask = tempme(:) > (me.moveThresh); % when moving
+% mask = reshape(mask,size(me.data,1),numel(trials));
+% mask = mask(logical(timeix),:);
 
 Nnull = N(~mask,:);
 
 Npotent = N(mask,:);
+
 
 %% null and potent spaces
 

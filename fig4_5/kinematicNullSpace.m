@@ -1,43 +1,43 @@
 clear,clc,close all
 
-% finds null/potent spaces for a single session based on 2 methods:
-
-
-% METHOD 1: the linear equation
-
-%               V = WN, 
-
-% where V is a video feature matrix and N is a matrix of 
-% single trial neural activity. W is the transformation
-% matrix between video features and neural activity . null(W) is a basis for
-% the null space of W and colspace(W) is a basis for the row space of W (which
-% is the potent space).
-
-% METHOD 2: elsayed optimization method on single trials
-
-% the variance of movement and prepatory epochs are maximized
-% simultaneously in low dimensional null and potent subspaces. Here, rather
-% than splitting trials into continuous planning and then movment epochs,
-% we label each time point as either moving or non-moving. So the activity
-% that is used to find the null and potent spaces are discontinuous in time
-
-% * (most functions associated with this script are in the kinNullSpace directory) *
 
 addpath(genpath(pwd))
 
 %% PARAMETERS
 
 % --SPECIFY WHICH ANIMAL AND SESSION TO LOAD
-meta.anm = 'JEB7'; % 'JEB7'  'EKH3'  'JGR2'
-meta.date = '2021-04-29'; % '2021-04-29'  '2021-08-11'  '2021-11-16'
+meta(1).anm = 'JEB7'; 
+meta(1).date = '2021-04-29'; 
+
+meta(1).anm = 'JEB7'; 
+meta(1).date = '2021-04-30'; 
+
+meta(end+1).anm = 'JEB6'; 
+meta(end).date = '2021-04-18'; 
+
+meta(end+1).anm = 'JGR2'; 
+meta(end).date = '2021-11-16';
+
+meta(end+1).anm = 'JGR2'; 
+meta(end).date = '2021-11-17';
+
+meta(end+1).anm = 'JGR3'; 
+meta(end).date = '2021-11-18';
+
+meta(end+1).anm = 'EKH3'; 
+meta(end).date = '2021-08-11';
+
+meta(end+1).anm = 'EKH3'; 
+meta(end).date = '2021-08-07';
+
+meta(end+1).anm = 'EKH1'; 
+meta(end).date = '2021-08-07';
 
 
-% --SPECIFY PATH TO DATA HERE
-if ispc
-    meta.datapth = 'C:\Code\uninstructedMovements-Munib/data';
-else
-    meta.datapth = '/Users/Munib/Documents/Economo-Lab/data/';
-end
+
+
+meta = assignDataPath(meta);
+
 % the data should be stored in the following structure:
 % /params.datapth/
 %  --- /DataObjects/
@@ -50,7 +50,7 @@ end
 % --SPECIFY PREPROCESSING PARAMETERS YOU WANT TO CHANGE BELOW THE FUNCTION CALL
 % if loading lfads data, these default params will be overwritten by params
 % used to generate lfads input data
-params = getDefaultParams();
+dfparams = getDefaultParams();
 % params.probe = 2; % change default params.probe from '1' to '2'
 
 
@@ -60,48 +60,50 @@ params = getDefaultParams();
 % 1) load data that's ALREADY been passed through an lfads model
 % 2) perform Factor Analysis on binned single trial data, followed by
 %    smoothing
-params.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
-params.lfads_run = 'run12'; % 'run3' , leave empty to use most recent run
-params.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
-params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
-params.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
+dfparams.lfads_or_fa = 'lfads'; % 'lfads' or 'fa'
+dfparams.lfads_run = 'run1'; % 'run3' , leave empty to use most recent run
+dfparams.fcut_post_fa = 31; % if performing FA, cutoff freq to smooth rates and factors with a butterworth filter
+dfparams.feat_varToExplain = 75; % num factors for dim reduction of video features should explain this much variance
+dfparams.full_or_reduced = 'reduced'; % 'full'  or 'reduced' -- which data to use in regression
 % using the full data will require another method, the system seems to be
 % highly overfit as is
-assert(strcmpi(params.full_or_reduced,'reduced'),'method to use full dimensional data doesnt exist, params.full_or_reduced should be set to `reduced`')
+assert(strcmpi(dfparams.full_or_reduced,'reduced'),'method to use full dimensional data doesnt exist, params.full_or_reduced should be set to `reduced`')
 
 % --SPECIFY TIME POINTS AND LAG TO USE
-params.prep = [-2.5 -0.05]; % initial and final time points (seconds) defining prep epoch, relative to alignevent
-params.move = [-2.5 1.5];   % initial and final time points (seconds) defining move epoch, relative to alignevent
-params.advance_movement = 0.025; % seconds, amount of time to advance movement data relative to neural data
+dfparams.prep = [-2.5 -0.05]; % initial and final time points (seconds) defining prep epoch, relative to alignevent
+dfparams.move = [-2.5 1.5];   % initial and final time points (seconds) defining move epoch, relative to alignevent
+dfparams.advance_movement = 0.025; % seconds, amount of time to advance movement data relative to neural data
 
 %% NEURAL ACTIVITY
 
-% getNeuralActivity() returns 4 main variables
-% - dat: contains lfads/fa smoothed firing rates, factors, and trial numbers
-%        dat.factors and dat.rates are size (time,factors/clusters,trials)
-% - meta: session meta data
-% - params: parameters used for preprocessing lfads input data
-% - obj: preprocessed data obj
-[meta,params,obj,dat] = getNeuralActivity(meta,params);
-dat.factors = standardizeFactors(dat.factors);
+use = true(size(meta));
+for i = 1:numel(meta)
+    disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
+%     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
+    gpfa(i) = getGPFAData(meta(i),'run2');
+    params(i) = gpfa(i).params;
+    if isfield(gpfa(i).obj,'meta')
+        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
+    end
+    obj(i) = gpfa(i).obj;
+    me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
+    if ~me(i).use
+        use(i) = false;
+    end
+    disp('DONE');
+    disp(' ');
+end
 
-% for i = 1:size(dat.factors,2)
-%     figure(i)
-% %     plot(obj.time,squeeze(dat.factors(:,i,1:numel(params.trialid{1}))))
-%     imagesc(obj.time,1:numel(dat.trials),squeeze(dat.factors(:,i,:))');
-% end
-% 
-% 
-% % factor 8 shows differences within a condition, first half and second half
-% figure;
-% subplot(2,1,1)
-% imagesc(obj.time,1:numel(params.trialid{1}),squeeze(dat.factors(:,8,1:numel(params.trialid{1})))');
-% title('JEB7 4-29, Factor 8, Right Hit Trials')
-% subplot(2,1,2)
-% plot(obj.time,mean(temp(:,1:37),2),'LineWidth',2);
-% hold on;
-% plot(obj.time,mean(temp(:,38:75),2),'LineWidth',2)
-% legend('First Half, avg right hit trials','Second Half, avg right hit trials')
+gpfa = gpfa(use);
+params = params(use);
+meta = meta(use);
+obj = obj(use);
+me = me(use);
+
+%%
+
+clearvars -except meta params obj dat gpfa dfparams me kin kinfeats kinfeats_reduced
+
 
 %% VIDEO FEATURES
 
@@ -109,57 +111,43 @@ dat.factors = standardizeFactors(dat.factors);
 % - kin: feature matrix of size (time,trials,features). Features defined in
 %         params.traj_features
 % - featLeg: legend corresponding to features in kin (for 2nd dimension)
-[kin,dat.featLeg] = getKinematicsFromVideo(obj,params,dat.trials);
-
-
-% TONGUE ANGLE AND LENGTH
-[ang,len] = getLickAngleAndLength(dat,kin);
-dat.featLeg{end+1} = 'tongue_angle';
-dat.featLeg{end+1} = 'tongue_length';
-
-
-% create feature matrix, feats, and assign to a field in dat
-dat.feats = cat(3,kin,reshape(ang,size(ang,1),size(ang,2),1));
-dat.feats = cat(3,dat.feats,reshape(len,size(len,1),size(len,2),1));
-
-
-% MOTION ENERGY
-% me is a struct with fields
-% - data:       cell array (ntrials,1), with motion energy for each time point
-% - moveThresh: a scalar - below this value of motion energy, animal is
-%               said to be stationary
-% - use:        0 or 1, indicating whether to use me.data. 1 if
-%               a motionEnergy*.mat file is found, 0 if file not found
-me = loadMotionEnergy(obj,meta,params,dat.trials); 
-if me.use
-    dat.feats = cat(3,dat.feats,reshape(me.data,size(me.data,1),size(me.data,2),1)); 
-    dat.featLeg{end+1} = 'motion_energy';
+for i = 1:numel(meta)
+    [kin(i).dat,kin(i).featLeg] = getKinematicsFromVideo(obj(i),dfparams,params(i),1:obj(i).bp.Ntrials);
+    
+%     % TONGUE ANGLE AND LENGTH % TODO
+    [ang,len] = getLickAngleAndLength(kin(i).featLeg,kin(i).dat);
+    kin(i).featLeg{end+1} = 'tongue_angle';
+    kin(i).featLeg{end+1} = 'tongue_length';
+    
+    kinfeats{i} = kin(i).dat;
+%     % create feature matrix, feats, and assign to a field in dat
+%     kinfeats{i} = cat(3,kin(i).dat,reshape(ang,size(ang,1),size(ang,2),1));
+%     kinfeats{i} = cat(3,kinfeats{i},reshape(len,size(len,1),size(len,2),1));
+    
+    
+    % MOTION ENERGY
+    if me(i).use
+        kinfeats{i} = cat(3,kinfeats{i},reshape(me(i).data,size(me(i).data,1),size(me(i).data,2),1));
+        kin(i).featLeg{end+1} = 'motion_energy';
+    end
+    % To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
+    
+    
+    % STANDARDIZE FEATURES (ZERO MEAN, UNIT VARIANCE)
+    kinfeats{i} = standardizeFeatures(kinfeats{i});
+    
+    
+    % DIMENSIONALITY REDUCTION
+    % many of the video features will be highly correlated, so we will perform PCA/FA
+    % on the matrix of features to reduce the dimensionality to a set of factors that
+    % best explain the movement captured by the video recordings
+    kinfeats_reduced{i} = reduceDimensionVideoFeatures(kinfeats{i},dfparams.feat_varToExplain,size(gpfa(i).gpfalatents,2));
+    
 end
-% To generate a motionEnergy*.mat file for a session, see https://github.com/economolab/videoAnalysisScripts/blob/main/motionEnergy.m
-
-
-% STANDARDIZE FEATURES (ZERO MEAN, UNIT VARIANCE)
-dat.feats = standardizeFeatures(dat.feats);
-
-
-% DIMENSIONALITY REDUCTION
-% many of the video features will be highly correlated, so we will perform PCA/FA
-% on the matrix of features to reduce the dimensionality to a set of factors that
-% best explain the movement captured by the video recordings
-dat.feats_reduced = reduceDimensionVideoFeatures(dat.feats,params.feat_varToExplain,size(dat.factors,2));
 
 
 
 disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
-
-% for i = 1:size(dat.feats_reduced,3)
-%     figure(i)
-% %     plot(obj.time,squeeze(dat.feats_reduced(:,i,1:numel(params.trialid{1}))))
-% %     imagesc(obj.time,dat.trials,squeeze(dat.feats(:,i,:))'); title(dat.featLeg{i},'Interpreter','none')
-%     imagesc(obj.time,dat.trials,squeeze(dat.feats_reduced(:,:,i))')
-% %     colorbar
-% %     caxis([-500 200])
-% end
 
 %% 
 
@@ -187,51 +175,147 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 % The null space of W forms subspace that we will call the         NULL SPACE   of N
 % The column space of W forms the subspace that we will call the   POTENT SPACE of N
 
-rez = estimateW(dat,params,obj.time); % N,V are zscored neural activity and feature matrix
-
-
-% V_ = rez.N*rez.W;
-% ft = 1;
-% figure; plot(rez.V(2000:3000,ft)); hold on; plot(V_(2:3000,ft))
-
+for i = 1:numel(meta)
+    clear newrez
+    input_data.factors = gpfa(i).gpfalatents;
+    input_data.feats = kinfeats_reduced{i};
+    newrez = estimateW(input_data,dfparams,obj(i).time); % N,V are zscored neural activity and feature matrix
     
-%% NULL AND POTENT SPACE OF W
-
-[rez.W_null,rez.W_potent,rez.N_null,rez.N_potent] = getNullPotentSpaces_SVD(rez.W',rez,dat); % transposing W b/c we found W by solving V'=N'*W, rather than V = WN
-
-% correlation between V and V_hat = rez.N * rez.W 
-% rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
-
-% variance explained by null and potent space
-% (this is how much variance is explained out of max variance to be
-% explained from total number of null and potent dims)
-% TODO: var explained of trial averaged data, not single trials b/c the
-% variability messes things up...
-rez = calVarExp(rez);
-
-%% PREP TUNING
-
-% this step is only valid if the number of null and potent dimensions are
-% the same. For this to happen, you need R neural dimensions and R/2
-% kinematic dimensions
-if (size(rez.N,2)/2)==size(rez.V,2) 
-    rez.tuning_ratio = preparatoryTuning(rez,obj.time,params);
+    
+    
+    % NULL AND POTENT SPACE OF W
+    
+    [newrez.W_null,newrez.W_potent,newrez.N_null,newrez.N_potent,newrez.dPrep,newrez.dMove] = ... 
+        getNullPotentSpaces_SVD(newrez.W',newrez,input_data); % transposing W b/c we found W by solving V'=N'*W, rather than V = WN
+    
+    % correlation between V and V_hat = rez.N * rez.W
+    % rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
+    
+    % variance explained by null and potent space
+    % (this is how much variance is explained out of max variance to be
+    % explained from total number of null and potent dims)
+    % TODO: var explained of trial averaged data, not single trials b/c the
+    % variability messes things up...
+    verez = calVarExp(newrez);
+    
+    rezfns = fieldnames(verez);
+    for j = 1:numel(rezfns)
+        rez(i).(rezfns{j}) = verez.(rezfns{j});
+    end
 end
 
-%% 
+%% variance explained plots
+close all
 
-% We now have a struct, rez, that contains results from regression (and
-% data used)
+null_total = zeros(size(rez));
+potent_total = zeros(size(rez));
+for i = 1:numel(rez)
+    null_total(i) = rez(i).varexp_null;
+    potent_total(i) = rez(i).varexp_potent;
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 225;
+varexp_full = [null_total ; potent_total]';
+f = figure; ax = axes(f);
+vs = violinplot(varexp_full,{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1}, 'ViolinColor', violincols);
+ylabel('Normalized Variance Explained (Whole Trial)')
+ylim([0,1])
+ax = gca;
+ax.FontSize = 20;
+% % 
+% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace';
+% fn = 've_total';
+% mysavefig(f,pth,fn);
+
 
 %% plot projections
 
-% % for fa data
-% figure; 
-% plot(obj.time,squeeze(N_potent(:,1,1:numel(params.trialid{1}))),'b'); hold on
-% trix = (numel(params.trialid{1})+1):((numel(params.trialid{1})+1) + numel(params.trialid{2}));
-% plot(obj.time,squeeze(N_potent(:,1,trix)),'r')
+close all
+clear cols clrs
 
-plotNullPotentProjections(obj,dat,rez,params)
+cols = getColors();
+clrs{1} = cols.rhit;
+clrs{2} = cols.lhit;
+lw = 3;
+alph = 0.5;
+
+sav = 0;
+
+for i = 1:numel(rez)
+    
+    temp = rez(i).N_potent;
+    
+    f = figure;
+    f.Position = [-1143         -27         357         848];
+    for dimix = 1:size(temp,3)
+        ax = subplot(size(temp,3),1,dimix); hold on
+        for j = 1:2
+            tempdat = squeeze(temp(:,params(i).trialid{j+1},dimix));
+            means = mean(tempdat,2);
+            stderr = std(tempdat,[],2) ./ numel(params(i).trialid{j+1});
+            shadedErrorBar(obj(1).time,means,stderr,{'Color',clrs{j},'LineWidth',lw},alph, ax)
+%             plot(obj(1).time,means,'Color',clrs{j},'LineWidth',1)
+        end
+        title(['Potent ' num2str(dimix)])
+        xlim([obj(1).time(15),obj(1).time(end)])
+        
+        align = mode(obj(i).bp.ev.(params(i).alignEvent));
+        sample = mode(obj(i).bp.ev.sample) - align;
+        delay = mode(obj(i).bp.ev.delay) - align;
+        xline(sample,'k--','LineWidth',2)
+        xline(delay,'k--','LineWidth',2)
+        xline(0,'k--','LineWidth',2)
+        
+        ax.FontSize = 20;
+        hold off;
+    end
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/potent';
+        fn = [meta(i).anm '_' meta(i).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
+    temp = rez(i).N_null;
+    
+    f = figure;
+    f.Position = [-1501         187         357         631];
+    for dimix = 1:size(temp,3)
+        ax = subplot(size(temp,3),1,dimix); hold on
+        for j = 1:2
+            tempdat = squeeze(temp(:,params(i).trialid{j+1},dimix));
+            means = mean(tempdat,2);
+            stderr = std(tempdat,[],2) ./ numel(params(i).trialid{j+1});
+            shadedErrorBar(obj(1).time,means,stderr,{'Color',clrs{j},'LineWidth',lw},alph, ax)
+%             plot(obj(1).time,means,'Color',clrs{j},'LineWidth',1)
+        end
+        title(['Null ' num2str(dimix)])
+        xlim([obj(1).time(15),obj(1).time(end)])
+        
+        align = mode(obj(i).bp.ev.(params(i).alignEvent));
+        sample = mode(obj(i).bp.ev.sample) - align;
+        delay = mode(obj(i).bp.ev.delay) - align;
+        xline(sample,'k--','LineWidth',2)
+        xline(delay,'k--','LineWidth',2)
+        xline(0,'k--','LineWidth',2)
+        
+        ax.FontSize = 20;
+        hold off;
+    end
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/null';
+        fn = [meta(i).anm '_' meta(i).date];
+        mysavefig(f,pth,fn);
+        pause(3)
+    end
+    
+    
+    
+end
+
 
 % f = figure(1);
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
@@ -246,32 +330,305 @@ plotNullPotentProjections(obj,dat,rez,params)
 
 %% activity modes
 
-% [latents,trials_by_type,modes] = activityModes_nullPotent(rez,dat,obj,params);
-% TODO: var explained of trial averaged data, not single trials b/c the
-% variability messes things up...
+clear cdrez times
 
-[latents,trials_by_type,modes] = cdNullSpace(rez,dat,obj,params);
+for i = 1:numel(rez)
+    [cdrez(i),times] = cdNullSpace_elsayed(rez(i),obj(i),params(i));
+end
 
-modes.varexp = activityModes_varexp(modes,rez);
+rez = cdrez;
 
-latents = rmfield(latents,{'proj_potent_null','proj_null_potent'});
+% modes.varexp = activityModes_varexp(modes,rez);
+
+%% null space cds
+
+% concatenate latents, find mean and stderror
+cdEarly{1} = rez(1).cd.null.cdEarly_latent(:,params(1).trialid{2});
+cdEarly{2} = rez(1).cd.null.cdEarly_latent(:,params(1).trialid{3});
+cdLate{1} = rez(1).cd.null.cdLate_latent(:,params(1).trialid{2});
+cdLate{2} = rez(1).cd.null.cdLate_latent(:,params(1).trialid{3});
+cdGo{1} = rez(1).cd.null.cdGo_latent(:,params(1).trialid{2});
+cdGo{2} = rez(1).cd.null.cdGo_latent(:,params(1).trialid{3});
+for i = 2:numel(rez)
+    for j = 1:2
+        cdEarly{j} = cat(2,cdEarly{j},rez(i).cd.null.cdEarly_latent(:,params(i).trialid{j+1}));
+        cdLate{j} = cat(2,cdLate{j},rez(i).cd.null.cdLate_latent(:,params(i).trialid{j+1}));
+        cdGo{j} = cat(2,cdGo{j},rez(i).cd.null.cdGo_latent(:,params(i).trialid{j+1}));
+    end
+end
+
+cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
+cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
+cdGo_latent_mean = [nanmean(cdGo{1},2) nanmean(cdGo{2},2)];
+
+cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ (numel(rez)); % std error
+cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
+cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
+
+
+close all
+clrs = getColors();
+lw = 6;
+alph = 0.5;
+
+sm = 1;
+
+sample = mode(obj(1).bp.ev.sample - obj(1).bp.ev.(params(1).alignEvent));
+delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
+
+fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
+
+sav = 0;
+for i = 1:numel(fns)
+    f(i) = figure; ax = axes(f(i)); hold on
+    tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
+    temperror = mySmooth(eval([fns{i}(1:end-5) '_latent_error']),sm);
+    shadedErrorBar(obj(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(obj(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
+    
+    xlim([obj(1).time(10);obj(1).time(end)])
+%     ylims = [min(min(tempmean)), max(max(tempmean))+5];
+%     ylim(ylims);
+    
+    title(fns{i},'Interpreter','none')
+    xlabel('Time (s) from go cue')
+    ylabel('Activity (a.u.)')
+    ax = gca;
+    ax.FontSize = 40;
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    curmodename = fns{i};
+    timefns = fieldnames(times);
+    mask = strfind(timefns,lower(curmodename(3:end-5)));
+    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
+    ix = ~cell2mat(ix);
+    shadetimes = obj(1).time(times.(timefns{ix}));
+    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
+    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
+    fl.FaceAlpha = 0.3;
+    fl.EdgeColor = 'none';
+    
+%     ylim(ylims);
+    
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/null/cd';
+        fn = [fns{i}];
+        mysavefig(f(i),pth,fn);
+    end
+    
+end
+
+clear selectivity
+
+sumsqselectivity.total = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
+for i = 1:numel(rez)
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
+    rez(i).gpfa(:,:,1) = temp;
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
+    rez(i).gpfa(:,:,2) = temp;
+    
+    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.early = mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{3}),2);
+    selectivity.late  = mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{3}),2);
+    selectivity.go    = mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{3}),2);
+    selfns = fieldnames(selectivity);
+    for j = 1:numel(selfns)
+        selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
+        sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
+    end
+end
+
+nullselexp_early = mean(sumsqselectivity.total ./ (sumsqselectivity.early),1)';
+nullselexp_late = mean(sumsqselectivity.total ./ (sumsqselectivity.late),1)';
+nullselexp_go = mean(sumsqselectivity.total ./ (sumsqselectivity.go),1)';
+
+nullselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
+nullselexp_tot = mean(nullselexp,1)';
+
+
+
+%% potent space cds
+
+% concatenate latents, find mean and stderror
+
+cdEarly{1} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{2});
+cdEarly{2} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{3});
+cdLate{1} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{2});
+cdLate{2} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{3});
+cdGo{1} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{2});
+cdGo{2} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{3});
+for i = 2:numel(rez)
+    for j = 1:2
+        cdEarly{j} = cat(2,cdEarly{j},rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{j+1}));
+        cdLate{j} = cat(2,cdLate{j},rez(i).cd.potent.cdLate_latent(:,params(i).trialid{j+1}));
+        cdGo{j} = cat(2,cdGo{j},rez(i).cd.potent.cdGo_latent(:,params(i).trialid{j+1}));
+    end
+end
+
+cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
+cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
+cdGo_latent_mean = [nanmean(cdGo{1},2) nanmean(cdGo{2},2)];
+
+cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ numel(rez); % std error
+cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
+cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
+
+
+close all
+clrs = getColors();
+lw = 6;
+alph = 0.5;
+
+sm = 1;
+
+sample = mode(obj(1).bp.ev.sample - obj(1).bp.ev.(params(1).alignEvent));
+delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
+
+fns = patternMatchCellArray(fieldnames(rez(1).cd.potent),{'mode'},'all');
+
+sav = 0;
+for i = 1:numel(fns)
+    f(i) = figure; ax = axes(f(i)); hold on
+    tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
+    temperror = mySmooth(eval([fns{i}(1:end-5) '_latent_error']),sm);
+    shadedErrorBar(obj(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(obj(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
+    
+    xlim([obj(1).time(10);obj(1).time(end)])
+%     ylims = [min(min(tempmean)), max(max(tempmean))+5];
+%     ylim(ylims);
+    
+    title(fns{i},'Interpreter','none')
+    xlabel('Time (s) from go cue')
+    ylabel('Activity (a.u.)')
+    ax = gca;
+    ax.FontSize = 40;
+    
+    xline(sample,'k--','LineWidth',2)
+    xline(delay,'k--','LineWidth',2)
+    xline(0,'k--','LineWidth',2)
+    
+    curmodename = fns{i};
+    timefns = fieldnames(times);
+    mask = strfind(timefns,lower(curmodename(3:end-5)));
+    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
+    ix = ~cell2mat(ix);
+    shadetimes = obj(1).time(times.(timefns{ix}));
+    x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
+    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
+    fl.FaceAlpha = 0.3;
+    fl.EdgeColor = 'none';
+    
+%     ylim(ylims);
+    
+    
+    if sav
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/potent/cd';
+        fn = [fns{i}];
+        mysavefig(f(i),pth,fn);
+    end
+    
+end
+
+clear selectivity
+
+sumsqselectivity.total = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
+sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
+for i = 1:numel(rez)
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
+    rez(i).gpfa(:,:,1) = temp;
+    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
+    rez(i).gpfa(:,:,2) = temp;
+    
+    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.early = mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{3}),2);
+    selectivity.late  = mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{3}),2);
+    selectivity.go    = mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{3}),2);
+    selfns = fieldnames(selectivity);
+    for j = 1:numel(selfns)
+        selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
+        sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
+    end
+end
+
+potentselexp_early = mean(sumsqselectivity.total ./ (sumsqselectivity.early),1)';
+potentselexp_late = mean(sumsqselectivity.total ./ (sumsqselectivity.late),1)';
+potentselexp_go = mean(sumsqselectivity.total ./ (sumsqselectivity.go),1)';
+
+potentselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
+potentselexp_tot = mean(potentselexp,1)';
 
 %%
+close all
 
-plt.trial_types = [1 2];
-plt.plot_mean = 1;
-plt.colors = {[0 0.4470 0.7410], [0.6350 0.0780 0.1840]};
-plotAllModes_nullPotent(obj,params,latents,trials_by_type,plt)
+sav = 0;
 
-% f = figure(221);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'nullCDs_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
-% 
-% f = figure(222);
-% pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4/figs/kinNullSpace/';
-% fn = 'potentCDs_JEB7_2021-04-29_lfadsrun12';
-% mysavefig(f,pth,fn);
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_tot 1./potentselexp_tot],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Sum / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_null_potent';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_early 1./potentselexp_early],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Early / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_early';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_late 1./potentselexp_late],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Late / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_late';
+    mysavefig(f,pth,fn);
+end
+
+violincols = [50, 168, 82; 168, 50, 142] ./ 255;
+f = figure; ax = axes(f);
+vs = violinplot([1./nullselexp_go 1./potentselexp_go],{'Null','Potent'},...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
+ylabel('Selectivity Ratio (Go / Total)')
+% ylim([0,1])
+ax = gca;
+ax.FontSize = 25;
+if sav
+    pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
+    fn = 'selexp_go';
+    mysavefig(f,pth,fn);
+end
 
 
 

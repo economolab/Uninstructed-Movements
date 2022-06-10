@@ -1,9 +1,9 @@
-function [kin,featLeg] = getKinematicsFromVideo(obj,params,trialnums)
+function [kin,featLeg] = getKinematicsFromVideo(obj,dfparams,params,trialnums)
 
 NvarsPerFeat = 4;
-feats = params.traj_features;
+feats = dfparams.traj_features;
 
-taxis = obj.time + params.advance_movement;
+taxis = obj.time + dfparams.advance_movement;
 
 
 % get x/y position and velocity for each feature in feats
