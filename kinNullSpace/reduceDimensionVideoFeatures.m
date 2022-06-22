@@ -1,4 +1,4 @@
-function feats_reduced = reduceDimensionVideoFeatures(feats,varToExplain,nNeuralDims)
+function feats_reduced = reduceDimensionVideoFeatures(feats,varToExplain)
 
 feats_rsz = reshape(feats, size(feats, 1)*size(feats, 2), size(feats, 3));   % (time*trials x feats)
 

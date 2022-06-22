@@ -35,12 +35,12 @@ trials = [trialsHit ; trialsMiss]; % (minTrials*numCond,1) vector of trials used
 
 %% time points to use 
 
-align = mode(obj.bp.ev.(params.alignEvent));
-e1 = mode(obj.bp.ev.delay) - align;
-e2 = mode(obj.bp.ev.goCue) - align;
-timeix = obj.time > e1 & obj.time < e2;
+% align = mode(obj.bp.ev.(params.alignEvent));
+% e1 = mode(obj.bp.ev.delay) - align;
+% e2 = mode(obj.bp.ev.goCue) - align;
+% timeix = obj.time > e1 & obj.time < e2;
 
-% timeix = logical(ones(size(obj.time)));
+timeix = logical(ones(size(obj.time)));
 
 
 %% preprocess input data
@@ -82,7 +82,7 @@ Npotent = N(mask,:);
 rez.covNull = cov(Nnull);
 rez.covPotent = cov(Npotent);
 
-rez.varToExplain = 70;
+rez.varToExplain = 85;
 
 [pcs,~,explained] = myPCA(Nnull);
 rez.dPrep = numComponentsToExplainVariance(explained, rez.varToExplain );
@@ -103,6 +103,21 @@ moveproj = proj; % use all leftover data for potent mode ID (seems more right)
 [pcs,~,~] = myPCA(moveproj);
 rez.Qpotent = pcs(:,1:rez.dMove);
 
+
+
+%% removing activity along the null dimensions
+% https://www.sciencedirect.com/science/article/pii/S0896627319300534#sec4
+
+% M = rez.Qnull' * cov(N);
+% 
+% [~,S,V] = svd(M);
+% 
+% % find columns of S with only 0s (corresponding cols of V make up null
+% % space of M -- and M is cov of neural activity in our Null Space -- so those cols of V are our Potent Space)
+% cols = find(sum(S)==0);
+% 
+% rez.Qpotent = V(:,cols);
+
 %%
 
 % project neural activity onto null and potent spaces, reshape
@@ -113,7 +128,7 @@ temp2 = reshape(temp,size(temp,1)*size(temp,2),size(temp,3)); % reshape to (time
 N_potent = temp2 * rez.Qpotent;
 N_null = temp2 * rez.Qnull;
 
-rez.N_potent = reshape(N_potent,size(temp,1),size(temp,2),rez.dMove);
+rez.N_potent = reshape(N_potent,size(temp,1),size(temp,2),min(rez.dMove,numel(cols)));
 rez.N_null = reshape(N_null,size(temp,1),size(temp,2),rez.dPrep);
 
 %% 

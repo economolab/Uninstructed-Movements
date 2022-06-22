@@ -9,8 +9,16 @@ ypos = nan(numel(taxis),numel(trialnums));
 
 for i = 1:numel(trialnums)                        % For each trial
     trix = trialnums(i);
-    if isnan(traj(trix).NdroppedFrames )                       % If the video data from this trial isn't good, skip it
-        continue;
+    try
+        if isnan(traj(trix).NdroppedFrames )                       % If the video data from this trial isn't good, skip it
+            continue;
+        end
+    catch
+        % hack fix for new data objs that don't have NdrppedFrames or frameTimes
+    end
+    
+    if ~isfield(traj(trix),'frameTimes')
+        traj(trix).frameTimes = (1:size(traj(trix).ts,1)) ./ 400;
     end
     
     if ~isnan(traj(trix).frameTimes)                           % If the video data from this trial is good...

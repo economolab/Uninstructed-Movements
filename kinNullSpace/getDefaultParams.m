@@ -43,7 +43,7 @@ params.quality = {'all'}; % accepts any cell array of strings - special characte
 %                         {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','top_paw','bottom_paw','jaw'}};
 
 params.traj_features = {{'tongue','jaw','nose'},...
-                        {'top_tongue','topleft_tongue','bottom_tongue','leftbottom_tongue','jaw','top_paw','bottom_paw'}};
+                        {'top_tongue','topleft_tongue','bottom_tongue','jaw','top_paw','bottom_paw'}};
 
 end
 

@@ -23,7 +23,7 @@ function yOut = smoother(yIn, kernSD, stepSize, varargin)
 
 % Aug 21, 2011: Added option for causal smoothing
 
-  causal = false;
+  causal = true;
   assignopts(who, varargin);
 
   if (kernSD == 0) || (size(yIn, 2)==1)

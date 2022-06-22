@@ -1,7 +1,12 @@
 function me = loadMotionEnergy(obj,meta,params,trialnums)
 
 % find and load motion energy .mat file
-mepth = fullfile(meta.datapth,'DataObjects',meta.anm); 
+if ~contains(meta.datapth,'.mat')
+    mepth = fullfile(meta.datapth,'DataObjects',meta.anm); 
+else
+    temp = strsplit(meta.datapth,'/');
+    mepth = strjoin(temp(1:end-1),'/');
+end
 contents = dir(mepth);
 contents = contents(~[contents.isdir]);
 
@@ -16,6 +21,8 @@ else
     disp(mepth)
     disp('      Continuing without motion energy as a feature')
     me.use = 0; 
+    me.data = nan;
+    me.moveThresh = nan;
     return
 end
 
@@ -41,7 +48,7 @@ for i = 1:numel(trialnums)
     try
         me.newdata(:,i) = interp1(obj.traj{1}(trialnums(i)).frameTimes-0.5-alignTimes(i),me.data{i},taxis);
     catch % if frameTimes doesn't exist or is full of NaNs - shouldn't be dummy data as we aren't using those sessions
-        obj.traj{1}(trialnums(i)).frameTimes = (1:numel(obj.traj{1}(trialnums(i)).frameTimes)) ./ 400;
+        obj.traj{1}(trialnums(i)).frameTimes = (1:size(obj.traj{1}(trialnums(i)).ts,1)) ./ 400;
         me.newdata(:,i) = interp1(obj.traj{1}(trialnums(i)).frameTimes-0.5-alignTimes(i),me.data{i},taxis);
     end
 end

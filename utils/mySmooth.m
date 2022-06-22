@@ -6,6 +6,12 @@ function [out,kernsd] = mySmooth(x, N)
 % - out: filtered data
 % - kernsd: std dev of gaussian kernel
 
+    if N == 0 % no smoothing
+        out = x;
+        kernsd = 0;
+        return
+    end
+
     Ncol = size(x, 2);
     Nel = size(x, 1);
     

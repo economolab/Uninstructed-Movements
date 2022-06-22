@@ -145,6 +145,12 @@ for i = 1:numel(meta)
     
 end
 
+%% reshape gpfalatents
+
+for i = 1:numel(meta)
+    gpfa(i).gpfalatents = permute(gpfa(i).gpfalatents,[1 3 2]);
+end
+
 
 
 %% save data

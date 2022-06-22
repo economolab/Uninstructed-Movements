@@ -36,12 +36,12 @@ trials = [trialsHit ; trialsMiss]; % (minTrials*numCond,1) vector of trials used
 
 %% time points to use 
 
-align = mode(obj.bp.ev.(params.alignEvent));
-e1 = mode(obj.bp.ev.delay) - align;
-e2 = mode(obj.bp.ev.goCue) - align;
-timeix = obj.time > e1 & obj.time < e2;
+% align = mode(obj.bp.ev.(params.alignEvent));
+% e1 = mode(obj.bp.ev.delay) - align;
+% e2 = mode(obj.bp.ev.goCue) - align;
+% timeix = obj.time > e1 & obj.time < e2;
 
-% timeix = logical(ones(size(obj.time)));
+timeix = logical(ones(size(obj.time)));
 
 
 %% preprocess input data

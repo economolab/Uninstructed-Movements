@@ -80,12 +80,12 @@ use = true(size(meta));
 for i = 1:numel(meta)
     disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
 %     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
-    gpfa(i) = getGPFAData(meta(i),'run2');
-    params(i) = gpfa(i).params;
-    if isfield(gpfa(i).obj,'meta')
-        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
+    fa(i) = getFAData(meta(i),'run2');
+    params(i) = fa(i).params;
+    if isfield(fa(i).obj,'meta')
+        fa(i).obj = rmfield(fa(i).obj,'meta');
     end
-    obj(i) = gpfa(i).obj;
+    obj(i) = fa(i).obj;
     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
     if ~me(i).use
         use(i) = false;
@@ -94,7 +94,7 @@ for i = 1:numel(meta)
     disp(' ');
 end
 
-gpfa = gpfa(use);
+fa = fa(use);
 params = params(use);
 meta = meta(use);
 obj = obj(use);
@@ -102,7 +102,7 @@ me = me(use);
 
 %%
 
-clearvars -except meta params obj dat gpfa dfparams me kin kinfeats kinfeats_reduced
+clearvars -except meta params obj dat fa dfparams me kin kinfeats kinfeats_reduced
 
 
 %% VIDEO FEATURES
@@ -141,7 +141,7 @@ for i = 1:numel(meta)
     % many of the video features will be highly correlated, so we will perform PCA/FA
     % on the matrix of features to reduce the dimensionality to a set of factors that
     % best explain the movement captured by the video recordings
-    kinfeats_reduced{i} = reduceDimensionVideoFeatures(kinfeats{i},dfparams.feat_varToExplain,size(gpfa(i).gpfalatents,2));
+    kinfeats_reduced{i} = reduceDimensionVideoFeatures(kinfeats{i},dfparams.feat_varToExplain);
     
 end
 
@@ -177,7 +177,7 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
 for i = 1:numel(meta)
     clear newrez
-    input_data.factors = gpfa(i).gpfalatents;
+    input_data.factors = fa(i).falatents;
     input_data.feats = kinfeats_reduced{i};
     newrez = estimateW(obj(i),input_data,dfparams,obj(i).time,me(i)); % N,V are zscored neural activity and feature matrix
     
@@ -240,7 +240,7 @@ clrs{2} = cols.lhit;
 lw = 3;
 alph = 0.5;
 
-sav = 0;
+sav = 1;
 
 for i = 1:numel(rez)
     
@@ -378,7 +378,7 @@ delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
 
 fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
 
-sav = 0;
+sav = 1;
 for i = 1:numel(fns)
     f(i) = figure; ax = axes(f(i)); hold on
     tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
@@ -416,7 +416,7 @@ for i = 1:numel(fns)
     
     
     if sav
-        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/null/cd';
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace_fa/null/';
         fn = [fns{i}];
         mysavefig(f(i),pth,fn);
     end
@@ -430,12 +430,12 @@ sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
 sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
 sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
 for i = 1:numel(rez)
-    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
-    rez(i).gpfa(:,:,1) = temp;
-    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
-    rez(i).gpfa(:,:,2) = temp;
+    temp = squeeze(nanmean(fa(i).falatents(:,:,params(i).trialid{2}),3));
+    rez(i).fa(:,:,1) = temp;
+    temp = squeeze(nanmean(fa(i).falatents(:,:,params(i).trialid{3}),3));
+    rez(i).fa(:,:,2) = temp;
     
-    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.total = rez(i).fa(:,:,1) - rez(i).fa(:,:,2);
     selectivity.early = mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdEarly_latent(:,params(i).trialid{3}),2);
     selectivity.late  = mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdLate_latent(:,params(i).trialid{3}),2);
     selectivity.go    = mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.null.cdGo_latent(:,params(i).trialid{3}),2);
@@ -532,7 +532,7 @@ for i = 1:numel(fns)
     
     
     if sav
-        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace/potent/cd';
+        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/kinNullSpace_fa/potent/';
         fn = [fns{i}];
         mysavefig(f(i),pth,fn);
     end
@@ -546,12 +546,12 @@ sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
 sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
 sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
 for i = 1:numel(rez)
-    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
-    rez(i).gpfa(:,:,1) = temp;
-    temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
-    rez(i).gpfa(:,:,2) = temp;
+    temp = squeeze(nanmean(fa(i).falatents(:,:,params(i).trialid{2}),3));
+    rez(i).fa(:,:,1) = temp;
+    temp = squeeze(nanmean(fa(i).falatents(:,:,params(i).trialid{3}),3));
+    rez(i).fa(:,:,2) = temp;
     
-    selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
+    selectivity.total = rez(i).fa(:,:,1) - rez(i).fa(:,:,2);
     selectivity.early = mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{3}),2);
     selectivity.late  = mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{3}),2);
     selectivity.go    = mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{3}),2);
@@ -572,7 +572,7 @@ potentselexp_tot = mean(potentselexp,1)';
 %%
 close all
 
-sav = 0;
+sav = 1;
 
 violincols = [50, 168, 82; 168, 50, 142] ./ 255;
 f = figure; ax = axes(f);

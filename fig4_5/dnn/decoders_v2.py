@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 ### Dense Neural Network ###
-class DenseNN(nn.Module):
+class DenseNN_v2(nn.Module):
 
     '''
     Class for the dense (fully-connected) neural network decoder
@@ -21,7 +21,7 @@ class DenseNN(nn.Module):
     '''
     
     def __init__(self, in_features, out_features, units=100, act=nn.ReLU, dropout=0):
-        super(DenseNN, self).__init__()
+        super(DenseNN_v2, self).__init__()
         self.out_features = out_features
         self.in_features = in_features
         self.act = act()
@@ -62,22 +62,6 @@ class DenseNN(nn.Module):
         x = self.out(x)
 
         return x
-
-
-    def fit(self, loss_func, optimizer, X, Y, epochs=100):
-        for i in range(epochs):
-            preds = self.forward(X) ## Make Predictions by forward pass through network
-
-            loss = loss_func(preds, Y) ## Calculate Loss
-            self.loss += loss
-
-            optimizer.zero_grad() ## Zero weights before calculating gradients
-            loss.backward() ## Calculate Gradients
-            optimizer.step() ## Update Weights
-
-            if i % 500 == 0: ## Print MSE every 500 epochs
-                print(f"Epoch: {i}  ||  MSE: {loss}")
-
 
     def predict(self, x):
         return self.forward(x)

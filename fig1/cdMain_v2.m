@@ -40,7 +40,7 @@ params.tmax = 2.5;
 params.dt = 1/200;
 
 % smooth with causal gaussian kernel
-params.smooth = 51;
+params.smooth = 31;
 
 % cluster qualities to use
 % params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
@@ -192,7 +192,8 @@ for sessix = 1:numel(objs)
     end
     
     
-    % projections and normalize
+    % projections and normalize (not normalizing currently since I
+    % standardize PSTHs beforehand)
     % when pooling trajectories across sessions from hidehikos ppn paper:
     % CD_late projections normalized by mean activity just before go cue
     % (-0.1<t<t_go)
@@ -235,7 +236,7 @@ for sessix = 1:numel(objs)
     
 end
 
-% concatenate latents from all sessions, find mean and stderror across sessions
+% concatenate latents from all sessions into a (time,sessions) matrix, find mean and stderror across sessions
 
 fns = patternMatchCellArray(fieldnames(rez(1)),{'latent'},'all');
 
