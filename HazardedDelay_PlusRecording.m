@@ -89,6 +89,7 @@ end
 meta = meta(use);
 objs = objs(use);
 %% For each session--Trials separated by delay length
+plotIndiv = 'no';
 for gg = 1:length(meta)
     sesh = gg;
     obj = objs{sesh};
@@ -143,7 +144,7 @@ for gg = 1:length(meta)
     % Find go mode
     cond{1} = params.modecondition{5};
     epoch = {'postgo','prego'};
-    allModes.go_mode = goMode(obj,met,cond,epoch,rez.alignEvent,'no');
+    CD.go_mode = goMode(obj,met,cond,epoch,rez.alignEvent,'no');
     clear cond
     % Orthogonalize CD late to CD early
     CD = orthogModes(CD, obj);
@@ -154,208 +155,47 @@ for gg = 1:length(meta)
     latent.late = getChoiceProj_byDelLength(CD.late_mode,smooth,delPSTH,params);
 
     % Plot choice mode for each condition separated by delay length
-    figure();
-    for e = 1:3                 % For CDearly, CDlate, and jaw prob...         
-        for d = 1:4             % For the first 4 delay lengths...
-            if e==1             % CDearly
-                la = latent.early;
-                dur = 'CDearly';
-                s = d;
-                colors = {[0 0 1],[1 0 0]};
-            elseif e==2         % CDlate
-                la = latent.late;
-                dur = 'CDlate';
-                colors = {[0 0 1],[1 0 0]};
-                s = d+4;
-            elseif e==3         % Jaw stuff
-                la = jawvel;
-                s = d+8;
-                colors = {[0 0 0.9],[0.9 0 0]};
+    if strcmp(plotIndiv,'yes')
+        figure();
+        for e = 1:3                 % For CDearly, CDlate, and jaw prob...
+            for d = 1:4             % For the first 4 delay lengths...
+                if e==1             % CDearly
+                    la = latent.early;
+                    dur = 'CDearly';
+                    s = d;
+                    colors = {[0 0 1],[1 0 0]};
+                elseif e==2         % CDlate
+                    la = latent.late;
+                    dur = 'CDlate';
+                    colors = {[0 0 1],[1 0 0]};
+                    s = d+4;
+                elseif e==3         % Jaw stuff
+                    la = jawvel;
+                    s = d+8;
+                    colors = {[0 0 0.9],[0.9 0 0]};
+                end
+                subplot(3,4,s)
+                plot(taxis,la.left{d},'Color',colors{2},'LineWidth',2)
+                hold on;
+                plot(taxis,la.right{d},'Color',colors{1},'LineWidth',2)
+                xlim([-1.4 2])
+                xline(0,'LineStyle','--','LineWidth',1.3)
+                xline(-1.3,'LineStyle',':','LineWidth',1.3)
+                xline(params.delay(d),'LineStyle','-.','LineWidth',1.3)
+                %legend('Left','Right','Delay onset','Sample onset','GoCue','Location','best')
+                len = num2str(params.delay(d));
+                if e==1 || e==2
+                    subtitle = strcat(dur,';Delay length =',{' '},len);
+                    ylabel('a.u.')
+                elseif e==3
+                    subtitle = strcat('Jaw prob; Delay length =',{' '},len);
+                    ylabel('%')
+                    xlabel('Time since delay onset')
+                end
+                title(subtitle)
             end
-            subplot(3,4,s)
-            plot(taxis,la.left{d},'Color',colors{2},'LineWidth',2)
-            hold on;
-            plot(taxis,la.right{d},'Color',colors{1},'LineWidth',2)
-            xlim([-1.4 2])
-            xline(0,'LineStyle','--','LineWidth',1.3)
-            xline(-1.3,'LineStyle',':','LineWidth',1.3)
-            xline(params.delay(d),'LineStyle','-.','LineWidth',1.3)
-            %legend('Left','Right','Delay onset','Sample onset','GoCue','Location','best')
-            len = num2str(params.delay(d));
-            if e==1 || e==2
-                subtitle = strcat(dur,';Delay length =',{' '},len);
-                ylabel('a.u.')
-            elseif e==3
-                subtitle = strcat('Jaw prob; Delay length =',{' '},len);
-                ylabel('%')
-                xlabel('Time since delay onset')
-            end
-            title(subtitle)
         end
-    end
-    sesstitle = strcat({' '},anm,{' '},date);  % Name/title for session
-    sgtitle(sesstitle,'FontSize',13)
-end
-%% For all sessions--Trials separated by delay length
-for gg = 1:length(meta)
-    sesh = gg;
-    obj = objs{sesh};
-    met = meta(sesh);
-
-    delaylen = obj.bp.ev.goCue - obj.bp.ev.delay;       % Find the delay length for all trials
-    conditions = {1,2};
-    met = getDelayTrialID(met,conditions,delaylen);     % Group the trials in each condition based on their delay length
-    obj.delPSTH = getPSTHbyDel(params,met,obj);             % Get avg PSTH for each delay length
-    objs{sesh} = obj;
-end
-multipsth = concatPSTH(objs);
-multiDelPSTH = concatDelPSTH(objs,params);
-%% AVG Probability of jaw movement 
-
-% Find average for each animal (across all of it's sessions)
-[jaw_allAnm,nAnimals,uc,sessbyAnm] = findHazardedJaw_Multi(objs,meta,conditions,taxis,params);
-
-% Average across animals
-AvgAll.right = cell(1,length(params.delay));
-AvgAll.left = cell(1,length(params.delay));
-for p = 1:length(params.delay)
-    temp.right = [];
-    temp.left = [];
-    for a = 1:nAnimals
-        temp.right = [temp.right,jaw_allAnm.right{a,p}];
-        temp.left = [temp.left,jaw_allAnm.left{a,p}];
-    end
-    AvgAll.right{p} = mean(temp.right,2,'omitnan');
-    AvgAll.left{p} = mean(temp.left,2,'omitnan');
-end
-%%
-
-%%%% FIND CHOICE MODE %%%%
-rez.time = objs{1}.time;
-rez.condition = objs{1}.condition;
-rez.alignEvent = params.alignEvent;
-% Find CDearly (coding dimension during mid-sample)
-cond{1} = params.modecondition{1};
-cond{2} = params.modecondition{2};
-epoch = 'midsample';
-CD.early_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
-% Find CDlate (coding dimension during late delay period)
-epoch = 'latedelay';
-CD.late_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'yes');
-% Orthogonalize CD late to CD early
-CD = orthogModes_Multi(CD, multiDelPSTH);
-
-% Get the projection of specified conditions onto the choice mode
-smooth = 51;
-latent.early = getChoiceProj_byDelLength(CD.early_mode,smooth,multiDelPSTH,params);
-latent.late = getChoiceProj_byDelLength(CD.late_mode,smooth,multiDelPSTH,params);
-
-% Plot choice mode for each condition separated by delay length
-figure();
-for e = 1:3                 % For CDearly, CDlate, and jaw prob...
-    for d = 1:4             % For the first 4 delay lengths...
-        if e==1             % CDearly
-            la = latent.early;
-            dur = 'CDearly';
-            s = d;
-            colors = {[0 0 1],[1 0 0]};
-        elseif e==2         % CDlate
-            la = latent.late;
-            dur = 'CDlate';
-            colors = {[0 0 1],[1 0 0]};
-            s = d+4;
-        elseif e==3         % Jaw stuff
-            la = AvgAll;
-            s = d+8;
-            colors = {[0 0 0.9],[0.9 0 0]};
-        end
-        subplot(3,4,s)
-        plot(taxis,la.left{d},'Color',colors{2},'LineWidth',2)
-        hold on;
-        plot(taxis,la.right{d},'Color',colors{1},'LineWidth',2)
-        xlim([-1.4 2])
-        xline(0,'LineStyle','--','LineWidth',1.3)
-        xline(-1.3,'LineStyle',':','LineWidth',1.3)
-        xline(params.delay(d),'LineStyle','-.','LineWidth',1.3)
-        %legend('Left','Right','Delay onset','Sample onset','GoCue','Location','best')
-        len = num2str(params.delay(d));
-        if e==1 || e==2
-            subtitle = strcat(dur,';Delay length =',{' '},len);
-            ylabel('a.u.')
-        elseif e==3
-            subtitle = strcat('Jaw prob; Delay length =',{' '},len);
-            ylabel('%')
-            xlabel('Time since delay onset')
-        end
-        title(subtitle)
+        sesstitle = strcat({' '},anm,{' '},date);  % Name/title for session
+        sgtitle(sesstitle,'FontSize',13)
     end
 end
-sgtitle('Avg across all sessions','FontSize',13)
-%%
-%%%%%%%
-
-
-%% All trials warped to 0.9 s 
-% 
-% for gg = 1:length(meta)
-%     figure();
-%     sesh = gg;
-%     obj = objs{sesh};
-%     met = meta(sesh);
-% 
-%     anm = obj.pth.anm;                  % Animal name
-%     date = obj.pth.dt;                  % Session date
-%     probenum = string(met.probe);       % Which probe was used
-% 
-%     %%%% FIND JAW VEL %%%%
-%     % Find the prob of jaw movement for all points in the trial; aligned to
-%     % delay
-%     conditions = {1,2};
-%     colors = {[0 0 1],[1 0 0]};
-%     subplot(2,2,1)
-%     if strcmp(params.jawMeasure,'sideJaw')
-%         plotJawProb_SessAvg(obj,met,conditions,colors,taxis,'no',params)
-%     elseif strcmp(params.jawMeasure,'Trident')
-%         plotTridentVel_SessAvg(obj,met,conditions,colors,'no')
-%     end
-%     xlim([-1.4 0.3])
-%     xline(0,'LineStyle','--')
-%     xline(-1.3,'LineStyle','--')
-%     legend('Right','Left','Location','best')
-%     sesstitle = strcat('Prob of jaw movement for',{' '},anm,{' '},date);  % Name/title for session
-%     title(sesstitle,'FontSize',13)
-% 
-%     %%%% JAW MOVEMENT SELECTIVITY %%%%
-% 
-%     edges = met.tmin:met.dt:met.tmax;
-%     [jawprob,~] = jawProbSessionAvg(obj,met,conditions,edges,params);
-%     jawselectivity = jawprob{1}-jawprob{2};
-%     subplot(2,2,2);
-%     plot(taxis,jawselectivity(2:end),'LineWidth',2,'Color','black')
-%     xlim([-1.4 0.3])
-%     xline(0,'LineStyle','--')
-%     xline(-1.3,'LineStyle','--')
-%     ylabel('Selectivity (probability of jaw movement)')
-%     xlabel('Time since delay onset (s)')
-%     sesstitle = strcat('Selectivity in jaw movements for',{' '},anm,{' '},date);  % Name/title for session
-%     title(sesstitle,'FontSize',13)
-% 
-%     
-%     conditions = {1,2};
-%     % Get the projection of specified conditions onto the choice mode
-%     smooth = 51;
-%     latentChoiceAll = getChoiceModeProjection(obj,choice_mode,smooth,conditions);
-% 
-%     colors = {[0 0 1],[1 0 0]};
-%     for c = 1:numel(conditions)
-%         plot(taxis,latentChoiceAll)
-%     end
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-%     %%%% FIND NEURAL SELECTIVITY %%%%
-% end
