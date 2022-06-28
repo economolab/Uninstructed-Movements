@@ -80,12 +80,12 @@ use = true(size(meta));
 for i = 1:numel(meta)
     disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
 %     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
-    fa(i) = getFAData(meta(i),'run2');
-    params(i) = fa(i).params;
-    if isfield(fa(i).obj,'meta')
-        fa(i).obj = rmfield(fa(i).obj,'meta');
+    gpfa(i) = getGPFAData(meta(i),'run2');
+    params(i) = gpfa(i).params;
+    if isfield(gpfa(i).obj,'meta')
+        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
     end
-    obj(i) = fa(i).obj;
+    obj(i) = gpfa(i).obj;
     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
     if ~me(i).use
         use(i) = false;
@@ -94,7 +94,7 @@ for i = 1:numel(meta)
     disp(' ');
 end
 
-fa = fa(use);
+gpfa = gpfa(use);
 params = params(use);
 meta = meta(use);
 obj = obj(use);
@@ -102,21 +102,21 @@ me = me(use);
 
 %%
 
-clearvars -except meta params obj dat fa dfparams me
+clearvars -except meta params obj dat gpfa dfparams me
 
 
 
-%% pca method single trials
-
+%% elsayed method single trials
 
 clear rez
 
 for i = 1:numel(meta)
-    input_data = fa(i).falatents; % dat(i).factors   dat(i).rates
-    rez(i) = pcaNullandPotentSpace(obj(i),input_data,me(i),params(i));
+    input_data = gpfa(i).gpfalatents; % dat(i).factors   dat(i).rates
+    rez(i) = elsayedNullandPotentSpace(obj(i),input_data,me(i),params(i));
 end
 
 %% variance explained plots
+close all
 
 varexpPlots(rez);
 
@@ -134,6 +134,7 @@ end
 
 rez = cdrez;
 
+% modes.varexp = activityModes_varexp(modes,rez);
 
 %% null space cds
 
@@ -143,3 +144,4 @@ nullSpaceCD(rez,obj,params,times)
 %% potent space cds
 
 potentSpaceCD(rez,obj,params,times)
+

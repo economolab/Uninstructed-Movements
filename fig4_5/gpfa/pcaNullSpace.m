@@ -27,7 +27,8 @@ meta(end).date = '2021-11-18';
 meta(end+1).anm = 'EKH3'; 
 meta(end).date = '2021-08-11';
 
-% meta(end+1).anm = 'EKH3'; 
+% meta(end+1).anm = 'EKH3';   % motion energy for this session unusable,
+% more vid trials than bpod trials
 % meta(end).date = '2021-08-07';
 
 meta(end+1).anm = 'EKH1'; 
@@ -80,12 +81,12 @@ use = true(size(meta));
 for i = 1:numel(meta)
     disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
 %     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
-    fa(i) = getFAData(meta(i),'run2');
-    params(i) = fa(i).params;
-    if isfield(fa(i).obj,'meta')
-        fa(i).obj = rmfield(fa(i).obj,'meta');
+    gpfa(i) = getGPFAData(meta(i),'run2');
+    params(i) = gpfa(i).params;
+    if isfield(gpfa(i).obj,'meta')
+        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
     end
-    obj(i) = fa(i).obj;
+    obj(i) = gpfa(i).obj;
     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
     if ~me(i).use
         use(i) = false;
@@ -94,7 +95,7 @@ for i = 1:numel(meta)
     disp(' ');
 end
 
-fa = fa(use);
+gpfa = gpfa(use);
 params = params(use);
 meta = meta(use);
 obj = obj(use);
@@ -102,8 +103,17 @@ me = me(use);
 
 %%
 
-clearvars -except meta params obj dat fa dfparams me
+clearvars -except meta params obj dat gpfa dfparams me
 
+% common things to functionalize
+% - variance explained null/potent
+% - projections null/potent
+% - concatenate and plot null/potent cds + variance explained
+
+% notes
+% - increasing amount of variance to explain to calculate number of modes
+% makes null space explain lot more variance than potent. It seems like
+% this method is 
 
 
 %% pca method single trials
@@ -112,7 +122,7 @@ clearvars -except meta params obj dat fa dfparams me
 clear rez
 
 for i = 1:numel(meta)
-    input_data = fa(i).falatents; % dat(i).factors   dat(i).rates
+    input_data = gpfa(i).gpfalatents; % dat(i).factors   dat(i).rates
     rez(i) = pcaNullandPotentSpace(obj(i),input_data,me(i),params(i));
 end
 
@@ -124,6 +134,7 @@ varexpPlots(rez);
 
 plotProjections(params,obj,rez)
 
+
 %% activity modes
 
 clear cdrez times
@@ -134,6 +145,7 @@ end
 
 rez = cdrez;
 
+% modes.varexp = activityModes_varexp(modes,rez);
 
 %% null space cds
 
@@ -143,3 +155,5 @@ nullSpaceCD(rez,obj,params,times)
 %% potent space cds
 
 potentSpaceCD(rez,obj,params,times)
+
+

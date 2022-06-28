@@ -229,8 +229,17 @@ for fnix = 1:numel(fns)
     cd.stderr.(fn) = [nanstd(cd.(fn){1},[],2) nanstd(cd.(fn){2},[],2)] ./ numel(rez); % std error
 end
 
+% average varexp from all sessions
+fns = fieldnames(rez(1).varexp);
+for i = 1:numel(rez)
+    for j = 1:numel(fns)
+        vexp(i,j) = rez(i).varexp.(fns{j});
+    end
+end
+mean_ve = mean(vexp);
+
 %% plot projections onto coding directions 
-close all
+% close all
 clrs = getColors();
 lw = 6;
 alph = 0.5;
@@ -250,16 +259,16 @@ for i = 1:numel(fns)
     shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
     
     xlim([rez(1).time(15);rez(1).time(end)])
-    ylims = [min(min(tempmean))-5, max(max(tempmean))+5];
-    ylim(ylims);
+%     ylims = [min(min(tempmean))-5, max(max(tempmean))+5];
+%     ylim(ylims);
     
-    title(['$ CD_{' lower(fns{i}(3:end-7)) '}$'],'Interpreter','latex')
+    title(['$ CD_{' lower(fns{i}(3:end-7)) '}$'  ' | MeanVE=' num2str(round(mean_ve(i),2)) ],'Interpreter','latex')
 %     xlabel('Time (s) from go cue')
 %     ylabel('Activity (a.u.)')
     ax = gca;
-    ax.FontSize = 12;
+    ax.FontSize = 20;
     ax.XTick = [];
-    ax.YTick = [];
+%     ax.YTick = [];
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
@@ -269,12 +278,14 @@ for i = 1:numel(fns)
     timefieldname = ['mode' lower(curmodename(3:end-7))];
     shadetimes = objs{1}.time(times.(timefieldname));
     x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
-    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+%     y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    y = [-50 -50 50 50];
     fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
     fl.FaceAlpha = 0.3;
     fl.EdgeColor = 'none';
     
-    ylim(ylims);
+%     ylim(ylims);
+    ylim([-50 50]);
     
     
 %     if sav
@@ -286,6 +297,20 @@ for i = 1:numel(fns)
     hold off
     
 end
+
+%% vexp
+violincols = [50, 168, 82; 168, 50, 142] ./ 225;
+f = figure; ax = axes(f);
+
+tempvexp = [vexp sum(vexp,2)];
+vfns = fieldnames(rez(1).varexp);
+vfns{end+1} = 'sum';
+vs = violinplot(tempvexp,vfns,...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1});% , 'ViolinColor', violincols);
+ylabel('Fraction of VE')
+ylim([0,1])
+ax = gca;
+ax.FontSize = 20;
 
 %% orthogonality of modes
 % close all

@@ -82,7 +82,7 @@ Npotent = N(mask,:);
 rez.covNull = cov(Nnull);
 rez.covPotent = cov(Npotent);
 
-rez.varToExplain = 85;
+rez.varToExplain = 75;
 
 [pcs,~,explained] = myPCA(Nnull);
 rez.dPrep = numComponentsToExplainVariance(explained, rez.varToExplain );
@@ -128,7 +128,8 @@ temp2 = reshape(temp,size(temp,1)*size(temp,2),size(temp,3)); % reshape to (time
 N_potent = temp2 * rez.Qpotent;
 N_null = temp2 * rez.Qnull;
 
-rez.N_potent = reshape(N_potent,size(temp,1),size(temp,2),min(rez.dMove,numel(cols)));
+% rez.N_potent = reshape(N_potent,size(temp,1),size(temp,2),min(rez.dMove,numel(cols)));
+rez.N_potent = reshape(N_potent,size(temp,1),size(temp,2),rez.dMove);
 rez.N_null = reshape(N_null,size(temp,1),size(temp,2),rez.dPrep);
 
 %% 

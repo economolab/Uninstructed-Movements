@@ -92,6 +92,12 @@ rez.cd.potent.cdGo_mode = cd;
 
 %% orthogonalize
 
+try
+    rez.Qpotent = rez.W_potent;
+    rez.Qnull = rez.W_null;
+catch
+end
+
 [fns,~] = patternMatchCellArray(fieldnames(rez.cd.null),{'mode'},'all');
 nullmodes = zeros(rez.dPrep,numel(fns));
 potentmodes = zeros(size(rez.Qpotent,2),numel(fns));
@@ -126,6 +132,23 @@ for i = 1:numel(fns)
 end
 
 
+%% var exp
+
+temp = cat(1,rez.null_psth(:,:,1),rez.null_psth(:,:,2));
+nullcov = cov(temp);
+[~,eigvals] = myPCA(nullcov);
+% eigvals = 1;
+rez.cd.null.ve.early = var_proj(rez.cd.null.cdEarly_mode,nullcov,sum(eigvals));
+rez.cd.null.ve.late = var_proj(rez.cd.null.cdLate_mode,nullcov,sum(eigvals));
+rez.cd.null.ve.go = var_proj(rez.cd.null.cdGo_mode,nullcov,sum(eigvals));
+
+temp = cat(1,rez.potent_psth(:,:,1),rez.potent_psth(:,:,2));
+potentcov = cov(temp);
+[~,eigvals] = myPCA(potentcov);
+% eigvals = 1;
+rez.cd.potent.ve.early = var_proj(rez.cd.potent.cdEarly_mode,potentcov,sum(eigvals));
+rez.cd.potent.ve.late = var_proj(rez.cd.potent.cdLate_mode,potentcov,sum(eigvals));
+rez.cd.potent.ve.go = var_proj(rez.cd.potent.cdGo_mode,potentcov,sum(eigvals));
 
 end
 

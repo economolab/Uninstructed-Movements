@@ -123,17 +123,6 @@ me = me(use);
 
 clearvars -except meta params objs me 
 
-%% 
-
-% data_structure_JEB6_2021-04-18.mat
-% this session doesn't have new dlc, skipping it for now
-% it's the first session, so keeping 2:end for everything
-params.probe = params.probe(2:end);
-params.trialid = params.trialid(2:end);
-params.cluid = params.cluid(2:end);
-meta = meta(2:end);
-objs = objs(2:end);
-me = me(2:end);
 
 %% VIDEO FEATURES
 
@@ -268,7 +257,7 @@ clrs{1} = cols.rhit;
 clrs{2} = cols.lhit;
 lw = 3;
 alph = 0.5;
-for i = 1:numel(rez)
+for i = 1:3 %numel(rez)
     %     optimization_plots(rez,obj,dat,params); % old
     
     temp = rez(i).N_potent;
@@ -287,9 +276,9 @@ for i = 1:numel(rez)
         title(['Potent ' num2str(dimix)])
         xlim([objs{1}.time(15),objs{1}.time(end)])
         
-        align = mode(obj(i).bp.ev.(params.alignEvent));
-        sample = mode(obj(i).bp.ev.sample) - align;
-        delay = mode(obj(i).bp.ev.delay) - align;
+        align = mode(objs{i}.bp.ev.(params.alignEvent));
+        sample = mode(objs{i}.bp.ev.sample) - align;
+        delay = mode(objs{i}.bp.ev.delay) - align;
         xline(sample,'k--','LineWidth',2)
         xline(delay,'k--','LineWidth',2)
         xline(0,'k--','LineWidth',2)
@@ -321,9 +310,9 @@ for i = 1:numel(rez)
         title(['Null ' num2str(dimix)])
         xlim([objs{1}.time(15),objs{1}.time(end)])
         
-        align = mode(obj(i).bp.ev.(params.alignEvent));
-        sample = mode(obj(i).bp.ev.sample) - align;
-        delay = mode(obj(i).bp.ev.delay) - align;
+        align = mode(objs{i}.bp.ev.(params.alignEvent));
+        sample = mode(objs{i}.bp.ev.sample) - align;
+        delay = mode(objs{i}.bp.ev.delay) - align;
         xline(sample,'k--','LineWidth',2)
         xline(delay,'k--','LineWidth',2)
         xline(0,'k--','LineWidth',2)
@@ -380,6 +369,18 @@ cdEarly_latent_error = [nanstd(cdEarly{1},[],2) nanstd(cdEarly{2},[],2)] ./ (num
 cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(rez); % std error
 cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
 
+fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
+
+% ve
+
+ve = zeros(numel(fns),numel(rez));
+for i = 1:numel(rez)
+    ve(1,i) = rez(i).cd.null.ve.early;
+    ve(2,i) = rez(i).cd.null.ve.late;
+    ve(3,i) = rez(i).cd.null.ve.go;
+end
+meanve = mean(ve,2);
+
 
 close all
 clrs = getColors();
@@ -391,7 +392,6 @@ sm = 1;
 sample = mode(objs{1}.bp.ev.sample - objs{1}.bp.ev.(params.alignEvent));
 delay = mode(objs{1}.bp.ev.delay - objs{1}.bp.ev.(params.alignEvent));
 
-fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
 
 sav = 0;
 for i = 1:numel(fns)
@@ -405,11 +405,11 @@ for i = 1:numel(fns)
 %     ylims = [min(min(tempmean)), max(max(tempmean))+5];
 %     ylim(ylims);
     
-    title(fns{i},'Interpreter','none')
+    title([fns{i} '| MeanVE=' num2str(meanve(i))],'Interpreter','none')
     xlabel('Time (s) from go cue')
     ylabel('Activity (a.u.)')
     ax = gca;
-    ax.FontSize = 40;
+    ax.FontSize = 20;
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
@@ -428,6 +428,7 @@ for i = 1:numel(fns)
     fl.EdgeColor = 'none';
     
 %     ylim(ylims);
+    ylim([-60 60])
     
     
     if sav
@@ -498,6 +499,19 @@ cdLate_latent_error = [nanstd(cdLate{1},[],2) nanstd(cdLate{2},[],2)] ./ numel(r
 cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); % std error
 
 
+fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
+
+% ve
+
+ve = zeros(numel(fns),numel(rez));
+for i = 1:numel(rez)
+    ve(1,i) = rez(i).cd.null.ve.early;
+    ve(2,i) = rez(i).cd.null.ve.late;
+    ve(3,i) = rez(i).cd.null.ve.go;
+end
+meanve = mean(ve,2);
+
+
 close all
 clrs = getColors();
 lw = 6;
@@ -508,7 +522,7 @@ sm = 1;
 sample = mode(objs{1}.bp.ev.sample - objs{1}.bp.ev.(params.alignEvent));
 delay = mode(objs{1}.bp.ev.delay - objs{1}.bp.ev.(params.alignEvent));
 
-fns = patternMatchCellArray(fieldnames(rez(1).cd.potent),{'mode'},'all');
+
 
 sav = 0;
 for i = 1:numel(fns)
@@ -522,11 +536,11 @@ for i = 1:numel(fns)
 %     ylims = [min(min(tempmean)), max(max(tempmean))+5];
 %     ylim(ylims);
     
-    title(fns{i},'Interpreter','none')
+    title([fns{i} '| MeanVE=' num2str(meanve(i))],'Interpreter','none')
     xlabel('Time (s) from go cue')
     ylabel('Activity (a.u.)')
     ax = gca;
-    ax.FontSize = 40;
+    ax.FontSize = 20;
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
@@ -545,6 +559,7 @@ for i = 1:numel(fns)
     fl.EdgeColor = 'none';
     
 %     ylim(ylims);
+    ylim([-60 60])
     
     
     if sav
@@ -585,65 +600,4 @@ end
 % 
 % potentselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
 % potentselexp_tot = mean(potentselexp,1)';
-
-%%
-% close all
-% 
-% sav = 0;
-% 
-% violincols = [50, 168, 82; 168, 50, 142] ./ 255;
-% f = figure; ax = axes(f);
-% vs = violinplot([1./nullselexp_tot 1./potentselexp_tot],{'Null','Potent'},...
-%     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
-% ylabel('Selectivity Ratio (Sum / Total)')
-% % ylim([0,1])
-% ax = gca;
-% ax.FontSize = 25;
-% if sav
-%     pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
-%     fn = 'selexp_null_potent';
-%     mysavefig(f,pth,fn);
-% end
-% 
-% violincols = [50, 168, 82; 168, 50, 142] ./ 255;
-% f = figure; ax = axes(f);
-% vs = violinplot([1./nullselexp_early 1./potentselexp_early],{'Null','Potent'},...
-%     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
-% ylabel('Selectivity Ratio (Early / Total)')
-% % ylim([0,1])
-% ax = gca;
-% ax.FontSize = 25;
-% if sav
-%     pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
-%     fn = 'selexp_early';
-%     mysavefig(f,pth,fn);
-% end
-% 
-% violincols = [50, 168, 82; 168, 50, 142] ./ 255;
-% f = figure; ax = axes(f);
-% vs = violinplot([1./nullselexp_late 1./potentselexp_late],{'Null','Potent'},...
-%     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
-% ylabel('Selectivity Ratio (Late / Total)')
-% % ylim([0,1])
-% ax = gca;
-% ax.FontSize = 25;
-% if sav
-%     pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
-%     fn = 'selexp_late';
-%     mysavefig(f,pth,fn);
-% end
-% 
-% violincols = [50, 168, 82; 168, 50, 142] ./ 255;
-% f = figure; ax = axes(f);
-% vs = violinplot([1./nullselexp_go 1./potentselexp_go],{'Null','Potent'},...
-%     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.35,1}, 'ViolinColor', violincols);
-% ylabel('Selectivity Ratio (Go / Total)')
-% % ylim([0,1])
-% ax = gca;
-% ax.FontSize = 25;
-% if sav
-%     pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig4_5/figs/elsayedNullSpace/';
-%     fn = 'selexp_go';
-%     mysavefig(f,pth,fn);
-% end
 

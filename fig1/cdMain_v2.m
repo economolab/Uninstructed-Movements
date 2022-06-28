@@ -256,6 +256,15 @@ for fnix = 1:numel(fns)
     cd.stderr.(fn) = [nanstd(cd.(fn){1},[],2) nanstd(cd.(fn){2},[],2)] ./ numel(rez); % std error
 end
 
+% average varexp from all sessions
+fns = fieldnames(rez(1).varexp);
+for i = 1:numel(rez)
+    for j = 1:numel(fns)
+        vexp(i,j) = rez(i).varexp.(fns{j});
+    end
+end
+mean_ve = mean(vexp);
+
 %% plot projections onto coding directions 
 close all
 clrs = getColors();
@@ -269,48 +278,68 @@ fns = fieldnames(cd.mean);
 
 sav = 0;
 for i = 1:numel(fns)
-    f(i) = figure; ax = axes(f(i)); hold on
+%     f = figure; hold on
+%     ax = gca;
+    ax = nexttile; hold on;
     tempmean = cd.mean.(fns{i});
     temperror = cd.stderr.(fns{i});
     shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
     shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
     
     xlim([rez(1).time(15);rez(1).time(end)])
-    ylims = [min(min(tempmean))-5, max(max(tempmean))+5];
-    ylim(ylims);
+%     ylims = [min(min(tempmean))-5, max(max(tempmean))+5];
+%     ylim(ylims);
     
-    title(['$ CD_{' lower(fns{i}(3:end-7)) '}$'],'Interpreter','latex')
-    xlabel('Time (s) from go cue')
-    ylabel('Activity (a.u.)')
-    ax = gca;
-    ax.FontSize = 40;
+    title(['$ CD_{' lower(fns{i}(3:end-7)) '}$'  ' | MeanVE=' num2str(round(mean_ve(i),2)) ],'Interpreter','latex')
+%     xlabel('Time (s) from go cue')
+%     ylabel('Activity (a.u.)')
+%     ax = gca;
+    ax.FontSize = 20;
+    ax.XTick = [];
+%     ax.YTick = [];
     
     xline(sample,'k--','LineWidth',2)
     xline(delay,'k--','LineWidth',2)
     xline(0,'k--','LineWidth',2)
     
     curmodename = fns{i};
-    timefns = fieldnames(times);
-    mask = strfind(timefns,lower(curmodename(3:end-7)));
-    ix = cellfun(@(x) isempty(x),mask,'UniformOutput',false);
-    ix = ~cell2mat(ix);
-    shadetimes = objs{1}.time(times.(timefns{ix}));
+    timefieldname = [lower(curmodename(3:end-7))];
+    shadetimes = objs{1}.time(times.(timefieldname));
     x = [shadetimes(1)  shadetimes(end) shadetimes(end) shadetimes(1)];
-    y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+%     y = [ax.YLim(1) ax.YLim(1) ax.YLim(2) ax.YLim(2)];
+    y = [-60 -60 50 50];
     fl = fill(x,y,'r','FaceColor',[93, 121, 148]./255);
     fl.FaceAlpha = 0.3;
     fl.EdgeColor = 'none';
     
-    ylim(ylims);
+%     ylim(ylims);
+    ylim([-60 50]);
     
     
-    if sav
-        pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
-        fn = [fns{i} '_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
-        mysavefig(f(i),pth,fn);
-    end
+%     if sav
+%         pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
+%         fn = [fns{i} '_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];
+%         mysavefig(f(i),pth,fn);
+%     end
+
+    hold off
     
 end
+
+%% vexp
+violincols = [50, 168, 82; 168, 50, 142] ./ 225;
+f = figure; ax = axes(f);
+
+tempvexp = [vexp sum(vexp,2)];
+vfns = fieldnames(rez(1).varexp);
+vfns{end+1} = 'sum';
+vs = violinplot(tempvexp,vfns,...
+    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1});% , 'ViolinColor', violincols);
+ylabel('Fraction of VE')
+ylim([0,1])
+ax = gca;
+ax.FontSize = 20;
+
 
 %% orthogonality of modes
 % close all

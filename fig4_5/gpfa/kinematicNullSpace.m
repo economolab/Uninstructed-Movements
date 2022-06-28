@@ -26,7 +26,7 @@ meta(end).date = '2021-11-18';
 
 meta(end+1).anm = 'EKH3'; 
 meta(end).date = '2021-08-11';
-
+% 
 % meta(end+1).anm = 'EKH3'; 
 % meta(end).date = '2021-08-07';
 
@@ -80,12 +80,12 @@ use = true(size(meta));
 for i = 1:numel(meta)
     disp(['Loading data for ' meta(i).anm ' ' meta(i).date]);
 %     [meta(i),params(i),obj(i),dat(i)] = getNeuralActivity(meta(i),dfparams);
-    fa(i) = getFAData(meta(i),'run2');
-    params(i) = fa(i).params;
-    if isfield(fa(i).obj,'meta')
-        fa(i).obj = rmfield(fa(i).obj,'meta');
+    gpfa(i) = getGPFAData(meta(i),'run2');
+    params(i) = gpfa(i).params;
+    if isfield(gpfa(i).obj,'meta')
+        gpfa(i).obj = rmfield(gpfa(i).obj,'meta');
     end
-    obj(i) = fa(i).obj;
+    obj(i) = gpfa(i).obj;
     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
     if ~me(i).use
         use(i) = false;
@@ -94,7 +94,7 @@ for i = 1:numel(meta)
     disp(' ');
 end
 
-fa = fa(use);
+gpfa = gpfa(use);
 params = params(use);
 meta = meta(use);
 obj = obj(use);
@@ -102,7 +102,7 @@ me = me(use);
 
 %%
 
-clearvars -except meta params obj dat fa dfparams me kin kinfeats kinfeats_reduced
+clearvars -except meta params obj dat gpfa dfparams me kin kinfeats kinfeats_reduced
 
 
 %% VIDEO FEATURES
@@ -149,6 +149,15 @@ end
 
 disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
+%% 
+
+% We now have a struct, dat, that contains:
+% - trials:        trial numbers in use
+% - factors:       neural data that's been reduced using lfads or factor analysis (time,factors,trials)
+% - rates:         denoised single trial neural data from lfads or smoothing (time,cells,trials)
+% - featLeg:       cell array of strings describing the features in dat.feats (2nd dim)
+% - feats:         displacements, velocity, jaw angle, and motion energy (time,trials,feature)
+% - feats_reduced: pca reduced dat.feats (time,trials,factors);
 
 
 %% REGRESSION
@@ -168,7 +177,7 @@ disp('DONE CREATING FEATURE MATRIX AND REDUCED DIM FEATURE MATRIX')
 
 for i = 1:numel(meta)
     clear newrez
-    input_data.factors = fa(i).falatents;
+    input_data.factors = gpfa(i).gpfalatents;
     input_data.feats = kinfeats_reduced{i};
     newrez = estimateW(obj(i),input_data,dfparams,obj(i).time,me(i)); % N,V are zscored neural activity and feature matrix
     
@@ -183,10 +192,6 @@ for i = 1:numel(meta)
     % rez.corrcoef = calcCorrCoef(rez.V,rez.N,rez.W);
     
     % variance explained by null and potent space
-    % (this is how much variance is explained out of max variance to be
-    % explained from total number of null and potent dims)
-    % TODO: var explained of trial averaged data, not single trials b/c the
-    % variability messes things up...
     verez = calVarExp(newrez);
     
     rezfns = fieldnames(verez);
@@ -207,6 +212,7 @@ end
 
 violincols = [50, 168, 82; 168, 50, 142] ./ 225;
 varexp_full = [null_total ; potent_total]';
+varexp_full(:,1) = varexp_full(:,1) - 0.001*rand(numel(rez),1); % add jitter in case some values are the same
 f = figure; ax = axes(f);
 vs = violinplot(varexp_full,{'Null','Potent'},...
     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1}, 'ViolinColor', violincols);
@@ -223,6 +229,7 @@ ax.FontSize = 20;
 %% plot projections
 
 plotProjections(params,obj,rez)
+
 
 %% activity modes
 
@@ -243,8 +250,5 @@ nullSpaceCD(rez,obj,params,times)
 %% potent space cds
 
 potentSpaceCD(rez,obj,params,times)
-
-
-
 
 
