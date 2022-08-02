@@ -68,13 +68,14 @@ N = reshape(N,size(N,1)*numel(trials),size(N,3)); % reshape to (time*trials, neu
 
 % move and non move times
 tempme = me.data(timeix,trials);
-mask = tempme(:) > (me.moveThresh); % when moving
-% mask = reshape(mask,size(me.data,1),numel(trials));
-% mask = mask(logical(timeix),:);
+mask = tempme(:) > (me.moveThresh);
 
-Nnull = N(~mask,:);
+newmask = [false(6, 1); mask];
+newmask = newmask(1:end-6);
 
-Npotent = N(mask,:);
+Nnull = N(~newmask,:);
+
+Npotent = N(newmask,:);
 
 
 %% null and potent spaces
@@ -82,7 +83,7 @@ Npotent = N(mask,:);
 rez.covNull = cov(Nnull);
 rez.covPotent = cov(Npotent);
 
-rez.varToExplain = 75;
+rez.varToExplain = var2exp;
 
 [pcs,~,explained] = myPCA(Nnull);
 rez.dPrep = numComponentsToExplainVariance(explained, rez.varToExplain );

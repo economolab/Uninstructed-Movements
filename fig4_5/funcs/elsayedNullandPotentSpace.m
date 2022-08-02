@@ -33,6 +33,7 @@ trialsMiss = cell2mat(trials_miss);
 trialsMiss = trialsMiss(:);
 
 trials = [trialsHit ; trialsMiss]; % (minTrials*numCond,1) vector of trials used to estimate null/potent spaces
+trials = trialsHit;
 
 %% time points to use 
 
@@ -65,20 +66,20 @@ N = permute(temp,[1,3,2]); % reshape to (time,trials,neurons/factors), easier to
 % imagesc(squeeze(N(:,:,d))'); colorbar
 % subplot(1,2,2)
 % imagesc(squeeze(temp(:,d,:))'); colorbar
-
-% mean center across conditions (like in elsayed paper)
-psth(:,:,1) = mean(dat(:,:,trials_hit{1}),3); % psth is (time,neuron/factors,nCond) - mean across trials within a condition for each time point and neuron/factor
-psth(:,:,2) = mean(dat(:,:,trials_hit{2}),3);
-psth(:,:,3) = mean(dat(:,:,trials_miss{1}),3);
-psth(:,:,4) = mean(dat(:,:,trials_miss{2}),3);
-
-% mean across conditions for each time point, for each neuron/factor
-means = mean(psth,3);
-
-% subtract means from each trial
-for i = 1:size(N,2) % for each trial
-    N(:,i,:) = squeeze(N(:,i,:)) - means;
-end
+% 
+% % mean center across conditions (like in elsayed paper)
+% psth(:,:,1) = mean(dat(:,:,trials_hit{1}),3); % psth is (time,neuron/factors,nCond) - mean across trials within a condition for each time point and neuron/factor
+% psth(:,:,2) = mean(dat(:,:,trials_hit{2}),3);
+% psth(:,:,3) = mean(dat(:,:,trials_miss{1}),3);
+% psth(:,:,4) = mean(dat(:,:,trials_miss{2}),3);
+% 
+% % mean across conditions for each time point, for each neuron/factor
+% means = mean(psth,3);
+% 
+% % subtract means from each trial
+% for i = 1:size(N,2) % for each trial
+%     N(:,i,:) = squeeze(N(:,i,:)) - means;
+% end
 
 
 % % 
@@ -104,9 +105,34 @@ N = reshape(N,size(N,1)*numel(trials),size(N,3)); % reshape to (time*trials, neu
 
 %% label time points as moving and non-moving
 
-% move and non move times
-tempme = me.data(timeix,trials);
-mask = tempme(:) > (me.moveThresh);
+% use saved movement indices
+mask = me.moveIx(timeix,trials);
+mask = mask(:);
+
+% % N = (time,trials,factors/neurons)
+% % only use +-50 ms surrounding go cue
+% [~,e1] = min(abs(obj.time - (-0.05)));
+% [~,e2] = min(abs(obj.time - 0.05));
+% 
+% N = N(e1:e2,:,:);
+% N = reshape(N,size(N,1)*numel(trials),size(N,3)); % reshape to (time*trials, neurons/factors)
+% mask = mask(e1:e2,:);
+% mask = mask(:);
+
+
+% % use move threshold and motion energy to label movment indices
+% tempme = me.data(timeix,trials);
+% mask = tempme(:) > (me.moveThresh);
+
+% % shift me relative to neural data (we thougt there might have been an
+% % offset but there doesn't seem to be)
+% k = 6;
+% newmask = [false(k, 1); mask];
+% newmask = newmask(1:end-k);
+% Nnull = N(~newmask,:);
+% Npotent = N(newmask,:);
+
+
 
 Nnull = N(~mask,:);
 
@@ -122,10 +148,8 @@ rez.varToExplain = 70;
 [~,~,explained] = myPCA(Nnull);
 rez.dPrep = numComponentsToExplainVariance(explained, rez.varToExplain );
 
-
 [~,~,explained] = myPCA(Npotent);
 rez.dMove= numComponentsToExplainVariance(explained, rez.varToExplain );
-
 
 % main optimization step
 alpha = 0; % regularization hyperparam (+ve->discourage sparity, -ve->encourage sparsity)

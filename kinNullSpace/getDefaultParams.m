@@ -42,8 +42,17 @@ params.quality = {'all'}; % accepts any cell array of strings - special characte
 % params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
 %                         {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','top_paw','bottom_paw','jaw'}};
 
-params.traj_features = {{'tongue','jaw','nose'},...
-                        {'top_tongue','topleft_tongue','bottom_tongue','jaw','top_paw','bottom_paw'}};
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+                        {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_paw','bottom_paw','top_nostril','bottom_nostril'}};
+
+params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+
+% --SPECIFY TIME POINTS AND LAG TO USE
+params.prep = [-2.5 -0.05]; % initial and final time points (seconds) defining prep epoch, relative to alignevent
+params.move = [-2.5 1.5];   % initial and final time points (seconds) defining move epoch, relative to alignevent
+% params.advance_movement = 0.025; % seconds, amount of time to advance movement data relative to neural data
+params.advance_movement = 0.0;
 
 end
 

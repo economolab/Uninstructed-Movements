@@ -45,7 +45,11 @@ timeix = logical(ones(size(obj.time)));
 
 %% data
 
-tempN = dat.factors(:,:,trials);
+try
+    tempN = dat.factors(:,:,trials);
+catch
+    'a'
+end
 tempV = dat.feats(:,trials,:);
 
 % % split data into test and regression epoch 
@@ -100,9 +104,9 @@ Vpotent = V(mask,:);
 
 %% estimate W
 % cross validate to find regularization parameter to use
-% lambdas = linspace(0,10000,1000);
+% lambdas = linspace(0,10000,100);
 % disp('Finding best regularization parameter, lambda, for regression')
-% lambda = cross_validate(V_move,N_move,lambdas);
+% lambda = cross_validate(Vpotent,Npotent,lambdas);
 % disp('DONE')
 % lambda = 1.2112e+03; % JEB7, 4-29
 % lambda = 10;
@@ -110,6 +114,10 @@ lambda = 0;
 
 % compute transformation matrix, W, using ridge regression
 W = my_ridge_regression(Vpotent,Npotent,lambda);
+
+% for i = 1:size(Vpotent,2)
+%     W(:,i) = regress(Vpotent(:,i),Npotent);
+% end
 
 tempN = dat.factors;
 tempN = permute(dat.factors, [1 3 2]);

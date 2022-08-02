@@ -85,6 +85,9 @@ for i = 1:numel(meta)
     if isfield(fa(i).obj,'meta')
         fa(i).obj = rmfield(fa(i).obj,'meta');
     end
+    if isfield(fa(i).obj,'ex')
+        fa(i).obj = rmfield(fa(i).obj,'ex');
+    end
     obj(i) = fa(i).obj;
     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
     if ~me(i).use
@@ -104,8 +107,6 @@ me = me(use);
 
 clearvars -except meta params obj dat fa dfparams me
 
-
-
 %% elsayed method single trials
 
 clear rez
@@ -122,6 +123,37 @@ varexpPlots(rez);
 %% plot projections
 
 plotProjections(params,obj,rez)
+
+%%
+sessix = 1;
+potenttemp = rez(sessix).N_potent;
+
+metemp = me(sessix);
+
+close all
+
+nTrials = 30;
+trix = 1:obj(sessix).bp.Ntrials;
+% trix = randsample(size(metemp.data,2),nTrials);
+
+medata = metemp.data(:,trix);
+potentdim = 3;
+potentdata = potenttemp(:,trix,potentdim);
+
+medata = mySmooth(medata(:),31);
+
+potentdata = mySmooth(potentdata(:),31);
+
+newtime = (1:numel(potentdata))./200;
+figure; hold on;
+% patchline(newtime+.120,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+patchline(newtime,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+ix = medata > metemp.moveThresh;
+z = medata;
+z(~ix) = nan;
+% plot(newtime+.120,z,'r','LineWidth',2)
+plot(newtime,z,'r','LineWidth',2)
+plot(newtime,potentdata*45 + 20,'b','LineWidth',1);
 
 %% activity modes
 

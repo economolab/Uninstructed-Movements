@@ -40,7 +40,7 @@ params.tmax = 2.5;
 params.dt = 1/200;
 
 % smooth with causal gaussian kernel
-params.smooth = 51;
+params.smooth = 101;
 
 % cluster qualities to use
 % params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
@@ -48,7 +48,8 @@ params.quality = {'all'};
 
 %% SET METADATA
 
-datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+% datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+datapth = 'M:/Economo-Lab/data/';
 
 meta = [];
 % meta = loadJEB4_ALMVideo(meta,datapth); % done
@@ -137,7 +138,7 @@ for sessix = 1:numel(objs)
     inite2 = 0.4;
     dt = 0.4;
     
-    for tt = 1:10
+    for tt = 1:6
         e1 = inite1 + (tt-1)*dt;
         e2 = inite2 + (tt-1)*dt;
         
@@ -313,8 +314,8 @@ ax = gca;
 ax.FontSize = 20;
 
 %% orthogonality of modes
-% close all
-% dotProductModes(rez,orthModes,'Orthogonality of Coding Directions')
+close all
+dotProductModes(rez,orthModes,'Orthogonality of Coding Directions')
 % f=gcf;
 % pth = '/Users/Munib/Documents/Economo-Lab/code/uninstructedMovements/fig1/figs/cd';
 % fn = ['orthogonality_anmList1_sessionList1_w_excludedsessions_sm_' num2str(params.smooth)];

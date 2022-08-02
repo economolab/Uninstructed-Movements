@@ -50,7 +50,7 @@ end
 
 kin = cat(3, featMat{:});
 v = cat(2, viewNum{:});
-kin(1:10, :, :) = kin(1:10, :, :).*0; % remove any smoothing artifacts at beginning of trials
+kin(1:5, :, :) = kin(1:5, :, :).*0; % remove any smoothing artifacts at beginning of trials
 
 allfeats = cat(2, feats{:});
 featLeg = cell(size(kin, 3), 1);

@@ -36,6 +36,11 @@ meta(end).date = '2021-08-07';
 
 
 
+
+
+
+
+
 meta = assignDataPath(meta);
 
 % the data should be stored in the following structure:
@@ -85,11 +90,11 @@ for i = 1:numel(meta)
     if isfield(fa(i).obj,'meta')
         fa(i).obj = rmfield(fa(i).obj,'meta');
     end
-    obj(i) = fa(i).obj;
-    me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
-    if ~me(i).use
-        use(i) = false;
-    end
+%     obj(i) = fa(i).obj;
+%     me(i) = loadMotionEnergy(obj(i),meta(i),params(i),1:obj(i).bp.Ntrials); 
+%     if ~me(i).use
+%         use(i) = false;
+%     end
     disp('DONE');
     disp(' ');
 end
@@ -100,9 +105,131 @@ meta = meta(use);
 obj = obj(use);
 me = me(use);
 
+%% SET RUN PARAMS
+clear params
+
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to 
+
+params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+params.condition(1)     = {'(hit|miss|no)'};                                % all trials
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};        % error right, no stim, aw off
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};        % error left, no stim, aw off
+
+
+params.tmin = -2.5;
+params.tmax = 2.5;
+params.dt = 0.02;
+
+% smooth with causal gaussian kernel
+params.smooth = 0;
+
+% cluster qualities to use
+% params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+params.quality = {'all'}; 
+
+%% SET METADATA
+
+% datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+datapth = 'M:/Economo-Lab/data/';
+
+meta = [];
+% meta = loadJEB4_ALMVideo(meta,datapth); % done
+% meta = loadJEB5_ALMVideo(meta,datapth); % done
+meta = loadJEB7_ALMVideo(meta,datapth); % done
+meta = loadJEB6_ALMVideo(meta,datapth); % done
+meta = loadJGR2_ALMVideo(meta,datapth); % done
+meta = loadJGR3_ALMVideo(meta,datapth); % done
+meta = loadEKH3_ALMVideo(meta,datapth); % done
+meta = loadEKH1_ALMVideo(meta,datapth); % done
+
+
+params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
+
+%% LOAD AND PROCESS DATA
+
+objs = loadObjs(meta);
+
+
+for metaix = 1:numel(meta)
+    obj = objs{metaix};
+    disp('______________________________________________________')
+    disp(['Processing data for session ' [meta(metaix).anm '_' meta(metaix).date]])
+    disp(' ')
+    [sessparams{metaix},sessobj{metaix}] = processData(obj,params,params.probe(metaix));
+end
+
+% clean up sessparams and sessobj
+for metaix = 1:numel(meta)
+    params.trialid{metaix} = sessparams{metaix}.trialid;
+    params.cluid{metaix} = sessparams{metaix}.cluid{params.probe(metaix)};
+    
+    objs{metaix} = sessobj{metaix};
+    objs{metaix}.psth = objs{metaix}.psth{params.probe(metaix)};
+    objs{metaix}.trialdat = objs{metaix}.trialdat{params.probe(metaix)};
+    objs{metaix}.presampleFR = objs{metaix}.presampleFR{params.probe(metaix)};
+    objs{metaix}.presampleSigma = objs{metaix}.presampleSigma{params.probe(metaix)};
+end
+
+disp(' ')
+disp('DATA LOADED AND PROCESSED')
+disp(' ')
+
+% Remove unwanted sessions
+
+% remove sessions if:
+% 1) less than 40 trials of rhit and lhit each (same as
+% 2) atleast 10 clusters of quality that is not noise
+use = false(size(objs));
+for i = 1:numel(use)
+    check(1) = numel(params.trialid{i}{1}) > 40;
+    check(2) = numel(params.trialid{i}{2}) > 40;
+    check(3) = numel(params.cluid{i}) >= 10;
+    if all(check)
+        use(i) = true;
+    end
+end
+
+fa = fa(use);
+meta = meta(use);
+objs = objs(use);
+params.probe = params.probe(use);
+params.trialid = params.trialid(use);
+params.cluid = params.cluid(use);
+
+%% Motion Energy
+
+use = true(size(meta));
+for i = 1:numel(meta)
+    me(i) = loadMotionEnergy(objs{i},meta(i),params,1:objs{i}.bp.Ntrials); 
+    if ~me(i).use
+        use(i) = false;
+    end
+    disp('DONE');
+    disp(' ');
+end
+
+
+params.probe = params.probe(use);
+params.trialid = params.trialid(use);
+params.cluid = params.cluid(use);
+meta = meta(use);
+objs = objs(use);
+me = me(use);
+fa = fa(use);
+
+
 %%
 
-clearvars -except meta params obj dat fa dfparams me kin kinfeats kinfeats_reduced
+clearvars -except meta params obj objs dat fa dfparams me kin kinfeats kinfeats_reduced
 
 
 %% VIDEO FEATURES
@@ -112,7 +239,7 @@ clearvars -except meta params obj dat fa dfparams me kin kinfeats kinfeats_reduc
 %         params.traj_features
 % - featLeg: legend corresponding to features in kin (for 2nd dimension)
 for i = 1:numel(meta)
-    [kin(i).dat,kin(i).featLeg] = getKinematicsFromVideo(obj(i),dfparams,params(i),1:obj(i).bp.Ntrials);
+    [kin(i).dat,kin(i).featLeg] = getKinematicsFromVideo(objs{i},dfparams,params,1:objs{i}.bp.Ntrials);
     
 %     % TONGUE ANGLE AND LENGTH % TODO
     [ang,len] = getLickAngleAndLength(kin(i).featLeg,kin(i).dat);
@@ -170,7 +297,7 @@ for i = 1:numel(meta)
     clear newrez
     input_data.factors = fa(i).falatents;
     input_data.feats = kinfeats_reduced{i};
-    newrez = estimateW(obj(i),input_data,dfparams,obj(i).time,me(i)); % N,V are zscored neural activity and feature matrix
+    newrez = estimateW(objs{i},input_data,dfparams,objs{i}.time,me(i)); % N,V are zscored neural activity and feature matrix
     
     
     
@@ -224,12 +351,86 @@ ax.FontSize = 20;
 
 plotProjections(params,obj,rez)
 
+
+%%
+
+sessix = 1;
+potenttemp = rez(sessix).N_potent;
+kintemp = kinfeats_reduced{sessix};
+
+metemp = me(sessix);
+
+close all
+
+nTrials = 30;
+trix = randsample(size(metemp.data,2),nTrials);
+
+medata = metemp.data(:,trix);
+potentdim = 1;
+potentdata = potenttemp(:,trix,potentdim);
+
+kindim = 3;
+kindata = kintemp(:,trix,kindim);
+
+medata = medata(:);
+
+potentdata = potentdata(:);
+
+kindata = kindata(:);
+
+newtime = (1:numel(potentdata))./200;
+figure; hold on;
+patchline(newtime,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+ix = medata > metemp.moveThresh;
+z = medata;
+z(~ix) = nan;
+plot(newtime,z,'r','LineWidth',2)
+% plot(newtime,potentdata*45,'b','LineWidth',1);
+plot(newtime,kindata*3,'b','LineWidth',1);
+
+%%
+
+
+trialOffset = 0;
+f = figure; hold on;
+% f.Position = [-1323        -145         574         968];
+for i = 1:30:size(metemp.data,2)
+    temp = mySmooth(metemp.data(:,i),21);
+    
+    ix = metemp.data(:,i)>(metemp.moveThresh);
+    z = temp;
+    z(~ix) = nan;
+    ztime = obj(sessix).time;
+    patchline(obj(sessix).time,trialOffset + temp,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',4);
+    plot(obj(sessix).time,trialOffset + z,'r','LineWidth',2)
+
+    plot(obj(sessix).time, trialOffset + potenttemp(:,i,1)*45, 'b', 'LineWidth', 0.5)
+
+
+    trialOffset = trialOffset + 90;
+end
+xlabel('Time (s) from go cue')
+ylabel('Motion Energy')
+xlim([obj(sessix).time(15),obj(sessix).time(end)]);
+ax = gca;
+% ax.YTick = [];
+ax.FontSize = 35;
+% 
+% align = mode(obj.bp.ev.(params.alignEvent));
+% sample = mode(obj.bp.ev.sample) - align;
+% delay = mode(obj.bp.ev.delay) - align;
+% xline(sample,'k--','LineWidth',2)
+% xline(delay,'k--','LineWidth',2)
+% xline(0,'k--','LineWidth',2)
+
+hold off
+
 %% activity modes
 
 clear cdrez times
 
 for i = 1:numel(rez)
-    [cdrez(i),times] = cdNullSpace_elsayed(rez(i),obj(i),params(i));
+    [cdrez(i),times] = cdNullSpace_elsayed(rez(i),objs{i},params(i));
 end
 
 rez = cdrez;

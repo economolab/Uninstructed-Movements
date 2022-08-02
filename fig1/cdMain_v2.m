@@ -356,10 +356,21 @@ ax.FontSize = 20;
 function cd = calcCD(rez,times)
     tempdat = rez.psth(:,:,[1,2]);
     mu = squeeze(mean(tempdat(times,:,:),1));
+%     toswitch = find(mu(:,1) < mu(:,2));
+%     for i = 1:numel(toswitch)
+%         new = flip(mu(toswitch(i),:));
+%         mu(toswitch(i),:) = new;
+%     end
     sd = squeeze(std(tempdat(times,:,:),[],1));
+%     for i = 1:numel(toswitch)
+%         new = flip(sd(toswitch(i),:));
+%         sd(toswitch(i),:) = new;
+%     end
     cd = ((mu(:,1)-mu(:,2)))./ sqrt(sum(sd.^2,2));
     cd(isnan(cd)) = 0;
     cd = cd./sum(abs(cd)); % (ncells,1)
 end
+
+
 
 

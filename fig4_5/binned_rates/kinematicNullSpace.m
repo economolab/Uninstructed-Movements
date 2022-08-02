@@ -35,7 +35,8 @@ params.quality = {'all'};
 
 %% SET METADATA
 
-datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+% datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+datapth = 'M:/Economo-Lab/data/';
 
 meta = [];
 % meta = loadJEB4_ALMVideo(meta,datapth); % done

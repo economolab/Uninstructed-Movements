@@ -124,6 +124,38 @@ varexpPlots(rez);
 
 plotProjections(params,obj,rez)
 
+%%
+sessix = 1;
+potenttemp = rez(sessix).N_potent;
+
+metemp = me(sessix);
+
+% close all
+
+nTrials = 30;
+trix = find(obj(sessix).bp.R);
+% trix = 1:obj(sessix).bp.Ntrials;
+% trix = randsample(size(metemp.data,2),nTrials);
+
+medata = metemp.data(:,trix);
+potentdim = 1;
+potentdata = potenttemp(:,trix,potentdim);
+
+medata = medata(:);
+
+potentdata = potentdata(:);
+
+
+newtime = (1:numel(potentdata))./200;
+figure; hold on;
+patchline(newtime+.120,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+ix = medata > metemp.moveThresh;
+z = medata;
+z(~ix) = nan;
+plot(newtime+.120,z,'r','LineWidth',2)
+plot(newtime,potentdata*45,'b','LineWidth',1);
+% plot()
+
 %% activity modes
 
 clear cdrez times
@@ -139,7 +171,8 @@ rez = cdrez;
 
 nullSpaceCD(rez,obj,params,times)
 
-
 %% potent space cds
 
 potentSpaceCD(rez,obj,params,times)
+
+

@@ -4,8 +4,13 @@ function me = loadMotionEnergy(obj,meta,params,trialnums)
 if ~contains(meta.datapth,'.mat')
     mepth = fullfile(meta.datapth,'DataObjects',meta.anm); 
 else
-    temp = strsplit(meta.datapth,'/');
-    mepth = strjoin(temp(1:end-1),'/');
+    if ispc
+        temp = strsplit(meta.datapth,'\');
+        mepth = strjoin(temp(1:end-1),'\');
+    else
+        temp = strsplit(meta.datapth,'/');
+        mepth = strjoin(temp(1:end-1),'/');
+    end
 end
 contents = dir(mepth);
 contents = contents(~[contents.isdir]);
@@ -16,6 +21,9 @@ fn = patternMatchCellArray({contents.name}',{'motionEnergy',meta.date},'all');
 
 if numel(fn) == 1
     fn = fn{1};
+elseif numel(fn) == 2
+    ix = ~contains(fn,'._'); % on windows, sometimes a file that starts with '._motionEnergy*' is found
+    fn = fn{ix};
 else
     disp('UNABLE TO LOCATE A MOTION ENERGY FILE IN: ')
     disp(mepth)
@@ -56,6 +64,8 @@ end
 % replace me.data with me.newdata
 me.data = me.newdata;
 me = rmfield(me,'newdata');
+
+me.moveIx = nan;
 
 end % loadMotionEnergy
 

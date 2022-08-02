@@ -24,7 +24,7 @@ params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};        % er
 
 params.tmin = -2.5;
 params.tmax = 2.5;
-params.dt = 0.02;
+params.dt = 0.005;
 
 % smooth with causal gaussian kernel
 params.smooth = 0;
@@ -263,6 +263,37 @@ for i = 1:3 %numel(rez)
     
     
 end
+
+%%
+sessix = 1;
+potenttemp = rez(sessix).N_potent;
+
+metemp = me(sessix);
+
+close all
+
+nTrials = 30;
+trix = 1:objs{sessix}.bp.Ntrials;
+% trix = randsample(size(metemp.data,2),nTrials);
+
+medata = metemp.data(:,trix);
+potentdim = 2;
+potentdata = potenttemp(:,trix,potentdim);
+
+medata = mySmooth(medata(:),31);
+
+potentdata = potentdata(:);
+
+newtime = (1:numel(potentdata))./200;
+figure; hold on;
+patchline(newtime+.120,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+% patchline(newtime,medata,'EdgeColor','k','EdgeAlpha',0.35,'LineWidth',2);
+ix = medata > metemp.moveThresh;
+z = medata;
+z(~ix) = nan;
+plot(newtime+.120,z,'r','LineWidth',2)
+% plot(newtime,z,'r','LineWidth',2)
+plot(newtime,mySmooth(potentdata,31),'b','LineWidth',1);
 
 
 %% activity modes

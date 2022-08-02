@@ -7,9 +7,9 @@ if ~exist(pth,'dir')
     mkdir(pth)
 end
 
-savefig(f,fullfile(pth,fn))
+% savefig(f,fullfile(pth,fn))
 saveas(f,fullfile(pth,fn),'png')
-saveas(f,fullfile(pth,fn),'svg')
+% saveas(f,fullfile(pth,fn),'svg')
 
 
 end

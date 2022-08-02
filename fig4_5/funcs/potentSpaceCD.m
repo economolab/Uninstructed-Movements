@@ -1,21 +1,22 @@
 function potentSpaceCD(rez,obj,params,times)
 
+normRange = [0 1];
 
 % concatenate latents, find mean and stderror
-
-cdEarly{1} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{2});
-cdEarly{2} = rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{3});
-cdLate{1} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{2});
-cdLate{2} = rez(1).cd.potent.cdLate_latent(:,params(1).trialid{3});
-cdGo{1} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{2});
-cdGo{2} = rez(1).cd.potent.cdGo_latent(:,params(1).trialid{3});
+cdEarly{1} = normalizeInRange(rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{2}),normRange);
+cdEarly{2} = normalizeInRange(rez(1).cd.potent.cdEarly_latent(:,params(1).trialid{3}),normRange);
+cdLate{1} = normalizeInRange(rez(1).cd.potent.cdLate_latent(:,params(1).trialid{2}),normRange);
+cdLate{2} = normalizeInRange(rez(1).cd.potent.cdLate_latent(:,params(1).trialid{3}),normRange);
+cdGo{1} = normalizeInRange(rez(1).cd.potent.cdGo_latent(:,params(1).trialid{2}),normRange);
+cdGo{2} = normalizeInRange(rez(1).cd.potent.cdGo_latent(:,params(1).trialid{3}),normRange);
 for i = 2:numel(rez)
     for j = 1:2
-        cdEarly{j} = cat(2,cdEarly{j},rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{j+1}));
-        cdLate{j} = cat(2,cdLate{j},rez(i).cd.potent.cdLate_latent(:,params(i).trialid{j+1}));
-        cdGo{j} = cat(2,cdGo{j},rez(i).cd.potent.cdGo_latent(:,params(i).trialid{j+1}));
+        cdEarly{j} = normalizeInRange(cat(2,cdEarly{j},rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{j+1})),normRange);
+        cdLate{j} = normalizeInRange(cat(2,cdLate{j},rez(i).cd.potent.cdLate_latent(:,params(i).trialid{j+1})),normRange);
+        cdGo{j} = normalizeInRange(cat(2,cdGo{j},rez(i).cd.potent.cdGo_latent(:,params(i).trialid{j+1})),normRange);
     end
 end
+
 
 cdEarly_latent_mean = [nanmean(cdEarly{1},2) nanmean(cdEarly{2},2)];
 cdLate_latent_mean = [nanmean(cdLate{1},2) nanmean(cdLate{2},2)];
@@ -29,17 +30,17 @@ cdGo_latent_error = [nanstd(cdGo{1},[],2) nanstd(cdGo{2},[],2)] ./ numel(rez); %
 fns = patternMatchCellArray(fieldnames(rez(1).cd.null),{'mode'},'all');
 
 % ve
+% 
+% ve = zeros(numel(fns),numel(rez));
+% for i = 1:numel(rez)
+%     ve(1,i) = rez(i).cd.potent.ve.early;
+%     ve(2,i) = rez(i).cd.potent.ve.late;
+%     ve(3,i) = rez(i).cd.potent.ve.go;
+% end
+% meanve = mean(ve,2);
 
-ve = zeros(numel(fns),numel(rez));
-for i = 1:numel(rez)
-    ve(1,i) = rez(i).cd.potent.ve.early;
-    ve(2,i) = rez(i).cd.potent.ve.late;
-    ve(3,i) = rez(i).cd.potent.ve.go;
-end
-meanve = mean(ve,2);
 
-
-close all
+% close all
 clrs = getColors();
 lw = 6;
 alph = 0.5;
@@ -52,7 +53,8 @@ delay = mode(obj(1).bp.ev.delay - obj(1).bp.ev.(params(1).alignEvent));
 
 sav = 0;
 for i = 1:numel(fns)
-    f(i) = figure; ax = axes(f(i)); hold on
+    f(i) = figure; f(i).Position = [800   711-(320*(i-1))   468   274];
+    ax = axes(f(i)); hold on;
     tempmean = mySmooth(eval([fns{i}(1:end-5) '_latent_mean']),sm);
     temperror = mySmooth(eval([fns{i}(1:end-5) '_latent_error']),sm);
     shadedErrorBar(obj(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
@@ -62,7 +64,7 @@ for i = 1:numel(fns)
 %     ylims = [min(min(tempmean)), max(max(tempmean))+5];
 %     ylim(ylims);
     
-    title([fns{i} '| MeanVE=' num2str(meanve(i))],'Interpreter','none')
+%     title([fns{i} '| MeanVE=' num2str(meanve(i))],'Interpreter','none')
     xlabel('Time (s) from go cue')
     ylabel('Activity (a.u.)')
     ax = gca;
@@ -85,7 +87,7 @@ for i = 1:numel(fns)
     fl.FaceAlpha = 0.3;
     fl.EdgeColor = 'none';
     
-    ylim([-1 1]);
+    ylim(normRange);
     
     
     if sav
@@ -96,32 +98,3 @@ for i = 1:numel(fns)
     
 end
 
-% clear selectivity
-% 
-% sumsqselectivity.total = zeros(numel(obj(1).time),numel(rez));
-% sumsqselectivity.early = zeros(numel(obj(1).time),numel(rez));
-% sumsqselectivity.late = zeros(numel(obj(1).time),numel(rez));
-% sumsqselectivity.go = zeros(numel(obj(1).time),numel(rez));
-% for i = 1:numel(rez)
-%     temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{2}),3));
-%     rez(i).gpfa(:,:,1) = temp;
-%     temp = squeeze(nanmean(gpfa(i).gpfalatents(:,:,params(i).trialid{3}),3));
-%     rez(i).gpfa(:,:,2) = temp;
-%     
-%     selectivity.total = rez(i).gpfa(:,:,1) - rez(i).gpfa(:,:,2);
-%     selectivity.early = mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdEarly_latent(:,params(i).trialid{3}),2);
-%     selectivity.late  = mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdLate_latent(:,params(i).trialid{3}),2);
-%     selectivity.go    = mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{2}),2) - mean(rez(i).cd.potent.cdGo_latent(:,params(i).trialid{3}),2);
-%     selfns = fieldnames(selectivity);
-%     for j = 1:numel(selfns)
-%         selectivity.(selfns{j})(isnan(selectivity.(selfns{j}))) = 0;
-%         sumsqselectivity.(selfns{j})(:,i) = sum(selectivity.(selfns{j}).^2,2);
-%     end
-% end
-% 
-% potentselexp_early = mean(sumsqselectivity.total ./ (sumsqselectivity.early),1)';
-% potentselexp_late = mean(sumsqselectivity.total ./ (sumsqselectivity.late),1)';
-% potentselexp_go = mean(sumsqselectivity.total ./ (sumsqselectivity.go),1)';
-% 
-% potentselexp = sumsqselectivity.total ./ (sumsqselectivity.early+sumsqselectivity.late+sumsqselectivity.go);
-% potentselexp_tot = mean(potentselexp,1)';
