@@ -194,6 +194,7 @@ classdef Violin < handle
             obj.ScatterPlot = ...
                 scatter(pos + jitter.*jitterstrength, data, 'filled');
             
+            
             if ~isempty(data2)
                 % plot the data points within the violin area
                 if length(densityC) > 1

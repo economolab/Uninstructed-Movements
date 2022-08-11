@@ -1,7 +1,16 @@
-function acc = train_test_choiceDecoder(acc,X_train,X_test,y_train,y_test,bootiter,dt,sessix)
+function acc = train_test_choiceDecoder(acc,X_train,X_test,y_train,y_test,bootiter,binSize,sessix)
+
 ix = 1;
-for i = 1:dt:size(X_train,1) % each timepoint
-    x_train = squeeze(X_train(i,:,:)); % (trials,feats) for timepoint i
+for i = 1:binSize:(size(X_train,1)-binSize) % each timepoint
+
+    ixs = i:(i+binSize-1);
+
+    % train
+    x_train = X_train(ixs,:,:);
+%     x_train = squeeze(mean(x_train,1)); % (trials,feats) for timepoint i
+
+    x_train = permute(x_train,[2 1 3]);
+    x_train = reshape(x_train,size(x_train,1),size(x_train,2)*size(x_train,3));
 
     if size(x_train,2) > 1 && size(x_train,1) ~= 1
         mdl = fitcecoc(x_train,y_train); % uses binary svm classifier by default
@@ -9,7 +18,13 @@ for i = 1:dt:size(X_train,1) % each timepoint
         mdl = fitcecoc(x_train',y_train);
     end
 
-    x_test = squeeze(X_test(i,:,:)); % (trials,feats) for timepoint i
+    % test
+    x_test = X_test(ixs,:,:);
+%     x_test = squeeze(mean(x_test,1)); % (trials,feats) for timepoint i
+
+    x_test = permute(x_test,[2 1 3]);
+    x_test = reshape(x_test,size(x_test,1),size(x_test,2)*size(x_test,3));
+
     if size(x_test,2) > 1 && size(x_test,1) ~= 1
         pred = predict(mdl,x_test);
     else 
@@ -19,3 +34,9 @@ for i = 1:dt:size(X_train,1) % each timepoint
     ix = ix + 1;
 end
 end
+
+
+
+
+
+

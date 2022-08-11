@@ -1,31 +1,49 @@
 clear, clc, close all
 
 addpath(genpath(pwd))
+addpath(genpath('C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements\funcs'))
+addpath(genpath('C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements\utils'))
+
 
 %% TODO
 % - created new objs from pipeline and nidq data - only use those
 % - need to handle frameTimes appropriately now (subtract 0.5 secs)
-% - for choice decoding, use ~50ms bins, rather than single time points
+% - for choice decoding, just use avg during stim period
 
 %% default params (same for each session)
 
 dfparams = [];
 
+% -- time alignment params --
 % dfparams.alignEv = 'goCue';
-% dfparams.times = [-2.5 1.5]; % relative to goCue
+% dfparams.times = [-2.5 2.5]; % relative to goCue
 dfparams.alignEv = 'delay';
 dfparams.times = [-1.0 2.5]; % relative to delay
 
 dfparams.dt_vid = 0.0025;
 dfparams.time = dfparams.times(1):dfparams.dt_vid:dfparams.times(2);
 
+dfparams.warp = 0; % 0 means no warping, 1 means warp delay period to 
+
+
+% -- trial type params --
 dfparams.cond(1) = {'(hit|miss|no)&~stim.enable&~autowater&~autolearn'}; % right and left trials, no stim, no autowater
 dfparams.cond(end+1) = {'(hit|miss|no)&stim.enable&~autowater&~autolearn'};  % right and left trials, stim, no autowater
 dfparams.cond(end+1) = {'R&~stim.enable&~autowater&~autolearn'}; % right trials, no stim, no autowater
 dfparams.cond(end+1) = {'R&stim.enable&~autowater&~autolearn'};  % right trials, stim, no autowater
 dfparams.cond(end+1) = {'L&~stim.enable&~autowater&~autolearn'}; % left trials, no stim, no autowater
 dfparams.cond(end+1) = {'L&stim.enable&~autowater&~autolearn'};  % left trials, stim, no autowater
+dfparams.cond(end+1) = {'R&hit&~stim.enable&~autowater&~autolearn'}; % right hit trials, no stim, no autowater
+dfparams.cond(end+1) = {'R&hit&stim.enable&~autowater&~autolearn'};  % right hit trials, stim, no autowater
+dfparams.cond(end+1) = {'L&hit&~stim.enable&~autowater&~autolearn'}; % left hit trials, no stim, no autowater
+dfparams.cond(end+1) = {'L&hit&stim.enable&~autowater&~autolearn'};  % left hit trials, stim, no autowater
 
+% -- stim types --
+dfparams.stim.types = {'ALM_Bi','MC Right','MC Left'};
+dfparams.stim.num   = logical([0 1 0]); % set 1 for each type that you want to use
+
+
+% -- plotting params --
 dfparams.plt.color{1}     = [10, 10, 10];
 dfparams.plt.color{end+1} = [120, 117, 117];
 dfparams.plt.color{end+1} = [31, 23, 252];
@@ -34,6 +52,8 @@ dfparams.plt.color{end+1} = [252, 23, 23];
 dfparams.plt.color{end+1} = [252, 23, 130];
 dfparams.plt.color = cellfun(@(x) x./255, dfparams.plt.color, 'UniformOutput', false);
 dfparams.plt.ms = {'.','.','x','x','o','o'};
+
+
 
 %% load data objects
 
@@ -45,10 +65,27 @@ meta = loadMAH13_MCStim(meta,datapth);
 
 obj = loadObjs(meta);
 
+% subset based on stim types
+stim2use = dfparams.stim.types(dfparams.stim.num);
+use = false(size(meta));
+for sessix = 1:numel(use)
+    [~,mask] = patternMatchCellArray(obj(sessix).bp.stim.wavParams.loc, stim2use,'any');
+    if mask
+        use(sessix) = true;
+    end
+end
+obj = obj(use);
+meta = meta(use);
+
 %% find trials for each condition
 
 for i = 1:numel(meta)
     params(i).trialid = findTrials(obj(i), dfparams.cond);
+end
+
+%%
+if dfparams.warp
+    obj = warpData(obj,params);
 end
 
 %% behavioral performance
@@ -56,7 +93,9 @@ end
 rez = getPerformance(meta,obj,params);
 
 % plots
-plotPerformanceAllMice(meta,obj,rez,dfparams,params)
+cond2use = 1:6;
+connectConds = 1;
+plotPerformanceAllMice(meta,obj,rez,dfparams,params,cond2use,connectConds)
 % plotPerformanceEachMouse(meta,obj,rez,dfparams,params) % TODO
 
 
@@ -99,11 +138,13 @@ ax.FontSize = 20;
 %               'jaw_ydisp_view1',...
 %               'jaw_yvel_view1'};
 
-% feats2plot = {'tongue_ydisp_view1',...
-%     'jaw_ydisp_view1',...
-%     'jaw_yvel_view1'};
-feats2plot = {'motion_energy'};
+feats2plot = {'tongue_ydisp_view1',...
+    'jaw_ydisp_view2',...
+    'jaw_yvel_view2'};
+% feats2plot = {'motion_energy'};
+% cond2plot = 1:2;
 cond2plot = 3:6;
+% cond2plot = 7:10;
 sav = 0;
 
 plotKinfeats(meta,obj,dfparams,params,kin,kinfeats,feats2plot,cond2plot,sav)
@@ -112,8 +153,11 @@ plotKinfeats(meta,obj,dfparams,params,kin,kinfeats,feats2plot,cond2plot,sav)
 
 if strcmpi(dfparams.alignEv,'delay') % function depends on data aligned to delay period, since we use the stim period to measure avgjawvel
 %     feats2plot = {'jaw_ydisp_view1',...
-%                   'jaw_yvel_view1'};
-    feats2plot = {'motion_energy'};
+%         'jaw_yvel_view1',...
+%         'motion_energy'};
+%     feats2plot = {'jaw_yvel_view1',...
+%         'tongue_ydisp_view1'};
+    feats2plot = {'jaw_yvel_view1'};
     cond2plot = 3:6;
     sav = 0;
 
@@ -122,28 +166,31 @@ end
 
 %% decode trial type from single trial jaw pos/vel
 
-k = 1; % number of iterations (bootstrap)
+k = 3; % number of iterations (bootstrap)
 
-dt = 4; % train/test a model every dt'th time point
-mdlTime = dfparams.time(1:dt:numel(dfparams.time));
+binSize = 20; % ms
+binSize = floor(binSize / (dfparams.dt_vid*1000)); % samples
+
+mdlTime = dfparams.time(1:binSize:numel(dfparams.time));
 numT = numel(mdlTime);
 
 
-% feats2use = {'jaw_ydisp_view1',...
-%              'jaw_yvel_view1'};
+feats2use = {'jaw_ydisp_view1',...
+             'jaw_yvel_view1',...
+             'motion_energy'};
 % feats2use = {'jaw_ydisp_view1'};
-feats2use = {'motion_energy'};
+% feats2use = {'motion_energy'};
 [~,mask] = patternMatchCellArray(kin(1).featLeg,feats2use,'any');
 featix = find(mask);
 
 train = 0.8; % fraction of trials to use for training (1-train for testing)
 
 
-cond2use = [3 5]; % right,left
-acc_nostim = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,dt);
+cond2use = [7 9]; % right hit,left hit,
+acc_nostim = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,binSize); % (time,bootiters,sessions)
 
-cond2use = [4 6]; % right stim,left stim
-acc_stim = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,dt);
+cond2use = [8 10]; % right stim hit,left stim hit
+acc_stim = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,binSize);
 
 % figure; imagesc(squeeze(acc_nostim)'); colorbar;
 % figure; imagesc(squeeze(acc_stim)'); colorbar;
@@ -163,7 +210,7 @@ shadedErrorBar(mdlTime, means, stderr, {'Color',dfparams.plt.color{1},'LineWidth
 
 stderr = std(std(acc_stim,[],2),[],3) ./ (k*numel(meta));
 means = mean(mean(acc_stim,2),3);
-shadedErrorBar(mdlTime, means, stderr, {'Color',dfparams.plt.color{2},'LineWidth',1.5},1, ax);
+shadedErrorBar(mdlTime, means, stderr, {'Color',dfparams.plt.color{3},'LineWidth',1.5},1, ax);
 
 xline(sample,'k--','LineWidth',2)
 xline(delay,'k--','LineWidth',2)

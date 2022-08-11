@@ -13,14 +13,17 @@ for i = 1:numel(meta)
     % motion energy
     temp = obj(i).me.data; %cell(trials,1)
     taxis = dfparams.time;
-    alignTimes = obj(i).bp.ev.(dfparams.alignEv);
+    if dfparams.warp
+        alignTimes = obj(i).bp.ev.([dfparams.alignEv '_warp']);
+    else
+        alignTimes = obj(i).bp.ev.(dfparams.alignEv);
+    end
     tempme = zeros(numel(taxis),numel(temp));
     for j = 1:numel(temp)
-        try
+        if ~dfparams.warp
             tempme(:,j) = interp1(obj(i).traj{1}(j).frameTimes-0.5-alignTimes(j),temp{j},taxis);
-        catch % if frameTimes doesn't exist or is full of NaNs - shouldn't be dummy data as we aren't using those sessions
-            obj.traj{1}(j).frameTimes = (1:size(obj.traj{1}(j).ts,1)) ./ 400;
-            tempme(:,j) = interp1(obj.traj{1}(j).frameTimes-0.5-alignTimes(j),temp{j},taxis);
+        else
+            tempme(:,j) = interp1(obj(i).traj{1}(j).frameTimes_warped-alignTimes(j),temp{j},taxis);
         end
     end
 

@@ -17,7 +17,9 @@ for i = 1:numel(obj)
         for j = 1:numel(cond2plot)
             trials = params(i).trialid{cond2plot(j)};
             temp = kinfeats{i}(ix(1):ix(2),trials,featix(k));
-            vel{i}{k}(j) = nanmean(nanmean(temp)); % vel{session}{feat}(cond)
+%             temp = normalizeInRange(temp,[0 1]);
+            vel{i}{k}(j) = nanvar(nanvar(temp));
+%             vel{i}{k}(j) = nanmean(nanmean(temp)); % vel{session}{feat}(cond)
         end
     end
 end

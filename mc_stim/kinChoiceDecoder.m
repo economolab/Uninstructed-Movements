@@ -1,4 +1,4 @@
-function acc = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,dt)
+function acc = kinChoiceDecoder(meta,numT,k,kinfeats,cond2use,params,train,featix,binSize)
 
 acc = zeros(numT,k,numel(meta)); % (time,bootstraps,sessions)
 for sessix = 1:numel(meta)
@@ -43,10 +43,13 @@ for sessix = 1:numel(meta)
 
         end
 
+        y_train(y_train==2) = -1;
+        y_test(y_test==2) = -1;
+
         % choice decoding
 
         acc = train_test_choiceDecoder(acc,X_train,X_test,...
-            y_train,y_test,bootix,dt,sessix);
+            y_train,y_test,bootix,binSize,sessix);
 
     end
 end

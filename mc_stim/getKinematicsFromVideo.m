@@ -10,6 +10,13 @@ end
 
 taxis = dfparams.time;
 
+% alignement
+if dfparams.warp
+    alignEv = [dfparams.alignEv '_warp'];
+else
+    alignEv = dfparams.alignEv;
+end
+
 
 % get x/y position and velocity for each feature in feats
 
@@ -19,6 +26,7 @@ ypos = cell(2,1);
 xvel = cell(2,1);
 yvel = cell(2,1);
 
+
 for viewix = 1:numel(feats) % loop through cam0 and cam1
     xpos{viewix} = nan(numel(taxis),numel(trialnums));
     ypos{viewix} = nan(numel(taxis),numel(trialnums));
@@ -26,8 +34,8 @@ for viewix = 1:numel(feats) % loop through cam0 and cam1
     yvel{viewix} = nan(numel(taxis),numel(trialnums));
     for featix = 1:numel(feats{viewix}) % loop through number of features for current cam
         feat = feats{viewix}{featix};
-        [xpos{viewix}(:,:,featix), ypos{viewix}(:,:,featix)] = findPosition(taxis, obj, trialnums, viewix, feat, dfparams.alignEv);
-        [xvel{viewix}(:,:,featix), yvel{viewix}(:,:,featix)] = findVelocity(taxis, obj, trialnums, viewix, feat, dfparams.alignEv);
+        [xpos{viewix}(:,:,featix), ypos{viewix}(:,:,featix)] = findPosition(taxis, obj, trialnums, viewix, feat, alignEv,dfparams.warp);
+        [xvel{viewix}(:,:,featix), yvel{viewix}(:,:,featix)] = findVelocity(taxis, obj, trialnums, viewix, feat, alignEv,dfparams.warp);
     end
 end
 

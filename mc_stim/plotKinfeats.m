@@ -7,10 +7,15 @@ featix = find(mask);
 
 
 for i = 1:numel(obj) % for each session
-    align = mode(obj(i).bp.ev.(dfparams.alignEv));
-    sample = mode(obj(i).bp.ev.sample) - align;
-    delay = mode(obj(i).bp.ev.delay) - align;
-
+    if dfparams.warp
+        align = mode(obj(i).bp.ev.([dfparams.alignEv '_warp']));
+        delay = mode(obj(i).bp.ev.delay_warp) - align;
+        sample = mode(obj(i).bp.ev.sample) - align;
+    else
+        align = mode(obj(i).bp.ev.(dfparams.alignEv));
+        sample = mode(obj(i).bp.ev.sample) - align;
+        delay = mode(obj(i).bp.ev.delay) - align;
+    end
     for k = 1:numel(featix)
         f = figure; hold on;
         f.Position = [680    85   821   893];
@@ -25,7 +30,7 @@ for i = 1:numel(obj) % for each session
             xline(sample,'w--');
             xline(0,'w--');
             title(dfparams.cond{cond2plot(j)});
-            xlim([dfparams.times(1) dfparams.times(2)]);
+            xlim([dfparams.time(10) dfparams.time(end)]);
             ylim([0 size(temp,2)]);
         end
         xlabel(t,['time (s) from ' dfparams.alignEv])
