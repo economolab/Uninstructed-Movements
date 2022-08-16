@@ -34,9 +34,15 @@ mov.earlyMoveTrial = false(obj.bp.Ntrials,1);
 mov.moveTime = cell(obj.bp.Ntrials,1);
 mov.stationaryTime = cell(obj.bp.Ntrials,1);
 for trix = 1:obj.bp.Ntrials
-    vidtime = (1:numel(me.data{trix}))./400;
+    if ~isfield(me.data,'data')
+        vidtime = (1:numel(me.data{trix}))./400;
+        movemask = me.data{trix} > me.moveThresh;
+    elseif isfield(me.data,'data')
+        vidtime = (1:numel(me.data.data{trix}))./400;
+        movemask = me.data.data{trix} > me.moveThresh;
+    end
     
-    movemask = me.data{trix} > me.moveThresh;
+    
     mov.moveTime{trix} = vidtime(movemask)';
     
     stationarymask = ~movemask;
@@ -50,8 +56,8 @@ for trix = 1:obj.bp.Ntrials
     mov.earlyMoveTrial(trix) = (moving/total) >= params.moveThresh;
 end
 
-disp(['Number of early move trials:  ' num2str(sum(mov.earlyMoveTrial)) '/' num2str(obj.bp.Ntrials) ...
-    ' (' num2str(sum(mov.earlyMoveTrial)/obj.bp.Ntrials) '%)'])
+% disp(['Number of early move trials:  ' num2str(sum(mov.earlyMoveTrial)) '/' num2str(obj.bp.Ntrials) ...
+%     ' (' num2str(sum(mov.earlyMoveTrial)/obj.bp.Ntrials) '%)'])
 
 
 end
