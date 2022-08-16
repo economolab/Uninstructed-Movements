@@ -9,9 +9,13 @@
 % have activity most correlated with the specified feature
 % dat = single-trial PSTHs or reduced dimensionality neural data
 
-function [mode, dat] = findMode(obj, feat, params)
+function [mode, dat] = findMode(obj, feat, params,conditions)
 
-fr = cat(3, obj.trialpsth_cond{params.cond});   % Concatenate the single-trial PSTHs from the specified conditions (time x cells x trials)
+if ~numel(conditions)==1
+    fr = cat(3, obj.trialpsth_cond{conditions});   % Concatenate the single-trial PSTHs from the specified conditions (time x cells x trials
+else
+    fr = obj.trialpsth_cond{conditions};
+end
 fs = 1./mean(diff(obj.time));                   % Find the sampling frequency for the time vector
 
 

@@ -1,4 +1,4 @@
-function [xvel, yvel] = findVelocity(edges, obj, conditions, met, view, feat)
+function [xvel, yvel] = findTongueVelocity(edges, obj, conditions, met, view, feat)
 traj = obj.traj{view};                             % Get the video data
 xvel = cell(1,numel(conditions));
 yvel = cell(1,numel(conditions));

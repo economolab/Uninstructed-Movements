@@ -16,7 +16,11 @@ for c = 1:numel(conditions)
         trialtime = [mov.moveTime{q};mov.stationaryTime{q}];        % Get all the times in the current trial
         trialtime = sort(trialtime,'ascend'); trialtime = trialtime - obj.bp.ev.(params.alignEvent)(q);
         
-        ts = me.data{q};                                            % Motion energy values for this trial
+        if isfield(me.data,'data')                                  % Motion energy values for this trial
+            ts = me.data.data{q};
+        else
+            ts = me.data{q};  
+        end
         tsinterp = interp1(trialtime,ts, edges);                    % Linear interpolation of ME to keep number of time points consistent across trials
 
         tempmove(:,i) = mySmooth(tsinterp,51);                                   % Store interpolated ME for the trial

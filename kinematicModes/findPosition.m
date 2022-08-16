@@ -17,7 +17,11 @@ for cond = 1:numel(conditions)
         end
 
         if ~isnan(traj(trix).frameTimes)                           % If the video data from this trial is good...
-            ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);                                               % Side-view, up and down position of the jaw, smoothed
+            if strcmp(traj(trix).featNames{feat},'tongue')         % Don't smooth the DLC trajectory if the feature is the tongue
+                ts = traj(trix).ts(:, 1:2, feat);
+            else
+                ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);                                               % Specified view, x and y position
+            end
             tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
             basederiv = median(tsinterp(1:100, :),'omitnan');                                             % Find the median jaw velocity (aka baseline)
         end
