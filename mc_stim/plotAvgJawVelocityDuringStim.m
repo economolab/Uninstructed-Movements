@@ -18,8 +18,8 @@ for i = 1:numel(obj)
             trials = params(i).trialid{cond2plot(j)};
             temp = kinfeats{i}(ix(1):ix(2),trials,featix(k));
 %             temp = normalizeInRange(temp,[0 1]);
-            vel{i}{k}(j) = nanvar(nanvar(temp));
-%             vel{i}{k}(j) = nanmean(nanmean(temp)); % vel{session}{feat}(cond)
+%             vel{i}{k}(j) = nanvar(nanvar(temp));
+            vel{i}{k}(j) = nanmean(nanmean(temp)); % vel{session}{feat}(cond)
         end
     end
 end
@@ -59,12 +59,67 @@ for k = 1:numel(featix)
 end
 
 
-
 if sav
     pth = [ 'C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements\mc_stim\figs\'];
     fn = [ 'AvgJawVelStim_NoStim' ];
     mysavefig(f,pth,fn)
 end
+
+
+
+%% stats
+clear temp
+for i = 1:numel(vel)
+    temp(i,:) = vel{i}{1};  
+end
+
+temp1 = temp(:,[1 3]); % no stim trials
+temp2 = temp(:,[2 4]); % stim trials
+
+
+[p1,h1] = ranksum(temp1(:,1),temp2(:,1)); % if unsure both datasets have equal variance, use mann u whtiney instead of t test
+[p2,h2] = ranksum(temp1(:,2),temp2(:,2)); % if unsure both datasets have equal variance, use mann u whtiney instead of t test
+
+
+
+%%
+figure; hold on;
+rng(pi) % just to reproduce the random data I used
+
+h(1) = bar(1, mean(temp1(:,1)));
+% h(1).FaceColor = dfparams.plt.color{3};
+h(2) = bar(2, mean(temp2(:,1)));
+% h(2).FaceColor = dfparams.plt.color{4};
+h(3) = bar(5, mean(temp1(:,2)));
+% h(3).FaceColor = dfparams.plt.color{5};
+h(4) = bar(6, mean(temp2(:,2)));
+% h(4).FaceColor = dfparams.plt.color{6};
+for i = 1:numel(h)
+    h(i).FaceColor = dfparams.plt.color{i+2}./1.5;
+    h(i).EdgeColor = 'none';
+end
+
+errorbar(h(1).XEndPoints,mean(temp1(:,1)),std(temp1(:,1)),'LineStyle','none','Color','k','LineWidth',2)
+errorbar(h(2).XEndPoints,mean(temp2(:,1)),std(temp2(:,1)),'LineStyle','none','Color','k','LineWidth',2)
+errorbar(h(3).XEndPoints,mean(temp1(:,2)),std(temp1(:,2)),'LineStyle','none','Color','k','LineWidth',2)
+errorbar(h(4).XEndPoints,mean(temp2(:,2)),std(temp2(:,2)),'LineStyle','none','Color','k','LineWidth',2)
+
+
+% simple version
+div = 1;
+scatter(1*ones(size(temp1(:,1))),temp1(:,1),60,'MarkerFaceColor',dfparams.plt.color{3}./div,'MarkerEdgeColor','none','LineWidth',1,'XJitter','randn','XJitterWidth',.25)
+scatter(2*ones(size(temp2(:,1))),temp2(:,1),60,'MarkerFaceColor',dfparams.plt.color{4}./div,'MarkerEdgeColor','none','LineWidth',1,'XJitter','randn','XJitterWidth',.25)
+scatter(5*ones(size(temp1(:,2))),temp1(:,2),60,'MarkerFaceColor',dfparams.plt.color{5}./div,'MarkerEdgeColor','none','LineWidth',1,'XJitter','randn','XJitterWidth',.25)
+scatter(6*ones(size(temp2(:,2))),temp2(:,2),60,'MarkerFaceColor',dfparams.plt.color{6}./div,'MarkerEdgeColor','none','LineWidth',1,'XJitter','randn','XJitterWidth',.25)
+
+xticklabels([" " "Right No Stim" "Right Stim" " " " " "Left No Stim" "Left Stim"])
+ylabel("Motion Energy")
+ax = gca;
+ax.FontSize = 17;
+
+
+
+'a'
 
 
 end

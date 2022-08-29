@@ -1,7 +1,6 @@
 function plotKinfeats(meta,obj,dfparams,params,kin,kinfeats,feats2plot,cond2plot,sav)
 
 
-
 [~,mask] = patternMatchCellArray(kin(1).featLeg,feats2plot,'any');
 featix = find(mask);
 

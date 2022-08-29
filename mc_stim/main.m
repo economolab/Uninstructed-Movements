@@ -27,8 +27,8 @@ dfparams.warp = 0; % 0 means no warping, 1 means warp delay period to
 
 
 % -- trial type params --
-dfparams.cond(1) = {'(hit|miss|no)&~stim.enable&~autowater&~autolearn'}; % right and left trials, no stim, no autowater
-dfparams.cond(end+1) = {'(hit|miss|no)&stim.enable&~autowater&~autolearn'};  % right and left trials, stim, no autowater
+dfparams.cond(1) = {'(hit|miss|no)&~stim.enable&~autowater&~autolearn'}; % all trials, no stim, no autowater, no autolearn
+dfparams.cond(end+1) = {'(hit|miss|no)&stim.enable&~autowater&~autolearn'};  % all trials trials, stim, no autowater, no autolearn
 dfparams.cond(end+1) = {'R&~stim.enable&~autowater&~autolearn'}; % right trials, no stim, no autowater
 dfparams.cond(end+1) = {'R&stim.enable&~autowater&~autolearn'};  % right trials, stim, no autowater
 dfparams.cond(end+1) = {'L&~stim.enable&~autowater&~autolearn'}; % left trials, no stim, no autowater
@@ -37,10 +37,12 @@ dfparams.cond(end+1) = {'R&hit&~stim.enable&~autowater&~autolearn'}; % right hit
 dfparams.cond(end+1) = {'R&hit&stim.enable&~autowater&~autolearn'};  % right hit trials, stim, no autowater
 dfparams.cond(end+1) = {'L&hit&~stim.enable&~autowater&~autolearn'}; % left hit trials, no stim, no autowater
 dfparams.cond(end+1) = {'L&hit&stim.enable&~autowater&~autolearn'};  % left hit trials, stim, no autowater
+% dfparams.cond(end+1) = {'R&miss&~stim.enable&~autowater&~autolearn'}; % left hit trials, no stim, no autowater
+% dfparams.cond(end+1) = {'L&miss&stim.enable&~autowater&~autolearn'};  % left hit trials, stim, no autowater
 
 % -- stim types --
-dfparams.stim.types = {'ALM_Bi','MC Right','MC Left'};
-dfparams.stim.num   = logical([0 1 0]); % set 1 for each type that you want to use
+dfparams.stim.types = {'Bi_MC','Right_MC','Left_MC','Bi_ALM','Bi_M1TJ','Right_ALM','Right_M1TJ','Left_ALM','Left_M1TJ'}; % ALM_Bi is MC_Bi
+dfparams.stim.num   = logical([1 0 0]); % set 1 for each type that you want to use
 
 
 % -- plotting params --
@@ -61,21 +63,23 @@ datapth = '/Users/Munib/Documents/Economo-Lab/data/';
 
 meta = [];
 meta = loadMAH13_MCStim(meta,datapth);
+meta = loadMAH14_MCStim(meta,datapth);
 
-
-obj = loadObjs(meta);
 
 % subset based on stim types
 stim2use = dfparams.stim.types(dfparams.stim.num);
 use = false(size(meta));
 for sessix = 1:numel(use)
-    [~,mask] = patternMatchCellArray(obj(sessix).bp.stim.wavParams.loc, stim2use,'any');
+    [~,mask] = patternMatchCellArray({meta(sessix).stimLoc}, stim2use,'any');
     if mask
         use(sessix) = true;
     end
 end
-obj = obj(use);
 meta = meta(use);
+
+
+obj = loadObjs(meta);
+
 
 %% find trials for each condition
 
@@ -101,35 +105,45 @@ plotPerformanceAllMice(meta,obj,rez,dfparams,params,cond2use,connectConds)
 
 %% number of early licks per trial
 
-% TODO: classify early licks by kinematics, not bpod data
-
-cond2use = 3:6;
-early_per_trial = nan(numel(obj),numel(cond2use)); % (sessions,conds)
-for sessix = 1:numel(obj)
-    for condix = 1:numel(cond2use)
-        trials2use = params(sessix).trialid{cond2use(condix)};
-        nTrials = numel(trials2use);
-
-        nEarly = sum(obj(sessix).bp.early(trials2use));
-        early_per_trial(sessix,condix) = nEarly / nTrials;
-    end
-end
-
-f = figure; 
-f.Position = [316          73        1232         905];
-ax = axes(f);
-nCond = numel(cond2use);
-violincols = reshape(cell2mat(dfparams.plt.color(cond2use)),3,nCond)';
-vs = violinplot(early_per_trial,dfparams.cond(cond2use),...
-    'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1}, 'ViolinColor', violincols);
-ylabel('fraction of early licks per trial')
-ylim([0,1])
-title('early licks all sessions, all mice')
-ax.FontSize = 20;
+% % TODO: classify early licks by kinematics, not bpod data
+% 
+% cond2use = 3:6;
+% early_per_trial = nan(numel(obj),numel(cond2use)); % (sessions,conds)
+% for sessix = 1:numel(obj)
+%     for condix = 1:numel(cond2use)
+%         trials2use = params(sessix).trialid{cond2use(condix)};
+%         nTrials = numel(trials2use);
+% 
+%         nEarly = sum(obj(sessix).bp.early(trials2use));
+%         early_per_trial(sessix,condix) = nEarly / nTrials;
+%     end
+% end
+% 
+% f = figure; 
+% f.Position = [316          73        1232         905];
+% ax = axes(f);
+% nCond = numel(cond2use);
+% violincols = reshape(cell2mat(dfparams.plt.color(cond2use)),3,nCond)';
+% vs = violinplot(early_per_trial,dfparams.cond(cond2use),...
+%     'EdgeColor',[1 1 1], 'ViolinAlpha',{0.2,1}, 'ViolinColor', violincols);
+% ylabel('fraction of early licks per trial')
+% ylim([0,1])
+% title('early licks all sessions, all mice')
+% ax.FontSize = 20;
 
 %% kinematics
 
-[kin,kinfeats] = getKin(meta,obj,dfparams,params);
+for sessix = 1:numel(obj)
+    if ~isstruct(obj(sessix).me)
+        temp = obj(sessix).me;
+        obj(sessix).me = [];
+        obj(sessix).me.data = temp;
+        clear temp
+    end
+end
+% kin.dat (don't use)
+% kin.featLeg corresponds to 3rd dimension of kinfeats/kinfeats_norm
+[kin,kinfeats,kinfeats_norm] = getKin(meta,obj,dfparams,params);
 
 %% plot kinematics
 
@@ -138,16 +152,18 @@ ax.FontSize = 20;
 %               'jaw_ydisp_view1',...
 %               'jaw_yvel_view1'};
 
-feats2plot = {'tongue_ydisp_view1',...
-    'jaw_ydisp_view2',...
-    'jaw_yvel_view2'};
-% feats2plot = {'motion_energy'};
-% cond2plot = 1:2;
-cond2plot = 3:6;
+% feats2plot = {'tongue_ydisp_view1',...
+%     'jaw_ydisp_view2',...
+%     'jaw_yvel_view2'};
+feats2plot = {'tongue_ydisp_view1','jaw_ydisp_view1','motion_energy'};
+cond2plot = 1:2;
+% cond2plot = 3:6;
 % cond2plot = 7:10;
 sav = 0;
 
 plotKinfeats(meta,obj,dfparams,params,kin,kinfeats,feats2plot,cond2plot,sav)
+
+
 
 %% avg jaw velocity during stim
 
@@ -157,7 +173,7 @@ if strcmpi(dfparams.alignEv,'delay') % function depends on data aligned to delay
 %         'motion_energy'};
 %     feats2plot = {'jaw_yvel_view1',...
 %         'tongue_ydisp_view1'};
-    feats2plot = {'jaw_yvel_view1'};
+    feats2plot = {'motion_energy'};
     cond2plot = 3:6;
     sav = 0;
 
@@ -262,3 +278,34 @@ hold off
 
 
 
+%% plot single trial traces for a feature (stim vs non-stim)
+meix = find(ismember(kin(1).featLeg,'motion_energy'));
+me = kinfeats{1}(:,:,meix);
+trix1 = params(1).trialid{1};
+trix2 = params(1).trialid{2};
+nTrials = numel(trix2);
+trix1 = randsample(trix1,nTrials);
+[~,ix1] = min(abs(dfparams.time - 0));
+[~,ix2] = min(abs(dfparams.time - 0.8));
+figure; hold on
+for i = 1:numel(trix1)
+    subplot(1,2,1)
+    hold on
+    plot(dfparams.time(ix1:ix2)   ,me(ix1:ix2,trix1(i)) + i, 'k')
+end
+xlim([dfparams.time(ix1) dfparams.time(ix2)])
+xlabel('Time (s) from delay')
+ylabel('jaw_ydisp_view1','Interpreter','none')
+ax = gca;
+ax.FontSize = 15;
+
+for i = 1:numel(trix2)
+    subplot(1,2,2)
+    hold on
+    plot(dfparams.time(ix1:ix2)   ,me(ix1:ix2,trix2(i)) + i, 'b')
+end
+xlim([dfparams.time(ix1) dfparams.time(ix2)])
+xlabel('Time (s) from delay')
+ylabel('jaw_ydisp_view1','Interpreter','none')
+ax = gca;
+ax.FontSize = 15;

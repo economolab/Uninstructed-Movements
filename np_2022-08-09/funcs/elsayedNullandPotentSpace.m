@@ -70,8 +70,8 @@ N = zscore(mySmooth(N,31));
 %% label time points as moving and non-moving
 
 % use saved movement indices
-mask = me.moveIx(timeix,trials);
-mask = mask(:);
+% mask = me.moveIx(timeix,trials);
+% mask = mask(:);
 
 % % single trials prep and move epochs
 % [~,e1] = min(abs(obj.time - 0));
@@ -94,8 +94,8 @@ mask = mask(:);
 
 
 % % use move threshold and motion energy to label movment indices
-% tempme = me.data(timeix,trials);
-% mask = tempme(:) > (me.moveThresh);
+tempme = me.data(timeix,trials);
+mask = tempme(:) > (me.moveThresh);
 
 % % shift me relative to neural data (we thougt there might have been an
 % % offset but there doesn't seem to be)
@@ -123,6 +123,17 @@ rez.dPrep = numComponentsToExplainVariance(explained, rez.varToExplain );
 
 [~,~,explained] = myPCA(Npotent);
 rez.dMove= numComponentsToExplainVariance(explained, rez.varToExplain );
+
+ct = 1;
+while (rez.dMove + rez.dPrep) >= size(rez.covNull,1) % if more dims to be found than dims exist in full data, reduce num dims to find
+   if ct > 0
+       rez.dMove = rez.dMove - 1;
+   else
+       rez.dPrep = rez.dPrep - 1;
+   end
+   ct = -ct;
+end
+
 
 % main optimization step
 alpha = 0; % regularization hyperparam (+ve->discourage sparity, -ve->encourage sparsity)

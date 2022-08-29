@@ -15,7 +15,7 @@ for i = 1:size(temp,3)
 end
 
 
-video = VideoWriter('exampleTrial.avi'); %create the video object
+video = VideoWriter('exampleTrial_Cam1.avi'); %create the video object
 video.FrameRate = 100;
 open(video); %open the file for writing
 for ii=1:size(temp,3) %where N is the number of images

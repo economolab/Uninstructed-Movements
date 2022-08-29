@@ -42,6 +42,10 @@ for i = 1:numel(rez)
         
         ax.FontSize = 8;
         hold off;
+
+        if dimix > 7
+            break
+        end
     end
     
     if sav
@@ -78,6 +82,9 @@ for i = 1:numel(rez)
         
         ax.FontSize = 8;
         hold off;
+        if dimix > 7
+            break
+        end
     end
     
     if sav

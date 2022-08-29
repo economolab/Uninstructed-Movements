@@ -43,7 +43,9 @@ if connect
         conds = [i i+1];
         xs = [vs(conds(1)).ScatterPlot.XData ; vs(conds(2)).ScatterPlot.XData];
         ys = [vs(conds(1)).ScatterPlot.YData ; vs(conds(2)).ScatterPlot.YData];
-        plot(xs,ys,'k-')
+        patchline(xs, ys,'EdgeColor','k','EdgeAlpha',0.3)
+
+%         plot(xs,ys,'k-')
     end
 end
 
@@ -74,8 +76,6 @@ for i = 1:2:(numel(cond2use)-1)
 
 end
 
-
-'a'
 
 
 end

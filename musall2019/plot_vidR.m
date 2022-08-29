@@ -1,15 +1,15 @@
 tm = obj.time;
 f = figure; 
 f.Position = [514    54   822   933];
-for i = 130:size(vidR,2) % trial
+for i = 1:numel(params.trials2use) % trial
     trix = params.trials2use(i);
 
     clf
     ax1 = subplot(3,1,1);
     hold on;
-    imagesc(tm,1:nrDims,squeeze(vidR(:,i,:))');
+    imagesc(tm,1:nrDims,squeeze(vidR_Cam1(:,i,:))');
     colorbar;
-    caxis([-4 4])
+    caxis([-2 2])
     xlim([-1.3 1])
     ylim([1 200])
 
@@ -29,7 +29,7 @@ for i = 130:size(vidR,2) % trial
 
     ax2 = subplot(3,1,2); sgtitle(['Trial ' num2str(trix)])
     hold on;
-    temp = squeeze(absVidR(:,i,:));
+    temp = squeeze(absVidR_Cam1(:,i,:));
 %     temp = normalizeInRange(temp,[0 10]);
     imagesc(tm,1:nrDims,temp')
     colorbar

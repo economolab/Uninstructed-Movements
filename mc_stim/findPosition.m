@@ -10,7 +10,7 @@ ypos = nan(numel(taxis),numel(trialnums));
 for i = 1:numel(trialnums)                        % For each trial
     trix = trialnums(i);
 
-    if isnan(traj(trix).NdroppedFrames )                       % If the video data from this trial isn't good, skip it
+    if isnan(traj(trix).NdroppedFrames ) || (traj(trix).NdroppedFrames==-1)                      % If the video data from this trial isn't good, skip it
         continue;
     end
 

@@ -8,6 +8,8 @@ function obj = loadObjs(meta)
         end
         obj(i) = temp.obj;
         clear temp;
+        
+
     end
 
 end

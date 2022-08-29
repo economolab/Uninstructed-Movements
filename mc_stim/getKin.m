@@ -1,4 +1,4 @@
-function [kin,kinfeats] = getKin(meta,obj,dfparams,params)
+function [kin,kinfeats,kinfeats_norm] = getKin(meta,obj,dfparams,params)
 
 % getKinematicsFromVideo() returns 2 variables
 % - kin: feature matrix of size (time,trials,features). Features defined in
@@ -21,7 +21,11 @@ for i = 1:numel(meta)
     tempme = zeros(numel(taxis),numel(temp));
     for j = 1:numel(temp)
         if ~dfparams.warp
-            tempme(:,j) = interp1(obj(i).traj{1}(j).frameTimes-0.5-alignTimes(j),temp{j},taxis);
+            try
+                tempme(:,j) = interp1(obj(i).traj{1}(j).frameTimes-0.5-alignTimes(j),temp{j},taxis);
+            catch
+                continue
+            end
         else
             tempme(:,j) = interp1(obj(i).traj{1}(j).frameTimes_warped-alignTimes(j),temp{j},taxis);
         end
@@ -32,8 +36,9 @@ for i = 1:numel(meta)
 
 
     % %     STANDARDIZE FEATURES (ZERO MEAN, UNIT VARIANCE)
-    kinfeats{i} = standardizeFeatures(kinfeats{i});
+    kinfeats_norm{i} = standardizeFeatures(kinfeats{i});
     kinfeats{i}(1:5,:,:) = kinfeats{i}(1:5,:,:) * 0;
+    kinfeats_norm{i}(1:5,:,:) = kinfeats_norm{i}(1:5,:,:) * 0;
 
 
 
