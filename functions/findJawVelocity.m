@@ -39,7 +39,7 @@ for cond = 1:numel(conditions)
             ts = mySmooth(traj(trix).ts(:, 2, featnum), 40);                                               % Side-view, up and down position of the jaw, smoothed
             nFrames = length(ts);
             frameTimes = (1:nFrames)./400;
-            tsinterp = interp1(frameTimes-obj.bp.ev.(params.alignEvent)(trix), ts, edges);                           % Linear interpolation of jaw position to keep number of time points consistent across trials
+            tsinterp = interp1(frameTimes-obj.bp.ev.(params.alignEvent)(trix)-0.5, ts, edges);                 % Linear interpolation of jaw position to keep number of time points consistent across trials
             basederiv = median(diff(tsinterp),'omitnan');                                            % Find the median jaw velocity (aka baseline)
         end
 

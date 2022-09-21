@@ -32,3 +32,4 @@ for i = 1:Ntrials
     
     tongueAngle(:, i) = interp1(obj.traj{2}(num).frameTimes-0.5-mode(obj.bp.ev.(params.alignEvent)), ang{i}, taxis);
 end
+disp('hi')

@@ -1,7 +1,7 @@
-function [featPos,featSpeed] = getFeatureKinematics(taxis,obj,conditions,met,view,feat)
+function [featPos,featSpeed] = getFeatureKinematics(taxis,obj,conditions,met,view,feat,params)
 
-[xpos, ypos] = findPosition(taxis, obj, conditions, met, view, feat);
-[xvel, yvel] = findVelocity(taxis, obj, conditions, met, view, feat);
+[xpos, ypos] = findPosition(taxis, obj, conditions, met, view, feat,params);
+[xvel, yvel] = findVelocity(taxis, obj, conditions, met, view, feat,params);
 featPos = [];
 featSpeed = [];
 for i = 1:numel(conditions)

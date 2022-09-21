@@ -1,4 +1,4 @@
-function [xpos, ypos] = findTonguePosition(edges, obj, conditions, met, view, feat)
+function [xpos, ypos] = findTonguePosition(edges, obj, conditions, met, view, feat,params)
 
 traj = obj.traj{view};                             % Get the video data
 xpos = cell(1,numel(conditions));
@@ -20,7 +20,7 @@ for cond = 1:numel(conditions)
                         
             ts = traj(trix).ts(:, 1:2, feat);
 
-            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
+            tsinterp = interp1(traj(trix).frameTimes-0.5- obj.bp.ev.(params.alignEvent)(trix), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
         end
         tempx(:, i) = abs(tsinterp(:, 1));
         tempy(:, i) = abs(tsinterp(:, 2));

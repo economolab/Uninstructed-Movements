@@ -1,4 +1,4 @@
-function [xpos, ypos] = findPosition(edges, obj, conditions, met, view, feat)
+function [xpos, ypos] = findPosition(edges, obj, conditions, met, view, feat,params)
 
 traj = obj.traj{view};                             % Get the video data
 xpos = cell(1,numel(conditions));
@@ -22,7 +22,7 @@ for cond = 1:numel(conditions)
             else
                 ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);                                               % Specified view, x and y position
             end
-            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
+            tsinterp = interp1(traj(trix).frameTimes-0.5 - obj.bp.ev.(params.alignEvent)(trix), ts, edges);               % Linear interpolation of jaw position to keep number of time points consistent across trials
             basederiv = median(tsinterp(1:100, :),'omitnan');                                             % Find the median jaw velocity (aka baseline)
         end
         %Find the difference between the feat velocity and the

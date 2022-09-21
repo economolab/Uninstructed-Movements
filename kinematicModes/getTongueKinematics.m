@@ -1,7 +1,7 @@
-function [featPos,featSpeed] = getTongueKinematics(taxis,obj,conditions,met,view,feat)
+function [featPos,featSpeed] = getTongueKinematics(taxis,obj,conditions,met,view,feat,params)
 
-[xpos, ypos] = findTonguePosition(taxis, obj, conditions, met, view, feat);
-[xvel, yvel] = findTongueVelocity(taxis, obj, conditions, met, view, feat);
+[xpos, ypos] = findTonguePosition(taxis, obj, conditions, met, view, feat,params);
+[xvel, yvel] = findTongueVelocity(taxis, obj, conditions, met, view, feat,params);
 featPos = [];
 featSpeed = [];
 for i = 1:numel(conditions)

@@ -1,4 +1,4 @@
-function [xvel, yvel] = findVelocity(edges, obj, conditions, met, view, feat)
+function [xvel, yvel] = findVelocity(edges, obj, conditions, met, view, feat,params)
 traj = obj.traj{view};                             % Get the video data
 xvel = cell(1,numel(conditions));
 yvel = cell(1,numel(conditions));
@@ -21,7 +21,7 @@ for cond = 1:numel(conditions)
             else
                 ts = mySmooth(traj(trix).ts(:, 1:2, feat), 21);
             end
-            tsinterp = interp1(traj(trix).frameTimes-0.5-mode(obj.bp.ev.goCue), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
+            tsinterp = interp1(traj(trix).frameTimes-0.5- obj.bp.ev.(params.alignEvent)(trix), ts, edges);          % Linear interpolation of jaw position to keep number of time points consistent across trials
             basederiv = median(diff(tsinterp),'omitnan');                                            % Find the median jaw velocity (aka baseline)
         end
         

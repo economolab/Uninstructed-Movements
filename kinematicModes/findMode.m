@@ -11,7 +11,7 @@
 
 function [mode, dat] = findMode(obj, feat, params,conditions)
 
-if ~numel(conditions)==1
+if ~(numel(conditions)==1)
     fr = cat(3, obj.trialpsth_cond{conditions});   % Concatenate the single-trial PSTHs from the specified conditions (time x cells x trials
 else
     fr = obj.trialpsth_cond{conditions};
