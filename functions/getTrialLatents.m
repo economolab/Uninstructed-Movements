@@ -10,11 +10,11 @@ smooth = 15;
 latent = cell(1,numel(conditions));
 for cond = 1:numel(conditions)
     nTrials = numel(met.trialid{cond});
-    temp = nan(size(obj.trialpsth, 1), nTrials);  % time x num trials
+    temp = nan(size(obj.trialdat, 1), nTrials);  % time x num trials
     for j = 1:nTrials                % For each trial...
         trix = met.trialid{cond}(j);
-        ts = obj.trialpsth(:,:,trix);                  % Get the PSTHs for each neuron
-        temp(:, j) = mySmooth(ts*cd,smooth);      % Multiply PSTHs by coding dimension and smooth it
+        ts = obj.trialdat(:,:,trix);                  % Get the PSTHs for each neuron
+        temp(:, j) = mySmooth(ts*cd,smooth);           % Multiply PSTHs by coding dimension and smooth it
     end
     latent{cond} = temp;
 end

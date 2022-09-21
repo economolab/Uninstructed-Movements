@@ -3,17 +3,18 @@ clear,clc,close all
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
 %% SET RUN PARAMS
-params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.timeWarp = 0;
 params.nLicks = 20;
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 params.context             = '2AFC';
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
-% params.condition(1)     = {'hit&~stim.enable&~autowater&~early'};         % all 2AFC hits, no stim, aw off
-% params.condition(1) = {'hit&~stim.enable&autowater&~early'};              % all AW hits, no stim
+% params.condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
+% params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
+% params.condition(1)     = {'hit&~stim.enable&~autowater&~early'};           % all 2AFC hits, no stim, aw off
+params.condition(1) = {'R&hit&~stim.enable&autowater&~early'};                  % all AW hits, no stim
+params.condition(end+1) = {'L&hit&~stim.enable&autowater&~early'};                  % all AW hits, no stim
 
 
 params.tmin = -2.5;
@@ -92,7 +93,7 @@ params.kinfind = 'vel';
 for mm = 1:length(meta)         % For all loaded sessions...
     clear orthproj orthModes proj kinmodes kinfns numTrials kin orthmode mode varexp
     %gg = touse(mm);
-    gg =mm;
+    gg = mm;
 
     obj = objs{gg};
     met = meta(gg);
@@ -118,7 +119,7 @@ for mm = 1:length(meta)         % For all loaded sessions...
     [mode,dat,proj,kinfns] = calcKinModes(modekin,obj,params,psthForProj,modecond,taxis);  % Time-points used to find modes are specified in the function
 
     % Find time-varying correlation for a kinematic feature %
-    kinfeat = 'jawVel';
+    kinfeat = 'noseVel';
     window = 0.05;                                                              % Time window during which to find the correlation between FR and kin feature                                                         % Sort according to mean correlation prior to response per
     e1 = find(taxis>-0.5,1,'first');
     e2 = find(taxis>-0.05,1,'first');

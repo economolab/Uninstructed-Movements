@@ -8,85 +8,97 @@ addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstru
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
 %% SET RUN PARAMS
 
-% Which method you want to use to identify early movement trials:
-% 'motionEnergy' or 'DeepLabCut'
-params.alignEvent          = 'goCue';   % goCue or firstLick
-params.lowFR               = 1; % remove clusters firing less than this val
-params.dt = 0.05;
-params.Measure             = 'MotionEnergy'; % sideJaw or MotionEnergy
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.jawMeasure          = 'sideJaw'; % sideJaw or Trident
+params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 params.moveThresh          = 0.15;
 
-% set conditions to use for projections
-params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off, no early response
-params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw of, no early response
-% params.condition(3) = {'R&miss&~stim.enable&autowater.nums==2&~early'};   % error right, no stim, aw off
-% params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % error left, no stim, aw off
-% params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
-% params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
-% params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
-% params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
-% params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
+% set conditions to calculate PSTHs for
+params.condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
 
-
-% set conditions used for finding the modes
+% set conditions used for finding activity modes
 aw = '2'; % 1-on, 2-off
 stim = '0'; % 0-off
-params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
-params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
-params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
-params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
-params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
-params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
+params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};  %rhit, aw off
+params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};  %lhit, aw off
+params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']}; %rmiss, aw off
+params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']}; %lmiss, aw off
+params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};    % hit, aw off
+
+params.tmin = -2.5;
+params.tmax = 2.5;
+params.dt = 1/200;
+
+% smooth with causal gaussian kernel
+params.smooth = 31;
+
+% cluster qualities to use
+% params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+params.quality = {'excellent','great','good','multi','fair','poor'};
 
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 meta = [];
-meta = loadJEB4_ALMVideo(meta);
-meta = loadJEB5_ALMVideo(meta);
 meta = loadJEB6_ALMVideo(meta);
 meta = loadJEB7_ALMVideo(meta);
 meta = loadEKH1_ALMVideo(meta);
 meta = loadEKH3_ALMVideo(meta);
 meta = loadJGR2_ALMVideo(meta);
 meta = loadJGR3_ALMVideo(meta);
+meta = loadJEB14_ALMVideo(meta);
+meta = loadJEB15_ALMVideo(meta);
+
+params.probe = [meta.probe];
 
 taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
 taxis = taxis(1:end-1);
-%% PREPROCESS DATA
+%% LOAD AND PROCESS DATA
+
 objs = loadObjs(meta);
 
-for i = 1:numel(meta)
-    obj = objs{i};
-    obj.condition = params.condition;
-    % get trials and clusters to use
-    meta(i).trialid = findTrials(obj, obj.condition);   % Get which trials pertain to the behavioral conditions you are looking at
-    cluQuality = {obj.clu{meta(i).probe}(:).quality}';  % Get clusters that are of the qualities that you specified
-    meta(i).cluid = findClusters(cluQuality, meta(i).quality);
-    % align data
-    obj = alignSpikes(obj,meta(i),params);              % Align the spike times to the event that you specified
-    % get trial avg psth, single trial data, and single trial data grouped
-    % by condition (aka R 2AFC, R AW, etc.)
-    obj = getPSTHs(obj,meta(i));
-    objs{i} = obj;
+for metaix = 1:numel(meta)
+    obj = objs{metaix};
+    disp('______________________________________________________')
+    disp(['Processing data for session ' [meta(metaix).anm '_' meta(metaix).date]])             % Display progress
+    disp(' ')
+    [sessparams{metaix},sessobj{metaix}] = processData(obj,params,params.probe(metaix));        % Function for processing all of the data objs
 end
-%% Remove unwanted sessions
 
-% remove sessions with less than 40 trials of rhit and lhit each (same as
-% hidehiko ppn paper)
-use = false(size(objs));
-for i = 1:numel(use)
-    met = meta(i);
-    check1 = numel(met.trialid{1}) > 40;
-    check2 = numel(met.trialid{2}) > 40;
-    if check1 && check2
-        use(i) = true;
+% clean up sessparams and sessobj
+for metaix = 1:numel(meta)
+    params.trialid{metaix} = sessparams{metaix}.trialid;
+    params.cluid{metaix} = sessparams{metaix}.cluid{params.probe(metaix)};
+
+    objs{metaix} = sessobj{metaix};
+    objs{metaix}.psth = objs{metaix}.psth{params.probe(metaix)};
+    objs{metaix}.trialdat = objs{metaix}.trialdat{params.probe(metaix)};
+    objs{metaix}.presampleFR = objs{metaix}.presampleFR{params.probe(metaix)};
+    objs{metaix}.presampleSigma = objs{metaix}.presampleSigma{params.probe(metaix)};
+end
+
+disp(' ')
+disp('DATA LOADED AND PROCESSED')
+disp(' ')
+%%
+% Remove unwanted sessions
+[meta,objs,params] = useInclusionCriteria(objs,params,meta);
+%% Adjust for older functions
+for i = 1:numel(objs)
+    meta(i).trialid = params.trialid{i};
+    conditions = {1,2};
+
+    for c = 1:numel(conditions)
+        trix = meta(i).trialid{c};
+        objs{i}.trialpsth_cond{c} = objs{i}.trialdat(:,:,trix);
     end
 end
-
-meta = meta(use);
-objs = objs(use);
-% params.probe = params.probe(use);
-% params.trialid = params.trialid(use);
-% params.cluid = params.cluid(use);
+%% Combine cells from both probes in a session
+anm = 'JEB15';
+dates = {'2022-07-26','2022-07-27','2022-07-28'};       % Dates that you want to combine probe info from
+[meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
 %% Load all of the data
 AUC.jaw = NaN(1,length(meta));          % (1 x num sessions)
 AUC.choice = NaN(1,length(meta));       % (1 x num sessions)
@@ -105,28 +117,57 @@ for gg = 1:length(meta)
     % Find the jaw velocity at all time points in the session for trials of
     % specific conditions
     conditions = {1,2};
-    if strcmp(params.Measure,'sideJaw')
-        jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'vel');
-    elseif strcmp(params.Measure,'MotionEnergy')
+    if strcmp(params.jawMeasure,'sideJaw')
+        jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'vel',params);
+    elseif strcmp(params.jawMeasure,'MotionEnergy')
         [met,mov,me] = assignEarlyTrials(obj,met,params);
         jaw_by_cond = findInterpME(taxis,conditions, met,mov,me,params,obj);
     end
 
     %%%% FIND CHOICE MODE %%%%
-    cond{1} = params.modecondition{1};
-    cond{2} = params.modecondition{2};
-    epoch = 'midsample';
-    CD.early_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'no');
-    % Find CDlate (coding dimension during late delay period)
-    epoch = 'latedelay';
-    CD.late_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'yes');
-    % Orthogonalize CD late to CD early
-    CD = orthogModes(CD, obj);
+    % Find CDchoice (coding dimension during delay period)
+    ev.sample = objs{sesh}.bp.ev.sample;
+    ev.delay = objs{sesh}.bp.ev.delay;
+    ev.goCue = objs{sesh}.bp.ev.goCue;
+    ev.(params.alignEvent) = objs{sesh}.bp.ev.(params.alignEvent);
 
-    choice_mode = CD.late_mode;
+    rez(sesh).time = objs{sesh}.time;
+    rez(sesh).psth = objs{sesh}.psth;
+    rez(sesh).psth = standardizePSTH(objs{sesh});
+    rez(sesh).condition = params.condition;
+    rez(sesh).alignEvent = params.alignEvent;
+    rez(sesh).ev = ev;
 
+    % Calculate all CDs
+    [Early, Late, Go] = findAllCDs(rez,sesh,ev,params);
+    rez(sesh).cdEarly_mode = Early;
+    rez(sesh).cdLate_mode = Late;  rez(sesh).cdGo_mode = Go;
+
+    % orthogonalize
+    [fns,~] = patternMatchCellArray(fieldnames(rez(sesh)),{'mode'},'all');
+    modes = zeros(numel(rez(sesh).cdLate_mode),numel(fns));
+    for i = 1:numel(fns)
+        modes(:,i) = rez(sesh).(fns{i});
+    end
+
+    orthModes = gschmidt(modes);
+
+    for i = 1:numel(fns)
+        rez(sesh).(fns{i}) = orthModes(:,i);
+    end
+
+    cond = [1 2];
+    for i = 1:numel(fns)
+        tempmode = rez(sesh).(fns{i});
+        for j = 1:numel(cond)
+            c = cond(j);
+            tempdat = rez(sesh).psth(:,:,c)*rez(sesh).(fns{i});
+            normfactor = 1;
+            rez(sesh).([fns{i}(1:end-5) '_latent'])(:,j) = tempdat ./ normfactor;
+        end
+    end
     % Project single trials onto choice mode
-    cd = choice_mode;
+    cd = rez(sesh).cdLate_mode;
     latent = getTrialLatents(obj,cd,conditions,met);
     lat_choice = [];
     jaw = [];
@@ -134,7 +175,6 @@ for gg = 1:length(meta)
         lat_choice = [lat_choice,latent{c}];
         jaw = [jaw,jaw_by_cond{c}];
     end
-
     %%%% Find average jaw vel and choice mode for each trial %%%%
     % Define time intervals: Time frame for late delay period(from -0.4 before go-cue to -0.1)
     late_start = find(taxis>=-0.4, 1, 'first');
@@ -168,7 +208,7 @@ for gg = 1:length(meta)
     Y(nanix) = [];                              % Get rid of trials that had NaN values for jaw or choice
 
     R(gg) = corr2(jv,ch);        % Get R^2 value for current session (how correlated jaw vel is to choice mode on a trial by trial basis)
-    
+
     %%%% DO ROC analysis for jaw velocity %%%%
     for oo = 1:2                                            % For jaw velocity and choice mode...
         if oo==1
@@ -206,19 +246,19 @@ for gg = 1:length(meta)
             trueposrate(i) = corrpos/totalpos;         % True pos rate = positives correctly classified/total true positives
             falseposrate(i) = incorrneg/totalneg;      % False pos rate = negatives incorrectly classified/total true negatives
         end
-        
+
         if issorted(falseposrate,'ascend')                 % Ordering of the x-axis values matters for AUC magnitude
             auc = trapz(falseposrate,trueposrate);         % Find area under the curve for the ROC plot
         else
-            auc = trapz(flip(falseposrate),flip(trueposrate));         
+            auc = trapz(flip(falseposrate),flip(trueposrate));
         end
 
-        if oo ==1 
+        if oo ==1
             AUC.jaw(gg) = auc;          % Save AUC to correct metric and session
             strauc = num2str(auc);
-            if strcmp(params.Measure,'sideJaw')
+            if strcmp(params.jawMeasure,'sideJaw')
                 figtitle1 = strcat('Jaw velocity; AUC =',' ',strauc);
-            elseif strcmp(params.Measure,'MotionEnergy')
+            elseif strcmp(params.jawMeasure,'MotionEnergy')
                 figtitle1 = strcat('Motion Energy; AUC =',' ',strauc);
             end
         elseif oo==2
@@ -228,14 +268,14 @@ for gg = 1:length(meta)
         end
 
         %%% PLOT ROC CURVES FOR GIVEN SESSION %%%
-            figure(gg);
-            x = linspace(0,1);
-            y = x;
-            plot(falseposrate,trueposrate,'LineWidth',2,'Color',col); hold on;
-            xlabel('False positive rate','FontSize',13)
-            ylabel('True positive rate','FontSize',13)
-            blah = strcat('Example ROC Analysis for',anm,date,'Probe',probenum);
-            sgtitle(blah)
+        figure(gg);
+        x = linspace(0,1);
+        y = x;
+        plot(falseposrate,trueposrate,'LineWidth',2,'Color',col); hold on;
+        xlabel('False positive rate','FontSize',13)
+        ylabel('True positive rate','FontSize',13)
+        blah = strcat('Example ROC Analysis for',anm,date,'Probe',probenum);
+        sgtitle(blah)
     end
     plot(x,y,'LineStyle','--','Color','black');
     legend(figtitle1,figtitle2,'FontSize',12,'Location','best')
@@ -244,9 +284,9 @@ end
 figure();
 scatter(AUC.jaw,AUC.choice,'black','filled'); hold on;
 scatter(AUC.jaw(3),AUC.choice(3),'green','filled')
-if strcmp(params.Measure,'sideJaw')
+if strcmp(params.jawMeasure,'sideJaw')
     xlabel('AUC for jaw velocity','FontSize',13);
-elseif strcmp(params.Measure,'MotionEnergy')
+elseif strcmp(params.jawMeasure,'MotionEnergy')
     xlabel('AUC for Motion Energy','FontSize',13);
 end
 ylabel('AUC for CDlate','FontSize',13);
@@ -262,8 +302,12 @@ disp(goodjaw)
 disp(goodchoice)
 %% Histogram of R^2 values across sessions
 figure();
-nbins = 10;
+nbins = 12;
 histogram(R,nbins,'FaceColor','black','FaceAlpha',0.5)
 xlabel('R^2 value','FontSize',13)
 ylabel('Num sessions','FontSize',13)
-title('Correlation between motion energy and CDlate','FontSize',14)
+if strcmp(params.jawMeasure,'sideJaw')
+    title('Correlation between jaw velocity and CDlate','FontSize',14)
+elseif strcmp(params.jawMeasure,'MotionEnergy')
+    title('Correlation between motion energy and CDlate','FontSize',14)
+end

@@ -3,17 +3,19 @@ clear,clc,close all
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
 %% SET RUN PARAMS
-params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.timeWarp = 0;
 params.nLicks = 20;
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 params.moveThresh          = 0.15;      % What percentage of the delay period you want to use for identifying early move trials
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
-% params.condition(1)     = {'hit&~stim.enable&~autowater&~early'};             % all 2AFC hits, no stim, aw off
-% params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};              % all AW hits, no stim
+% params.condition(1)     = {'R&hit&~stim.enable&~autowater&~early'};         % right hits, no stim, aw off
+% params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};         % left hits, no stim, aw off
+% params.condition(1)     = {'L&hit&~stim.enable&~autowater&~early'};             % all 2AFC hits, no stim, aw off
+% params.condition(end+1) = {'L&hit&~stim.enable&autowater&~early'};              % all AW hits, no stim
+params.condition(1)     = {'hit&~stim.enable&~autowater&~early'};             % all 2AFC hits, no stim, aw off
+params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};              % all AW hits, no stim
 
 
 params.tmin = -2.5;
@@ -42,8 +44,7 @@ meta = loadEKH1_ALMVideo(meta);
 meta = loadEKH3_ALMVideo(meta);
 meta = loadJGR2_ALMVideo(meta);
 meta = loadJGR3_ALMVideo(meta);
-meta = loadJEB15_ALMVideo(meta);
-meta = loadJEB14_ALMVideo(meta);
+%meta = loadJEB15_ALMVideo(meta);
 
 params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -81,7 +82,7 @@ disp(' ')
 %% Combine cells from both probes in a session
 anm = 'JEB15';
 dates = {'2022-07-26','2022-07-27','2022-07-28'};       % Dates that you want to combine probe info from
-% [meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
+%[meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
 %% Adjust for older functions
 for i = 1:numel(objs)
     meta(i).trialid = params.trialid{i};        % What used to be stored as "meta.trialid" is now "params.trialid"
@@ -94,7 +95,7 @@ for i = 1:numel(objs)
 end
 %%  Plot kinematic modes and kinematic measurements
 params.kinfind = 'vel';
-for gg = 1 %:length(meta)         % For all loaded sessions...
+for gg = 4%1:length(meta)         % For all loaded sessions...
     clear orthproj orthModes proj kinmodes kinfns numTrials kin orthmode mode varexp
     
     obj = objs{gg};
@@ -134,7 +135,7 @@ for gg = 1 %:length(meta)         % For all loaded sessions...
     %%% PLOT EVERYTHING %%%
     conditions = {1,2};
     plotModeFeat_SingleTrix(met,kinfns,proj,taxis,varexp,anm,date,probenum,kin,params)
-    %plotAvgModeProj(kinfns,conditions,met,proj,varexp,anm,date,probenum,taxis,params)
+    plotAvgModeProj(kinfns,conditions,met,proj,varexp,anm,date,probenum,taxis)
 
     disp('hi')
 end
@@ -205,7 +206,6 @@ for i=1:numel(kinfns)
     subplot(1,2,1)
     imagesc(taxis,1:numTrials,orthproj.(kinfns{i})')
     colorbar()
-    caxis([0 20])
     hold on;
     line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
     line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
@@ -226,7 +226,7 @@ for i=1:numel(kinfns)
         elseif strcmp(kinfns{i},'tongueAngle')
             caxis([-2 2])
         else
-            caxis([0 6.5])
+            caxis([0 7])
         end
     else
         if strcmp(kinfns{i},'jawPos')
@@ -250,8 +250,10 @@ end
 function plotAvgModeProj(kinfns,conditions,met,orthproj,varexp,anm,date,probenum,taxis)
 
 figure();
-colors = {[0 0 1],[1 0 0]};
-leg = {'Right','Left'};
+% colors = {[0 0 1],[1 0 0]};
+% leg = {'Right','Left'};
+colors = {'magenta','green'};
+leg = {'L 2AFC','L AW'};
 for k = 1:numel(kinfns)
     subplot(numel(kinfns),1,k)
     for c = 1:numel(conditions)
