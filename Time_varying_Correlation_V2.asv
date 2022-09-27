@@ -44,8 +44,8 @@ meta = [];
 % meta = loadJGR2_ALMVideo(meta);
 % meta = loadJGR3_ALMVideo(meta);
 % meta = loadJEB15_ALMVideo(meta);
-meta = loadJEB14_ALMVideo(meta);
-% meta = loadJEB14_M1TJVideo(meta);
+% meta = loadJEB14_ALMVideo(meta);
+meta = loadJEB14_M1TJVideo(meta);
 
 params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -128,7 +128,7 @@ for mm = 1:length(meta)         % For all loaded sessions...
         sortrange = 1:e2;
         XTrialtscorr = findXTrialTSCorr(psthForProj, kin.(kinfeat),taxis,window,sortrange);
     
-        plotTSCorr(XTrialtscorr,kinfeat,taxis,params)
+        plotTSCorr(XTrialtscorr,kinfeat,taxis)
         sesstitle = strcat(anm,date);
         title(sesstitle)
 
@@ -147,7 +147,7 @@ for gg = 1:length(meta)
     obj = objs{gg};
     met = meta(gg);
     [anm,date,probenum,taxis] = getSessMeta(obj,met);
-    plotCorrMatrix(taxis,plusmin,corrmatrix,params)
+    plotCorrMatrix(taxis,plusmin,corrmatrix)
     sesstitle = strcat(anm,date);
     title(sesstitle)
 end
@@ -192,14 +192,14 @@ figure();
 imagesc(taxis(7:end-3),1:size(tscorr,1),tscorr);
 colorbar
 colormap('jet')
-xlab = strcat('Time since','  ',params.alignEvent,'  (s)');
+xlab = strcat('Time since',params.alignEvent,'(s)');
 xlabel(xlab)
 ylabel('Cells')
 plottitle = strcat('Time-varying correlation with',kinfeat);
 title(plottitle)
 end  % plotTSCorr
 
-function plotCorrMatrix(taxis,plusmin,corrmatrix,params)
+function plotCorrMatrix(taxis,plusmin,corrmatrix)
 figure();
 imagesc(taxis(plusmin:end-plusmin),taxis(plusmin:end-plusmin),corrmatrix);
 c = colorbar; ylabel(c,'Correlation between Jaw Modes','FontSize',13,'Rotation',270); c.Label.Position(1) = 4;
@@ -210,9 +210,8 @@ xline(-2.4,'LineStyle','--','Color','black','LineWidth',2)
 yline(0,'LineStyle','--','Color','black','LineWidth',2)
 yline(-0.9,'LineStyle','--','Color','black','LineWidth',2)
 yline(-2.4,'LineStyle','--','Color','black','LineWidth',2)
-xlab = strcat('Time since','  ',params.alignEvent,'(s)');
-xlabel(xlab,'FontSize',15)
-ylabel(xlab,'FontSize',15)
+xlabel('Time since go-cue (s)','FontSize',15)
+ylabel('Time since go-cue (s)','FontSize',15)
 end
 
 function plotNeuronContributionScatter(lateDelWeights,MoveInitWeights)

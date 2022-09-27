@@ -5,10 +5,10 @@ function [meta,objs,params] = useInclusionCriteria(objs,params,meta)
 % 3) Make sure traj is updated with new DLC model
 use = false(size(objs));
 for i = 1:numel(use)
-%     check(1) = numel(params.trialid{i}{1}) > 20;
-%     check(2) = numel(params.trialid{i}{2}) > 20;
-%     check(3) = numel(params.cluid{i}) >= 10;
-    check(1) = length(objs{i}.traj{1}(1).featNames) == 7;
+    check(1) = numel(params.trialid{i}{1}) > 40;
+    check(2) = numel(params.trialid{i}{2}) > 40;
+    check(3) = numel(params.cluid{i}) >= 10;
+    check(4) = length(objs{i}.traj{1}(1).featNames) == 7;
     if all(check)
         use(i) = true;
     end

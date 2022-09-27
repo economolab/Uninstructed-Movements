@@ -9,7 +9,7 @@ addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'))
 %% SET RUN PARAMS
 
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
-params.jawMeasure          = 'sideJaw'; % sideJaw or Trident
+params.jawMeasure          = 'MotionEnergy'; % sideJaw or MotionEnergy
 params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
 params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
 
@@ -303,9 +303,10 @@ disp(goodchoice)
 %% Histogram of R^2 values across sessions
 figure();
 nbins = 12;
+R = abs(R);
 histogram(R,nbins,'FaceColor','black','FaceAlpha',0.5)
-xlabel('R^2 value','FontSize',13)
-ylabel('Num sessions','FontSize',13)
+xlabel('R^2 absolute value','FontSize',13)
+ylabel('# sessions','FontSize',13)
 if strcmp(params.jawMeasure,'sideJaw')
     title('Correlation between jaw velocity and CDlate','FontSize',14)
 elseif strcmp(params.jawMeasure,'MotionEnergy')
