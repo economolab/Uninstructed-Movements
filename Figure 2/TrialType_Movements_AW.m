@@ -111,39 +111,16 @@ for gg = 1:length(meta)         % For all loaded sessions...
     kin.MEinterp = getME(obj,met,params,taxis,conditions);                  % Find interpolated motion energy
     kinfeat = findAllFeatKin(params, taxis, obj,conditions,met);            % Find all kinematic features (jaw, nose, tongue vel)
     kin.jawVel = kinfeat.jawVel; kin.noseVel = kinfeat.noseVel; kin.tongueVel = kinfeat.tongueVel;
-    kin.tongueAngle = findTongueAngle(taxis, obj, met,params,conditions);   % Find tongue angle
+    %kin.tongueAngle = findTongueAngle(taxis, obj, met,params,conditions);   % Find tongue angle
    
-    %%% DETERMINE WHICH TRIAL TYPE THE ANIMAL MOVES MORE ON %%%
-    modecond = findMoreMove(conditions,kin,'jawVel',met,taxis);
-    modekin = kinRestruct(kin,met,modecond);                                               % Only keep the kinematic features from the condition that you want (necessary for mode calc)
-   
-    %%% CALCULATE THE KINEMATIC MODES BASED ON THE SPECIFIED CONDITION %%%
-    % Tongue angle is always calculated using both conditions %
-    [mode,dat,proj,kinfns] = calcKinModes(modekin,obj,params,psthForProj,modecond,taxis);  % Time-points used to find modes are specified in the function
-
-    % Orthogonalize modes
-    orthmode = orthogonalizeModes(mode, kinfns);
-
-    % Project data onto orthmodes
-    for i = 1:numel(kinfns)
-        orthproj.(kinfns{i}) = getProjection(psthForProj, orthmode.(kinfns{i}));
-    end
-
-    % VARIANCE EXPLAINED %
-    varexp = findVarExplained(obj,orthmode,kinfns);
+    kinfns = fieldnames(kin);
     
     %%% PLOT EVERYTHING %%%
     conditions = {1,2};
-    plotModeFeat_SingleTrix(met,kinfns,proj,taxis,varexp,anm,date,probenum,kin,params)
-    plotAvgModeProj(kinfns,conditions,met,proj,varexp,anm,date,probenum,taxis)
+    plotModeFeat_SingleTrix(met,kinfns,taxis,anm,date,probenum,kin,params)
 
     disp('hi')
 end
-%%  Organize Variance Explained into correct structure for plotting
-% [VEhalf,VEfull] = organizeVE(varexp_half, varexp_full);
-% 
-% %  Plot Variance explained across different ways of finding Kinematic modes
-% plotVEScatterBar(VEhalf,VEfull)
 %% FUNCTIONS
 
 function MEinterp = getME(obj,met,params,taxis,conditions)
@@ -172,52 +149,16 @@ for f = 1:numel(kinfns)
     end
 end
 end
-
-function varexp = findVarExplained(obj,orthmode,kinfns)
-for i = 1:numel(kinfns)
-        psth = obj.psth;
-        datacov = cov([psth(:,:,1) ; psth(:,:,2)]);
-        datacov(isnan(datacov)) = 0;
-        eigsum = sum(eig(datacov));
-        varexp.(kinfns{i}) = var_proj(orthmode.(kinfns{i}), datacov, eigsum);
-end
-end  % findVarExplained
-
-function [VEhalf,VEfull] = organizeVE(varexp_half, varexp_full)
-VEhalf.ME = [];  VEfull.ME = [];
-VEhalf.jaw = [];  VEfull.jaw = [];
-VEhalf.nose = [];  VEfull.nose = [];
-for gg = 1:length(meta)
-    VEhalf.ME = [VEhalf.ME, varexp_half(gg).MEinterp];  VEfull.ME = [VEfull.ME, varexp_full(gg).MEinterp];
-    VEhalf.jaw = [VEhalf.jaw, varexp_half(gg).jawVel];  VEfull.jaw = [VEfull.jaw, varexp_full(gg).jawVel];
-    VEhalf.nose = [VEhalf.nose, varexp_half(gg).noseVel];  VEfull.nose = [VEfull.nose, varexp_full(gg).noseVel];
-end
-end
 %% PLOTTING FUNCTIONS
-function plotModeFeat_SingleTrix(met,kinfns,orthproj,taxis,varexp,anm,date,probenum,kin,params)
+function plotModeFeat_SingleTrix(met,kinfns,taxis,anm,date,probenum,kin,params)
 numTrials = length(met.trialid{1})+length(met.trialid{2});
 l1 = length(met.trialid{1});
 l2 = l1+length(met.trialid{2});
 
+figure();
 for i=1:numel(kinfns)
-    % Projections onto all modes
-    %f(i) = subplot(numel(kinfns),2,(2*i-1));
-    figure();
-    subplot(1,2,1)
-    imagesc(taxis,1:numTrials,orthproj.(kinfns{i})')
-    colorbar()
-    hold on;
-    line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
-    line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
-    xlabel('Time since go-cue (s)')
-    xlim([-2.45 2.4])
-    VE = num2str(varexp.(kinfns{i}));
-    plotitle = strcat(kinfns{i},'  Mode;',{' '},'VE = ',VE);
-    title(plotitle)
-
     % Kinematic feature tracking
-    %g(i) = subplot(numel(kinfns),2,(2*i));
-    subplot(1,2,2)
+    subplot(1,numel(kinfns),(i));
     imagesc(taxis,1:numTrials,kin.(kinfns{i})')
     colorbar()
     if strcmp(params.kinfind,'vel')
@@ -239,8 +180,9 @@ for i=1:numel(kinfns)
     hold on;
     line([taxis(1),taxis(end)],[l1,l1],'Color','white','LineStyle','--')
     line([taxis(1),taxis(end)],[l2,l2],'Color','white','LineStyle','--')
-    xlabel('Time since go-cue (s)')
-    title(kinfns{i},'  Feature Tracking');
+    xlab = strcat('Time since ',{' '},params.alignEvent,{' '},'(s)');
+    xlabel(xlab)
+    title(kinfns{i});
 end
 sesstitle = strcat(anm,date,' ;  ','Probe ',probenum,'Kinematic Modes');  % Name/title for session
 sgtitle(sesstitle,'FontSize',16)

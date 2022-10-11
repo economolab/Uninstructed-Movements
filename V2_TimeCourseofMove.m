@@ -43,6 +43,8 @@ meta = loadEKH1_ALMVideo(meta);
 meta = loadEKH3_ALMVideo(meta);
 meta = loadJGR2_ALMVideo(meta);
 meta = loadJGR3_ALMVideo(meta);
+meta = loadJEB14_ALMVideo(meta);
+meta = loadJEB15_ALMVideo(meta);
 
 params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -86,6 +88,13 @@ for i = 1:numel(objs)
         objs{i}.trialpsth_cond{c} = objs{i}.trialdat(:,:,trix);
     end
 end
+%% Combine cells from both probes in a session
+inclJEB15 = 'yes';
+if strcmp(inclJEB15,'yes')
+    anm = 'JEB15';
+    dates = {'2022-07-26','2022-07-27','2022-07-28'};       % Dates that you want to combine probe info from
+    [meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
+end
 %%  Plot kinematic modes and kinematic measurements
 params.kinfind = 'vel';
 rxntime = cell(1,length(meta));
@@ -113,15 +122,34 @@ moveDelay = findAvgMove(meta,kin,e1,e2);
 %%
 %%%% Find avg movement during first third of session, second third, and
 %%%% last third
+numDivisions = 4;
 for gg = 1:length(meta)
     numR = length(moveDelay.right{gg});  numL = length(moveDelay.left{gg});
-    fourthR = round(numR/3); fourthL = round(numL/3);
-    averageR.begin(gg) = mean(moveDelay.right{gg}(1:fourthR),2,'omitnan');  averageL.begin(gg) = mean(moveDelay.left{gg}(1:fourthL),2,'omitnan');
-    averageR.middle(gg) = mean(moveDelay.right{gg}((fourthR+1):(2*fourthR)),2,'omitnan');  averageL.middle(gg) = mean(moveDelay.left{gg}((fourthL+1):(2*fourthL)),2,'omitnan');
-    averageR.late(gg) = mean(moveDelay.right{gg}((end-fourthR):end),2,'omitnan');  averageL.late(gg) = mean(moveDelay.left{gg}((end-fourthL):end),2,'omitnan');
+    divideR = round(numR/numDivisions); divideL = round(numL/numDivisions);
+    cntR = 1; cntL = 1;
+    for d = 1:numDivisions
+        if cntR==1
+            averageR{d}(gg) = mean(moveDelay.right{gg}(1:divideR),2,'omitnan');  averageL{d}(gg) = mean(moveDelay.left{gg}(1:divideL),2,'omitnan');
+            cntR = divideR+1; cntL = divideL+1;
+        else
+            if cntR+divideR>numR
+                stopixR = numR;
+            else
+                stopixR = cntR+divideR;
+            end
+            if cntL+divideL>numL
+                stopixL = numL;
+            else
+                stopixL = cntL+divideL;
+            end
+            averageR{d}(gg) = mean(moveDelay.right{gg}(cntR:stopixR),2,'omitnan');  averageL{d}(gg) = mean(moveDelay.left{gg}(cntL:stopixL),2,'omitnan');
+            cntR = cntR+divideR+1; cntL = cntL+divideL+1;
+           
+        end
+    end
 end
 %%
-plotAvgKin_thirds(averageL,averageR)
+plotAvgKin_segments(averageL,averageR,numDivisions)
 %%
 clear rt
 figure();
@@ -177,21 +205,24 @@ for c = 1:numel(conditions)
 end
 end
 
-function plotAvgKin_thirds(averageL,averageR)
+function plotAvgKin_segments(averageL,averageR,numDivisions)
 figure();
-x = [1,2,3,5,6,7];
-y = [mean(averageL.begin),mean(averageL.middle),mean(averageL.late),...
-    mean(averageR.begin),mean(averageR.middle), mean(averageR.late)];
+x = [1,2,3,4,6,7,8,9];
+yL = []; yR = [];
+for d = 1:numDivisions
+    yL = [yL, mean(averageL{d})]; yR = [yR, mean(averageR{d})];
+end
+y = [yL, yR];
 b= bar(x,y);
 b.FaceColor = [0.75 0.75 0.75]; hold on;
 
-scatter(1,averageL.begin,'red','filled'); scatter(2,averageL.middle,'red','filled')  ; scatter(3,averageL.late,'red','filled')
-scatter(5,averageR.begin,'blue','filled'); scatter(6,averageR.middle,'blue','filled')  ; scatter(7,averageR.late,'blue','filled')
-yy = [averageL.begin',averageL.middle',averageL.late']; plot(x(1:3),yy(:,1:3),'Color','black')
-yy = [averageR.begin',averageR.middle',averageR.late']; plot(x(4:6),yy(:,1:3),'Color','black')
+scatter(1,averageL{1},'red','filled'); scatter(2,averageL{2},'red','filled')  ; scatter(3,averageL{3},'red','filled'); scatter(4,averageL{4},'red','filled')
+scatter(6,averageR{1},'blue','filled'); scatter(7,averageR{2},'blue','filled')  ; scatter(8,averageR{3},'blue','filled'); scatter(9,averageR{4},'blue','filled')
+yy = [averageL{1}',averageL{2}',averageL{3}',averageL{4}']; plot(x(1:4),yy(:,1:4),'Color','black')
+yy = [averageR{1}',averageR{2}',averageR{3}',averageR{4}']; plot(x(5:8),yy(:,1:4),'Color','black')
 
 
-xlim([0 8])
+xlim([0 10])
 ylabel('Average motion energy')
 title('ME throughout session')
 end

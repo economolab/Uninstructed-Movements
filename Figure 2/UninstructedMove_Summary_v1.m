@@ -95,7 +95,7 @@ dates = {'2022-07-26','2022-07-27','2022-07-28'};       % Dates that you want to
 [meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
 %% EXAMPLE HEATMAP OF JAW VELOCITY ON SINGLE TRIALS--SEPARATED BY TRIAL TYPE
 
-sesh = 1;           % Maybe 1,4
+sesh = 13;           % Maybe 1,4
 obj = objs{sesh};     
 met = meta(sesh);
 
