@@ -1,0 +1,3 @@
+[submodule "utils/exportToPPTX"]
+	path = utils/exportToPPTX
+	url = https://github.com/stefslon/exportToPPTX.git
