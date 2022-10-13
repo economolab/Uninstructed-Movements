@@ -6,10 +6,9 @@ function obj = loadObjs(meta)
         if ~isfield(temp.obj,'traj')
             temp.obj.traj = nan;
         end
-        obj(i) = temp.obj;
+        disp(i)
+        obj(i)= temp.obj;
         clear temp;
-        
-
     end
 
 end

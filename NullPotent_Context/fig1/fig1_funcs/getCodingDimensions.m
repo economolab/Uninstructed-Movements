@@ -1,5 +1,6 @@
 function rez = getCodingDimensions(obj,params,cond2use,cond2proj)
 
+
 cd_labels = {'early','late','go'};
 cd_epochs = {'delay','goCue','goCue'};
 cd_times = {[-0.42 -0.02], [-0.42 -0.02], [0.02 0.42]}; % in seconds, relative to respective epochs

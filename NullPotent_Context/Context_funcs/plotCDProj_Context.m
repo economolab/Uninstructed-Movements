@@ -3,7 +3,7 @@ function plotCDProj_Context(allrez,rez,sav,spacename,plotmiss)
 pptx.newVersions = [1 0 0]; % 1 - creates new version of pptx, 0 - add to existing if already exists, 1 entry for each figure created here
 
 
-clrs = getColors();
+clrs = getColors_Context();
 lw = 3.5;
 alph = 0.5;
 
@@ -19,19 +19,19 @@ for i = 1:numel(rez(1).cd_labels) % for each coding direction
     tempdat = squeeze(allrez.cd_proj(:,:,i,:));
     tempmean = mean(tempdat,3);
     temperror = std(tempdat,[],3)./sqrt(numel(rez));
-    shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.rhit,'LineWidth',lw},alph, ax)
-    shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.lhit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.AFChit,'LineWidth',lw},alph, ax)
+    shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.AWhit,'LineWidth',lw},alph, ax)
     if plotmiss
         sm = 21;
-        shadedErrorBar(rez(1).time,mySmooth(tempmean(:,3),sm),mySmooth(temperror(:,3),sm),{'Color',clrs.rhit*0.5,'LineWidth',lw},alph, ax)
-        shadedErrorBar(rez(1).time,mySmooth(tempmean(:,4),sm),mySmooth(temperror(:,4),sm),{'Color',clrs.lhit*0.5,'LineWidth',lw},alph, ax)
+        shadedErrorBar(rez(1).time,mySmooth(tempmean(:,3),sm),mySmooth(temperror(:,3),sm),{'Color',clrs.AFChit*0.5,'LineWidth',lw},alph, ax)
+        shadedErrorBar(rez(1).time,mySmooth(tempmean(:,4),sm),mySmooth(temperror(:,4),sm),{'Color',clrs.AWhit*0.5,'LineWidth',lw},alph, ax)
     end
 
 %     xlim([rez(1).time(1);rez(1).time(end)])
     xlim([rez(1).time(1);2])
 
     title([rez(1).cd_labels{i} ' | ' spacename])
-    xlabel('Time (s) from go cue')
+    xlabel('Time (s) from firstLick')
     ylabel('Activity (a.u.)')
     ax.FontSize = 12;
 
