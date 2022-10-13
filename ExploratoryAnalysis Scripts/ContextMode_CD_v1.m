@@ -5,7 +5,10 @@
 clear,clc,close all
 
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ExploratoryAnalysis Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\cd_code_jackie'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\functions'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\utils'));
 %% SET RUN PARAMS
 params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.jawMeasure          = 'sideJaw'; % sideJaw or Trident
@@ -146,16 +149,16 @@ for sesh = 1:length (meta)
     rez(sesh).alignEvent = params.alignEvent;
     rez(sesh).ev = ev;
 
-    % Calculate all CDs
-    cond = [3,4];
-    [Early, Late, Go] = findAllAFCCDs(rez,sesh,ev,params,cond);
-    rez(sesh).cdEarly_mode = Early;
-    rez(sesh).cdLate_mode = Late;  rez(sesh).cdGo_mode = Go;
+%     % Calculate all CDs
+%     cond = [3,4];
+%     [Early, Late, Go] = findAllAFCCDs(rez,sesh,ev,params,cond);
+%     rez(sesh).cdEarly_mode = Early;
+%     rez(sesh).cdLate_mode = Late;  rez(sesh).cdGo_mode = Go;
 
     % Calculate Context mode
     cond = [1,2];
-    e1 = mode(ev.sample) - 0.3 - mode(ev.(params.alignEvent));
-    e2 = mode(ev.sample) - 0.05 - mode(ev.(params.alignEvent));
+    e1 = mode(ev.sample) - 0.3 - median(ev.(params.alignEvent));
+    e2 = mode(ev.sample) - 0.05 - median(ev.(params.alignEvent));
 
     times.context = rez(sesh).time>e1 & rez(sesh).time<e2;
     cdContext_mode = calcAFCCD(rez(sesh),times.context,cond);
