@@ -46,10 +46,10 @@ kin.dat(:,:,end+1) = me.data;
 % -- Standardize kinematics --
 % commented out b/c pca centers data for us
 % ----------------------------------------------
-% for featix = 1:size(kin.dat,3)
-%     temp = kin.dat(:,:,featix);
-%     kin.dat(:,:,featix) = (temp - mean(temp,2,'omitnan')) ./ std(temp,[],'omitnan');
-% end
+for featix = 1:size(kin.dat,3)
+    temp = kin.dat(:,:,featix);
+    kin.dat(:,:,featix) = (temp - mean(temp,2,'omitnan')) ./ std(temp,[],'omitnan');
+end
 
 % ----------------------------------------------
 % -- DIMENSIONALITY REDUCTION --

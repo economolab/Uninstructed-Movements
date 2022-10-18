@@ -1,12 +1,12 @@
 clear,clc,close all
 
 % add paths for data loading scripts, all fig funcs, and utils
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\NullPotent_Context\utils';
+utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\NullPotent_Context';
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-rmpath(genpath(fullfile(utilspth,'fig1/')));
-rmpath(genpath(fullfile(utilspth,'mc_stim/')));
+% rmpath(genpath(fullfile(utilspth,'fig1/')));
+% rmpath(genpath(fullfile(utilspth,'mc_stim/')));
 
 % add paths for figure specific functions
 addpath(genpath(pwd))
@@ -62,8 +62,8 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB14_ALMVideo(meta,datapth);
-% meta = loadJEB15_ALMVideo(meta,datapth);
+meta = loadJEB14_ALMVideo(meta,datapth);
+meta = loadJEB15_ALMVideo(meta,datapth);
 
 % --- M1TJ ---
 % meta = loadJEB14_M1TJVideo(meta,datapth);
