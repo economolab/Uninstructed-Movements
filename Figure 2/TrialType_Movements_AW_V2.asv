@@ -1,7 +1,11 @@
 clear,clc,close all
 
-%addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-%addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\cd_code_jackie'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\kinematicModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Utils'));
+rmpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\NullPotent_Context'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\NullPotent_Context\Context_funcs'));
 %% SET RUN PARAMS
 params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.timeWarp = 0;
@@ -18,7 +22,7 @@ params.condition(1)     = {'hit&~stim.enable&~autowater&~early'};             % 
 params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};              % all AW hits, no stim
 
 
-params.tmin = -2.5;
+params.tmin = -3;
 params.tmax = 2.5;
 params.dt = 1/200;
 
@@ -93,18 +97,15 @@ for i = 1:numel(objs)
         objs{i}.trialpsth_cond{c} = objs{i}.trialdat(:,:,trix);
     end
 end
-%%  Plot kinematic modes and kinematic measurements
+%%  Plot kinematic measurements
 params.kinfind = 'vel';
-for gg = 1:length(meta)         % For all loaded sessions...
+for sessix = 1%:length(meta)         % For all loaded sessions...
     clear orthproj orthModes proj kinmodes kinfns numTrials kin orthmode mode varexp
     
-    obj = objs{gg};
-    met = meta(gg);
+    obj = objs{sessix};
+    met = meta(sessix);
     [anm,date,probenum,taxis] = getSessMeta(obj,met);
     
-    % FIND KINEMATIC MODES %
-    psthForProj = cat(3,obj.trialpsth_cond{1},obj.trialpsth_cond{2});       % Concatenated single trial PSTHs (all trials from cond 1 then all trials from cond 2)
-
     %%% GET FEATURE KINEMATICS (for all trial types) %%%
     conditions = {1,2};     
     kin = struct();
@@ -114,12 +115,171 @@ for gg = 1:length(meta)         % For all loaded sessions...
     %kin.tongueAngle = findTongueAngle(taxis, obj, met,params,conditions);   % Find tongue angle
    
     kinfns = fieldnames(kin);
-    
-    %%% PLOT EVERYTHING %%%
-    conditions = {1,2};
-    plotModeFeat_SingleTrix(met,kinfns,taxis,anm,date,probenum,kin,params)
 
-    disp('hi')
+    % Plot Kinematic Feature for every trial in chronological order
+    featName = 'MEinterp';
+    trialnums = [met.trialid{1}; met.trialid{2}];                                   % Get the trial numbers for all trials that fit the desired conditions
+    triallabel = [zeros(length(met.trialid{1}),1);ones(length(met.trialid{2}),1)];      % Label all trials. 2AFC trials = 0; AW trials = 1
+    [~,trialsortix] = sort(trialnums,'ascend');                                     % Sort all included trials into chronological order
+    kinsorted(sessix).(featName) = kin.(featName)(:,trialsortix); kinsorted(sessix).trialsortix = trialsortix;    % Sort the kinematic features and trial labels into chronological order
+    kinsorted(sessix).triallabel = triallabel(trialsortix);
+
+    %%% Plot example trials from 2AFC and AW %%%
+    conditions = {1,2};
+    featName = 'MEinterp';
+    kin_by_cond(sessix).(featName) = NaN(length(taxis),numel(conditions));
+    cnt = 0;
+    for c = 1:numel(conditions)
+        le = length(met.trialid{conditions{c}});
+        if c==1
+            trixrange = 1:le;
+        else
+            trixrange = cnt+1:cnt+le;
+        end
+        kin_by_cond(sessix).(featName)(:,c) = mySmooth(mean(kin.(featName)(:,trixrange),2,'omitnan'),21);
+        cnt = cnt+le;
+    end
+
+%     % Sort the trials by jaw velocity during the late delay period
+%     % Find the average jaw velocity during specified time points (on each trial)
+%     startix = find(taxis>=-0.7, 1, 'first');
+%     stopix = find(taxis<=-0.05, 1, 'last');
+%     val.right = nanmean(kin_by_cond.(featName){1}(startix:stopix, :), 1);
+%     val.left = nanmean(kin_by_cond.(featName){2}(startix:stopix, :), 1);
+%     nanix = find(isnan(val.right)); nanix = find(isnan(val.left));                   % Get rid of trials where jaw velocity is always NaN
+%     val.right(nanix) = [];  val.left(nanix) = [];
+% 
+%     % Sort the average jaw velocities in descending order and save the trial
+%     % order
+%     sort_by_cond = cell(1,numel(conditions));
+%     [sort_by_cond{1}, six1] = sort(val.right, 'descend'); kin_by_cond.(featName){1} = kin_by_cond.(featName){1}(:,six1);
+%     [sort_by_cond{2}, six2] = sort(val.left, 'descend'); kin_by_cond.(featName){2} = kin_by_cond.(featName){2}(:,six2);
+% 
+%     figure();
+%     numTrixPlot = 30;
+%     rangetoPlot = 1:numTrixPlot;
+%     tFirstLick = find(taxis==0);
+%     for i=1:numel(conditions)
+%         if i==1
+%             subplot(1,2,1);
+%         elseif i==2
+%             subplot(1,2,2);
+%         end
+%         imagesc(taxis,1:numTrixPlot,kin_by_cond.(featName){i}(:,1:numTrixPlot)'); colormap("hot");
+%         xlim([-2.6, 0])
+%         xlabel('Time before firstLick (s)','FontSize',13)
+%         ylabel('Trials','FontSize',13)
+%         if i==1
+%             title('2AFC trials')
+%         elseif i==2
+%             title('AW trials')
+%         end
+%         c=colorbar;
+%         clim([0 0.5])
+%         ylabel(c,featName,'FontSize',12,'Rotation',90);
+%     end
+%     figtitle =  strcat('Example Trials from',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
+%     sgtitle(figtitle,'FontSize',16)
+end
+%% Find Context Mode and project onto it %%%
+for sessix = 1%:length(meta)
+    met = meta(sessix);
+    % Find context mode
+    ev = objs{sessix}.bp.ev;
+    [rez(sessix).Context_mode] = findCDContext(objs,sessix,ev,params);
+    cond2proj = [1,2];
+
+    % Project onto mode for each context
+    temp = NaN(length(taxis),2);
+    for c = 1:length(cond2proj)
+        temp(:,c) = mySmooth(objs{sessix}.psth(:,:,c)*rez(sessix).Context_mode,51);
+    end
+    rez(sessix).Context_latent = temp;                  % Save context latents as (time x condition)
+    clear temp
+
+    % Project each trial onto context mode
+    condlatents = cell(1,length(cond2proj));
+    for c = 1:length(cond2proj)
+        triallatents = NaN(length(taxis),length(met.trialid{c}));
+        for trix = 1:length(met.trialid{c})
+            triallatents(:,trix) = mySmooth(objs{sessix}.trialpsth_cond{c}(:,:,trix)*rez(sessix).Context_mode,51);
+        end
+        condlatents{c} = triallatents;
+    end
+    temp = [condlatents{1},condlatents{2}];
+    kinsorted(sessix).Context_latent = temp(:,kinsorted(sessix).trialsortix); 
+end
+%%
+for sessix = 1:length(meta)
+met = meta(sessix);
+trialnums = [met.trialid{1}; met.trialid{2}];
+
+subplot(1,2,1)
+imagesc(taxis,1:size(kinsorted(sessix).(featName),2),kinsorted(sessix).(featName)')
+colormap('hot')
+tmax = -0.5;
+xlim([-2.6 tmax])
+c = colorbar; clim([0 6])
+hold on;
+
+Nplotted = 0;
+triallabel = kinsorted(sessix).triallabel;
+for j = 1:length(trialnums)
+    Nplotted = Nplotted+1;
+    if triallabel(j)==0                                                         % If a 2AFC trial, plot a black rectangle on the side
+        plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'Color',[0.75 0.75 0.75], 'LineWidth', 10);
+    end
+    if triallabel(j)==1                                                         % If an AW trial, plot a magenta rectangle on the side
+        plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'magenta', 'LineWidth', 10);
+    end
+end
+ylabel(c,featName,'FontSize',12,'Rotation',90);
+
+subplot(1,2,2)
+imagesc(taxis,1:size(kinsorted(sessix).Context_latent,2),kinsorted(sessix).Context_latent')
+colormap(flipud('hot'))
+tmax = -0.5;
+xlim([-2.6 tmax])
+c = colorbar;
+hold on;
+Nplotted = 0;
+for j = 1:length(trialnums)
+    Nplotted = Nplotted+1;
+    if triallabel(j)==0                                                         % If a 2AFC trial, plot a black rectangle on the side
+        plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'Color',[0.75 0.75 0.75], 'LineWidth', 10);
+    end
+    if triallabel(j)==1                                                         % If an AW trial, plot a magenta rectangle on the side
+        plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'magenta', 'LineWidth', 10);
+    end
+end
+ylabel(c,'ContextMode','FontSize',12,'Rotation',90);
+figtitle =  strcat('Full session',anm,date,' ;  ','Probe ',probenum);  % Name/title for session
+sgtitle(figtitle,'FontSize',16)
+ylabel('Trials')
+xlabel('Time before firstLick (s)')
+end
+%%
+cond2plot = [1,2];
+colors = {[0 0 0],'magenta'};
+for sessix = 1:length(meta)
+    figtitle =  strcat('Avg ME and CDContext for',anm,date);  % Name/title for session
+    figure();
+    for c = 1:length(cond2plot)
+    subplot(2,1,1)
+    plot(taxis,kin_by_cond(sessix).MEinterp(:,c),'Color',colors{c},'LineWidth',2);
+    hold on;
+    ylabel('Motion Energy')
+    xlim([-2.9 -0.5])
+
+    subplot(2,1,2)
+    plot(taxis,rez(sessix).Context_latent(:,c),'Color',colors{c},'LineWidth',2);
+    hold on;
+    xlabel('Time before firstLick (s)')
+    ylabel('Context Mode projection (a.u.)')
+    xlim([-2.9 -0.5])
+    sgtitle(figtitle,'FontSize',16)
+    end
+
 end
 %% FUNCTIONS
 
@@ -132,23 +292,6 @@ for c = 1:numel(conditions)
 end
 end
 
-function modekin = kinRestruct(kin,met,modecond)
-kinfns = fieldnames(kin);
-for f = 1:numel(kinfns)
-    if modecond == 1
-        ix = 1:length(met.trialid{1});
-    else
-        start = (length(met.trialid{1})+1);
-        stop = start + met.trialid{2};
-        ix = start:stop;
-    end
-    if ~strcmp(kinfns{f},'tongueAngle')
-        modekin.(kinfns{f}) = kin.(kinfns{f})(:,ix);
-    else
-        modekin.(kinfns{f}) = kin.(kinfns{f});
-    end
-end
-end
 %% PLOTTING FUNCTIONS
 function plotModeFeat_SingleTrix(met,kinfns,taxis,anm,date,probenum,kin,params)
 numTrials = length(met.trialid{1})+length(met.trialid{2});

@@ -1,7 +1,10 @@
 clear,clc,close all
 
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Figure2'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\functions'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Utils'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\cd_code_jackie'));
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.jawMeasure          = 'MotionEnergy'; % sideJaw or Trident
@@ -95,7 +98,7 @@ dates = {'2022-07-26','2022-07-27','2022-07-28'};       % Dates that you want to
 [meta, objs, params] = combineSessionProbes(meta,objs,params,anm,dates);
 %% EXAMPLE HEATMAP OF JAW VELOCITY ON SINGLE TRIALS--SEPARATED BY TRIAL TYPE
 
-sesh = 13;           % Maybe 1,4
+sesh = 3;           % Maybe 1,4
 obj = objs{sesh};     
 met = meta(sesh);
 
@@ -116,8 +119,8 @@ elseif strcmp(params.jawMeasure,'MotionEnergy')
 end
 l1 = size(jaw_by_cond{1},2);      % Number of trials in the first condition
 
-% Sort the trials by jaw velocity during the late delay period
-% Find the average jaw velocity during specified time points (on each trial)
+   % Sort the trials by jaw velocity during the late delay period
+   % Find the average jaw velocity during specified time points (on each trial)
     startix = find(taxis>=-0.4, 1, 'first');
     stopix = find(taxis<=-0.05, 1, 'last');
     val.right = nanmean(jaw_by_cond{1}(startix:stopix, :), 1);
@@ -142,14 +145,14 @@ for i=1:numel(conditions)
     elseif i==2
         subplot(1,2,1);
     end
-    imagesc(taxis,1:numTrixPlot,mySmooth(jaw_by_cond{i}(:,1:numTrixPlot)',5)); caxis([0 2]); colormap("hot");
+    imagesc(taxis,1:numTrixPlot,mySmooth(jaw_by_cond{i}(:,1:numTrixPlot)',5)); colormap("hot");
     go = 0; 
     delstart = -0.9;
     sampstart = delstart-1.3;
     line([go,go],[0,numTrixPlot+0.5],'Color','white','LineStyle','--')
     line([delstart,delstart],[0,numTrixPlot+0.5],'Color','white','LineStyle','--')
     line([sampstart,sampstart],[0,numTrixPlot+0.5],'Color','white','LineStyle','--')
-    xlim([taxis(10), 0])
+    xlim([-0.9, 0])
     xlabel('Time before go-cue (s)','FontSize',13)
     ylabel('Trials','FontSize',13)
     if i==1
@@ -158,6 +161,7 @@ for i=1:numel(conditions)
         title('Left trials')
     end
     c=colorbar;
+    clim([0 4])
     if strcmp(params.jawMeasure,'sideJaw')
         ylabel(c,'Jaw velocity','FontSize',12,'Rotation',90);
     else
