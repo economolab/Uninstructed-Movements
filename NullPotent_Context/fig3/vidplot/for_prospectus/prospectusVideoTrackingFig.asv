@@ -1,0 +1,133 @@
+% can run this script after running st_elsayed/pca/kaufman.m
+
+% set session data to use
+anm = 'JEB15';
+date = '2022-07-27';
+
+anms = {meta(:).anm};
+dates = {meta(:).date};
+
+anmix = ismember(anms,anm);
+dateix = ismember(dates,date);
+sessix = find(all([anmix;dateix],1));
+
+dat.rez = rez(sessix);
+dat.obj = obj(sessix);
+dat.params = params(sessix);
+dat.meta = meta(sessix);
+dat.me = me(sessix);
+
+%%
+
+trix = [10,16,17,19,95,134];
+
+vidfns = {'JEB15_2022-07-27_cam_0_date_2022_07_27_time_14_54_31_v001.avi',... % trial 10
+          'JEB15_2022-07-27_cam_0_date_2022_07_27_time_14_55_14_v001.avi',... % trial 16
+          'JEB15_2022-07-27_cam_0_date_2022_07_27_time_14_55_22_v001.avi',... % trial 17
+          'JEB15_2022-07-27_cam_0_date_2022_07_27_time_14_55_38_v001.avi',... % trial 19
+          'JEB15_2022-07-27_cam_0_date_2022_07_27_time_15_05_43_v001.avi',... % trial 95
+          'JEB15_2022-07-27_cam_0_date_2022_07_27_time_15_11_02_v001.avi'};   % trial 134;
+
+vidpth = 'C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements_v2\fig3\vidplot\vids\';
+
+for itrix = 1:numel(trix)
+
+    clear v hFig hAx hIm
+    v = VideoReader(fullfile(vidpth,vidfns{itrix}));
+
+%     sampleim = imread('tone.png');
+%     delayim = imread('timer.png');
+%     gocueim = imread('greendot.png');
+
+
+    % get obj trajectories
+    view = 1; % side cam
+    trial = trix(itrix);
+
+    frametimes = dat.obj.traj{view}(trial).frameTimes - 0.5;
+    sample = dat.obj.bp.ev.sample(trial);
+    delay = dat.obj.bp.ev.delay(trial);
+    gocue = dat.obj.bp.ev.goCue(trial);
+
+
+    % resmaple obj.time to frametimes, but first need to get frametimes from
+    % -2.5 from go cue to 2.5 to go cue
+    tmin = dat.params.tmin;
+    tmax = dat.params.tmax;
+
+    [~,ix1] = min(abs(frametimes - gocue - tmin));
+    [~,ix2] = min(abs(frametimes - gocue - tmax));
+
+    frames = read(v,[ix1 ix2]);
+    frametimes = frametimes(ix1:ix2);
+
+    %
+
+    % traj
+    feats = dat.obj.traj{view}(trial).featNames;
+    feats2use = [1 4 6];
+    traj = dat.obj.traj{view}(trial).ts(:,1:2,feats2use);
+
+    close all
+
+    nFrames = size(frames,4);
+
+    sm = 21;
+    lw = 1;
+
+    % loop through frames
+    f = figure;
+    for iframe = 1:size(frames,4)
+        im = frames(:,:,:,iframe);
+        imshow(im);
+        title(['Trial: ' num2str(trial) 'Frame: ' num2str(iframe)])
+    end
+
+
+
+    %
+    % Remove any unused structure array elements
+
+    % Write to a video file
+    % This could be done within the original loop, but I wanted to show it
+    % separately
+    fnout = [anm '_' date '_trial' num2str(trial) '_alldim_ssm' '_100fps' '.mp4'];
+    vOut = VideoWriter(fullfile('saved',fnout),'MPEG-4');
+    vOut.FrameRate = 100;
+    vOut.Quality = 100;
+    open(vOut)
+    for k = 1:numel(s)
+        writeVideo(vOut,s(k))
+    end
+    close(vOut)
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

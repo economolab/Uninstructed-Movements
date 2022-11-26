@@ -1,0 +1,275 @@
+% Script for looking at Hazarded Delay Recording + Video
+clear; clc; close all;
+%%
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
+%% SET RUN PARAMS
+
+params.alignEvent          = 'delay';   % delay,goCue, or firstLick
+params.lowFR               = 1; % remove clusters firing less than this val
+params.dt = 0.05;
+
+% set conditions to use for projections
+params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off, no early response
+params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw of, no early response
+
+% set conditions used for finding the modes
+aw = '2'; % 1-on, 2-off
+stim = '0'; % 0-off
+params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
+params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
+params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
+params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
+params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
+params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
+
+params.delay(1) = 0.3000;
+params.delay(2) = 0.6000;
+params.delay(3) = 1.2000;
+params.delay(4) = 1.8000;
+params.delay(5) = 2.4000;
+params.delay(6) = 3.6000;
+%% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
+meta = [];
+meta = loadJEB11_ALMVideo(meta);
+meta = loadJEB12_ALMVideo(meta);
+meta(end).tmin = -2.5; % (s) relative to params.alignEvent
+meta(end).tmax = 3;  % (s) relative to params.alignEvent
+meta(end).dt = 0.005;
+taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
+taxis = taxis(1:end-1);
+%% PREPROCESS DATA
+objs = loadObjs(meta);
+[objs,meta] = preProcessObjs(objs,meta,params);
+%% Remove unwanted sessions
+[meta,objs] = UseInclusionCritera(objs,meta);
+
+%% Group trials by delay length
+[objs,meta] = getDelayTrialID_Multi(objs,meta,params);
+multipsth = concatPSTH(objs);                           % Concatenate PSTHs from all sessions
+multiDelPSTH = concatDelPSTH(objs,params);              % Concatenate PSTHs from all sessions -- separated by delay length
+%% AVG Probability of jaw movement across all animals
+% Find average for each animal (across all of it's sessions)
+conditions = {1,2};
+[jaw_allAnm,nAnimals,uc,sessbyAnm] = findHazardedJaw_Multi(objs,meta,conditions,taxis,params);
+
+% Average across animals
+AvgAll.right = cell(1,length(params.delay));
+AvgAll.left = cell(1,length(params.delay));
+for p = 1:length(params.delay)
+    temp.right = [];
+    temp.left = [];
+    for a = 1:nAnimals
+        temp.right = [temp.right,jaw_allAnm.right{a,p}];
+        temp.left = [temp.left,jaw_allAnm.left{a,p}];
+    end
+    AvgAll.right{p} = mean(temp.right,2,'omitnan');
+    AvgAll.left{p} = mean(temp.left,2,'omitnan');
+end
+%% Find coding dimensions across all sessions
+rez.time = objs{1}.time;
+rez.condition = objs{1}.condition;
+rez.alignEvent = params.alignEvent;
+
+% Find CDearly, late, and go...see function below
+CD = calcCDs_Hazard(params,objs,meta,rez);         
+
+CD = orthogModes_Multi(CD, multiDelPSTH);       % Orthogonalize
+
+% Get the projection of specified conditions onto the choice mode
+smooth = 61;
+latent.early = getChoiceProj_byDelLength(CD.early_mode,smooth,multiDelPSTH,params);
+latent.late = getChoiceProj_byDelLength(CD.late_mode,smooth,multiDelPSTH,params);
+%%
+% Plot choice mode for each condition separated by delay length
+figure();
+plotHazCDandJaw_multiDell(latent,AvgAll,params,taxis)
+sgtitle('Avg across all sessions','FontSize',13)
+%% Averaged across all animals--just plot one specific delay length
+figure();
+deltoplot = 3;
+plotHazCDandJaw_singleDel(deltoplot,latent,AvgAll,params,taxis)
+sgtitle('Avg across all sessions','FontSize',13)
+%% Selectivity in jaw movements 
+% Find the selectivity in prob of jaw movement for each session, separated
+% by delay length
+sel_indivSess = cell(1,length(meta));
+for s = 1:length(meta)
+    obj = objs{s};
+    met = meta(s);
+    [sel_indivSess{s}] = findHazardedJawSelectivity(obj,met,conditions,taxis,params);
+end
+%% Average selectivity in jaw movements first across sessions from an animal, then across animals
+deltouse = 3;
+
+[animNames,uc,nAnimals] = getAnimalNames(meta);
+sessbyAnm = cell(1,nAnimals);
+nConditions = numel(conditions);
+
+sel_allAnm = NaN(length(taxis),nAnimals);
+for a = 1:nAnimals
+    currAnm = uc(a);    % Get the current animal name
+    temp = strcmp(animNames,currAnm);     % Find the entries in 'meta' and 'obj' that correspond to this animal
+    sessID = find(temp);
+    nSess = length(sessID); sessbyAnm{a} = nSess;           % Number of sessions for this animal
+    
+    touse = NaN(length(taxis),nSess);
+    for n = 1:nSess
+        currsess = sessID(n);
+        touse(:,n) = sel_indivSess{currsess}{deltouse};
+    end
+    sel_allAnm(:,a) = medfilt1(mean(touse,2,'omitnan'),10);
+end
+
+finalsel = mean(sel_allAnm,2,'omitnan');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% STATIC DELAY SESSIONS
+
+% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
+ctrlmeta = [];
+ctrlmeta = loadJEB6_ALMVideo(ctrlmeta);
+ctrlmeta = loadJEB7_ALMVideo(ctrlmeta);
+ctrlmeta = loadEKH1_ALMVideo(ctrlmeta);
+ctrlmeta = loadEKH3_ALMVideo(ctrlmeta);
+ctrlmeta = loadJGR2_ALMVideo(ctrlmeta);
+ctrlmeta = loadJGR3_ALMVideo(ctrlmeta);
+
+taxis = ctrlmeta(end).tmin:ctrlmeta(end).dt:ctrlmeta(end).tmax;   % get time-axis with 0 as time of event you aligned to
+taxis = taxis(1:end-1);
+%% PREPROCESS DATA
+ctrlobjs = loadObjs(ctrlmeta);
+[ctrlobjs,ctrlmeta] = preProcessObjs(ctrlobjs,ctrlmeta,params);
+
+%% Remove unwanted sessions
+[ctrlmeta,ctrlobjs] = UseInclusionCritera(ctrlobjs,ctrlmeta);
+ctrlmultipsth = concatPSTH(ctrlobjs);                           % Concatenate PSTHs from all sessions
+%% Selectivity in jaw movements 
+% Find the selectivity in prob of jaw movement for each session
+ctrlsel_indivSess = cell(1,length(ctrlmeta));
+for s = 1:length(ctrlmeta)
+    obj = ctrlobjs{s};
+    met = ctrlmeta(s);
+    [ctrlsel_indivSess{s}] = findJawSelectivity(obj,met,conditions,taxis,params);
+end
+%% Average selectivity in jaw movements first across sessions from an animal, then across animals
+
+[animNames,uc,nAnimals] = getAnimalNames(ctrlmeta);
+sessbyAnm = cell(1,nAnimals);
+nConditions = numel(conditions);
+
+ctrlsel_allAnm = NaN(length(taxis),nAnimals);
+for a = 1:nAnimals
+    currAnm = uc(a);    % Get the current animal name
+    temp = strcmp(animNames,currAnm);     % Find the entries in 'meta' and 'obj' that correspond to this animal
+    sessID = find(temp);
+    nSess = length(sessID); sessbyAnm{a} = nSess;           % Number of sessions for this animal
+    
+    touse = NaN(length(taxis),nSess);
+    for n = 1:nSess
+        currsess = sessID(n);
+        touse(:,n) = ctrlsel_indivSess{currsess};
+    end
+    ctrlsel_allAnm(:,a) = medfilt1(mean(touse,2,'omitnan'),10);
+end
+
+ctrlfinalsel = mean(ctrlsel_allAnm,2,'omitnan');
+%%
+% Find CDearly, late, and go...see function below
+ctrlCD = calcCDs_Static(params,ctrlobjs,ctrlmeta,rez);         
+% Orthogonalize
+[fns,~] = patternMatchCellArray(fieldnames(ctrlCD),{'mode'},'all');
+modes = zeros(size(ctrlmultipsth,2),numel(fns));
+for i = 1:numel(fns)
+    modes(:,i) = ctrlCD.(fns{i});
+end
+orthModes = gschmidt(modes);
+for i = 1:numel(fns)
+    ctrlCD.(fns{i}) = orthModes(:,i);
+end
+
+% Get projections onto CDs
+smooth = 61;
+Lpsth = ctrlmultipsth(:,:,2);                    % Not mean centered
+Rpsth = ctrlmultipsth(:,:,1);
+
+ctrllatent.early.left = mySmooth(Lpsth*ctrlCD.early_mode,smooth);          % Project the trials from curr condition onto normal mode
+ctrllatent.early.right = mySmooth(Rpsth*ctrlCD.early_mode,smooth);         % Project the trials from curr condition onto normal mode
+
+ctrllatent.late.left = mySmooth(Lpsth*ctrlCD.late_mode,smooth);          % Project the trials from curr condition onto normal mode
+ctrllatent.late.right = mySmooth(Rpsth*ctrlCD.late_mode,smooth);         % Project the trials from curr condition onto normal mode
+%% Plot onset of CDlate and early for hazarded (one delay length) and static delay
+% Differnce in latent for R - L trials
+ctrllatent.late.selectivity = sqrt((ctrllatent.late.right - ctrllatent.late.left).^2);
+ctrllatent.early.selectivity = sqrt((ctrllatent.early.right - ctrllatent.early.left).^2);
+
+latent.late.selectivity = sqrt((latent.late.right{3} - latent.late.left{3}).^2);
+latent.early.selectivity = sqrt((latent.early.right{3} - latent.early.left{3}).^2);
+%%
+figure();
+subplot(2,1,1)
+plot(taxis, latent.early.selectivity,'magenta','LineWidth',3)
+hold on;
+plot(taxis, latent.late.selectivity,'green','LineWidth',3)
+plot(taxis, ctrllatent.early.selectivity,'Color',[0.8 0.1 0.8],'LineWidth',3)
+hold on;
+plot(taxis, ctrllatent.late.selectivity,'Color',[0.2 0.9 0.2],'LineWidth',3)
+xlim([-1.4 0.9])
+xline(0,'black','LineStyle','--')
+xline(-1.3,'black','LineStyle','-.')
+legend('CDearly Rand','CDlate Rand','CDearly Static','CDlate Static','Location','best','FontSize',12)
+xlabel('Time since delay onset (s)')
+ylabel('Selectivity (a.u.)')
+title('Selectivity in CD projections','FontSize',12)
+
+% sqrt[(R - L selectivity)^2]
+finalsel = sqrt(finalsel.^2);
+ctrlfinalsel = sqrt(ctrlfinalsel.^2);
+
+subplot(2,1,2)
+plot(taxis,mySmooth(finalsel,70),'black','LineWidth',3)
+hold on;
+plot(taxis,mySmooth(ctrlfinalsel,70),'Color',[0.7 0.7 0.7],'LineStyle','-.','LineWidth',3)
+xline(0,'black','LineStyle','--','LineWidth',2)
+xlim([-1.4 0.9])
+xline(0,'black','LineStyle','--','LineWidth',1.25)
+xline(-1.3,'black','LineStyle','-.','LineWidth',1.25)
+legend('Rand (1.2 s Del)','Static','Location','best','FontSize',13.5)
+ylabel('Squared selectivity in jaw prob (%)','FontSize',13.5)
+xlabel('Time before delay onset','FontSize',13.5)
+title('Avg jaw selectivity across animals','FontSize',14)
+
+%%
+function CD = calcCDs_Hazard(params,objs,meta,rez)
+% Find CDearly (coding dimension during mid-sample)
+cond{1} = params.modecondition{1};
+cond{2} = params.modecondition{2};
+epoch = 'midsample';
+CD.early_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
+% Find CDlate (coding dimension during late delay period)
+epoch = 'latedelay';
+CD.late_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'yes');
+% Find Go mode
+clear cond;
+cond{1} = params.modecondition{5};
+epoch = {'postgo','prego'};
+CD.go_mode = goModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
+end  % end calcCDs
+
+function CD = calcCDs_Static(params,objs,meta,rez)
+% Find CDearly (coding dimension during mid-sample)
+cond{1} = params.modecondition{1};
+cond{2} = params.modecondition{2};
+epoch = 'midsample';
+CD.early_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
+% Find CDlate (coding dimension during late delay period)
+epoch = 'latedelay';
+CD.late_mode = choiceModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
+% Find Go mode
+clear cond;
+cond{1} = params.modecondition{5};
+epoch = {'postgo','prego'};
+CD.go_mode = goModeMulti(objs,meta,cond,epoch,rez.alignEvent,'no');
+end  % end calcCDs
