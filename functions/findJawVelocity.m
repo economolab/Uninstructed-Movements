@@ -5,7 +5,7 @@
 % OUTPUT = [ntrials x length of trial] array of jaw velocity values (for a single
 % trial)
 
-function jaw = findJawVelocity(edges, obj,conditions, met,toplot,params)
+function jaw = findJawVelocity(edges, obj,conditions,toplot,params)
 traj = obj.traj{1};                             % Get the video data
 if strcmp(traj(1).featNames{2},'jaw')
     featnum = 2;
@@ -16,11 +16,11 @@ jaw = cell(1,numel(conditions));
 jawstd = cell(1,numel(conditions));
 
 for cond = 1:numel(conditions)
-    nTrials = numel(met.trialid{cond});
+    nTrials = numel(params.trialid{cond});
     temptri = nan(numel(edges), nTrials);    % (time x num trials in curr condition)
     derivthresh = 0.5;
     for i = 1:nTrials                        % For every trial in the condition
-        trix = met.trialid{cond}(i);
+        trix = params.trialid{cond}(i);
         
         % If you are using video data from a recording session
         if isfield(traj,'NdroppedFrames')

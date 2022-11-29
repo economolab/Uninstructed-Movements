@@ -2,17 +2,11 @@
 %%
 clear; clc; close all;
 
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes\funcs'));
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\functions'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\utils'));
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
-
-% addpath(genpath('C:\Code\ActivityModes'));
-% addpath(genpath('C:\Code\Uninstructed Movements\Uninstructed-Movements\DataLoadingScripts'));
-% addpath(genpath('C:\Code\Uninstructed-Movements'));
-% addpath(genpath('C:\Code\Utils'));
-% addpath(genpath('C:\Code\DataLoadingScripts'));
-
 
 % Saving params
 outputdir = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Figures\Uninstructed Movements';
@@ -25,8 +19,9 @@ params.alignEvent          = 'delay';   % goCue or firstLick
 params.dt = 0.05;
 
 % set conditions to use for projections
-params.condition(1) = {'R&hit&~stim.enable&~early'}; % right hits, no stim, aw off
-params.condition(2) = {'L&hit&~stim.enable&~early'}; % left hits, no stim, aw off
+params.condition(1) = {'hit&~stim.enable&~early'};  % All hits, no stim, aw off
+%params.condition(1) = {'R&hit&~stim.enable&~early'}; % right hits, no stim, aw off
+%params.condition(end+1) = {'L&hit&~stim.enable&~early'}; % left hits, no stim, aw off
 
 % Delay period length that you want to warp all delay lengths to
 params.desiredDelay = 0.9000;       
@@ -49,14 +44,13 @@ taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as 
 taxis = taxis(1:end-1);
 %% PREPROCESS DATA
 objs = loadBehavVid(meta);
+disp('Loading Hazarded Delay behavior objs')
 for i = 1:numel(meta)
     obj = objs{i};
     meta(i).trialid = findTrials(obj, params.condition);   % Get which trials pertain to the behavioral conditions you are looking at
 end
 %% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
 ctrlmeta = [];
-ctrlmeta = loadJEB4_ALMVideo(ctrlmeta);
-ctrlmeta = loadJEB5_ALMVideo(ctrlmeta);
 ctrlmeta = loadJEB6_ALMVideo(ctrlmeta);
 ctrlmeta = loadJEB7_ALMVideo(ctrlmeta);
 ctrlmeta = loadEKH1_ALMVideo(ctrlmeta);
@@ -70,6 +64,7 @@ taxis = taxis(1:end-1);
 ctrlobjs = loadObjs(ctrlmeta);
 
 for i = 1:numel(ctrlmeta)
+    disp(['Pre-processing data for Static Delay session ' num2str(i) ' out of ' num2str(numel(ctrlmeta))])
     obj = ctrlobjs{i};
     obj.condition = params.condition;
     % get trials and clusters to use
@@ -124,66 +119,67 @@ end
 
 %%%% Find average prob of jaw movement for each animal (across each of its
 % sessions) %%%%
-conditions = {1,2};
+conditions = {1};
 [jaw_allAnm,nAnimals,uc,sessbyAnm] = findJawProb_Multi(objs,meta,conditions,taxis,params);                  % Hazarded delay animals
 [jaw_ctrl, nAnimals_ctrl,sessbyAnm_ctrl] = findJawProb_Multi(ctrlobjs,ctrlmeta,conditions,taxis,params);    % Static delay animals 
 
 %%%% Average across all animals %%%%
 % Hazarded delay animals
-temp.right = [];
-temp.left = [];
-temp.selectivity = [];
+temp.haz = [];
+%temp.left = [];
+%temp.selectivity = [];
 for a = 1:nAnimals
-    temp.right = [temp.right,jaw_allAnm.right{a}];
-    temp.left = [temp.left,jaw_allAnm.left{a}];
-    temp.selectivity = [temp.selectivity, jaw_allAnm.right{a}-jaw_allAnm.left{a}];
+    temp.haz = [temp.haz,jaw_allAnm.haz{a}];
+    %temp.left = [temp.left,jaw_allAnm.left{a}];
+    %temp.selectivity = [temp.selectivity, jaw_allAnm.right{a}-jaw_allAnm.left{a}];
 end
 
-AvgAll.right = medfilt1(mean(temp.right,2,'omitnan'),10);
-AvgAll.left = medfilt1(mean(temp.left,2,'omitnan'),10);
-AvgAll.selectivity = mySmooth(mean(temp.selectivity,2,'omitnan'),51);
+AvgAll.haz = medfilt1(mean(temp.haz,2,'omitnan'),10);
+% AvgAll.left = medfilt1(mean(temp.left,2,'omitnan'),10);
+% AvgAll.selectivity = mySmooth(mean(temp.selectivity,2,'omitnan'),51);
 % Static delay animals 
-Ctrltemp.right = [];
-Ctrltemp.left = [];
+Ctrltemp.haz = [];
+% Ctrltemp.left = [];
+% Ctrltemp.selectivity = [];
 for a = 1:nAnimals_ctrl
-    Ctrltemp.right = [Ctrltemp.right,jaw_ctrl.right{a}];
-    Ctrltemp.left = [Ctrltemp.left,jaw_ctrl.left{a}];
-    Ctrltemp.selectivity = [Ctrltemp.selectivity, jaw_ctrl.right{a}-jaw_ctrl.left{a}];
+    Ctrltemp.haz = [Ctrltemp.haz,jaw_ctrl.haz{a}];
+%     Ctrltemp.left = [Ctrltemp.left,jaw_ctrl.left{a}];
+%     Ctrltemp.selectivity = [Ctrltemp.selectivity, jaw_ctrl.right{a}-jaw_ctrl.left{a}];
 end
-AvgCtrl.right = medfilt1(mean(Ctrltemp.right,2,'omitnan'),10);
-AvgCtrl.left = medfilt1(mean(Ctrltemp.left,2,'omitnan'),10);
-AvgCtrl.selectivity = mySmooth(mean(Ctrltemp.selectivity,2,'omitnan'),51);
+AvgCtrl.haz = medfilt1(mean(Ctrltemp.haz,2,'omitnan'),10);
+% AvgCtrl.left = medfilt1(mean(Ctrltemp.left,2,'omitnan'),10);
+% AvgCtrl.selectivity = mySmooth(mean(Ctrltemp.selectivity,2,'omitnan'),51);
 
 %%%% Plot probability of jaw movement %%%% 
 figure();
-colors = {[0 0 1],[1 0 0],[0 0 0.67],[0.67 0 0]};
-plot(taxis,100*AvgAll.right,'Color',colors{1},'LineWidth',3)
+colors = {[0 0 0],[0.5 0.5 0.5]};
+plot(taxis,100*AvgAll.haz,'Color',colors{1},'LineWidth',3)
 hold on;
-plot(taxis,100*AvgAll.left,'Color',colors{2},'LineWidth',3)
-plot(taxis,100*AvgCtrl.right,'Color',colors{3},'LineWidth',3)
-plot(taxis,100*AvgCtrl.left,'Color',colors{4},'LineWidth',3)
-xlim([-1.35 0.3])
+%plot(taxis,100*AvgAll.left,'Color',colors{2},'LineWidth',3)
+plot(taxis,100*AvgCtrl.haz,'Color',colors{2},'LineWidth',2.5,'LineStyle','-.')
+%plot(taxis,100*AvgCtrl.left,'Color',colors{4},'LineWidth',3)
+xlim([-1 2])
 xline(0,'LineStyle','--')
 xline(-1.3,'LineStyle','--')
-legend('Right Rand','Left Rand','Right Static','Left Static','Location','best')
+legend('Hazarded delay','Static delay','Location','best')
 sgtitle('Avg across all animals')
 xlabel('Time before delay (s)')
 ylabel('Probability of jaw movement (%)')
 
-figure();
+% figure();
 % AvgAll.selectivity = AvgAll.selectivity./max(AvgAll.selectivity);
 % AvgCtrl.selectivity = AvgCtrl.selectivity./max(AvgAll.selectivity);
-colors = {[0 0 1],[1 0 0],[0 0 0.67],[0.67 0 0]};
-plot(taxis,100*AvgAll.selectivity,'Color','green','LineWidth',3)
-hold on;
-plot(taxis,100*AvgCtrl.selectivity,'Color','magenta','LineWidth',3)
-xlim([-1.35 0.3])
-xline(0,'LineStyle','--')
-xline(-1.3,'LineStyle','--')
-legend('Rand selectivity','Static selectivity','Location','best')
-sgtitle('Avg across all animals')
-xlabel('Time before delay (s)')
-ylabel('Selectivity (R - L) (%)')
+% colors = {[0 0 1],[1 0 0],[0 0 0.67],[0.67 0 0]};
+% plot(taxis,100*AvgAll.selectivity,'Color','green','LineWidth',3)
+% hold on;
+% plot(taxis,100*AvgCtrl.selectivity,'Color','magenta','LineWidth',3)
+% xlim([-1.35 0.3])
+% xline(0,'LineStyle','--')
+% xline(-1.3,'LineStyle','--')
+% legend('Rand selectivity','Static selectivity','Location','best')
+% sgtitle('Avg across all animals')
+% xlabel('Time before delay (s)')
+% ylabel('Selectivity (R - L) (%)')
 
 
 
