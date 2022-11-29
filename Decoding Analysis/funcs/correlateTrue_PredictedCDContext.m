@@ -1,4 +1,4 @@
-function R2 = correlateTrue_PredictedCDContext(trueVals, modelpred)
+function R2 = correlateTrue_PredictedCDContext(trueVals, modelpred,meta)
 % This is across sessions
 R2 = NaN(length(meta),1);
 

@@ -98,6 +98,14 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+%% Sanity check -- plot heatmap of the kinematic data (to check whether there are huge outliers)
+% sessix = 4;
+% for f = 1:63
+%     imagesc((kin(sessix).dat(:,:,f))')
+%     title(kin(sessix).featLeg{f})
+%     colorbar
+%     pause
+% end
 %% Predict CDContext from DLC features
 
 clearvars -except datapth kin me meta obj params regr nSessions
@@ -111,11 +119,11 @@ rez.dt = floor(rez.binSize / difTime);              % How many samples confer yo
 rez.tm = obj(1).time(1:rez.dt:numel(obj(1).time));  % Create a new time axis over which to decode (based on the bin size that you want)
 rez.numT = numel(rez.tm);                           % Number of time-points
 
-rez.train = 0.5;                                      % fraction of trials to use for training (1-train for testing)
+rez.train = 1;                                      % fraction of trials to use for training (1-train for testing)
 
-% match number of right and left hits, and right and left misses
-cond2use = 2:5;
-hitcond = [1 2];
+% match number of 2AFC and AW hits, and 2AFC and AW misses
+cond2use = 2:5;                                     % Which of the 'params.conditions' you are including in the decoding 
+hitcond = [1 2];                                    % Out of the cond2use conditions, specify which are hits and which are misses
 misscond = [3 4];
 
 % True Values of CDContext for each session
@@ -125,7 +133,6 @@ trueVals.FWhit = cell(nSessions,1);
 % Model prediction of CDContext for each session, predicted by each feature
 modelpred.AFChit = cell(nSessions,1);
 modelpred.FWhit = cell(nSessions,1);
-
 
 mask = true(numel(kin(1).featLeg),1);
 rez.featix = find(mask);                    % Indices in the feature legend that correspond to specified body part
@@ -147,60 +154,108 @@ for sessix = 1:numel(obj)
 
     % Decoding
     pred = DLC_CD_Decoder(in,rez);
-    pred = pred';
+    pred = mySmooth((pred'),31);
 
-    % Divide true data and model predictions into 2AFC and AW hit trials
-    trials.AFCHit.TestIX = ismember(trials.test,trials_hit{1});       % Logical array for all of the test trials indicating whether they were a 2AFC hit or not
-    trials.AFCHit.Test = trials.test(trials.AFCHit.TestIX);             % Get the trial numbers that are a 2AFC hit and were used in the test
-    trials.FWHit.TestIX = ismember(trials.test,trials_hit{2});       % Logical array for all of the test trials indicating whether they were a AW hit or not
-    trials.FWHit.Test = trials.test(trials.FWHit.TestIX);             % Get the trial numbers that are a AW hit and were used in the test
+     % Divide true data and model predictions into R and L hit trials
+    if rez.train==1                                                     % If all data is used to train the model (Cross-validated, the true data is just all of it i.e. the training data)
+        trials.AFCHit.TrainIX = ismember(trials.train,trials_hit{1});       
+        trials.AFCHit.Train = trials.train(trials.AFCHit.TrainIX);             
+        trials.FWHit.TrainIX = ismember(trials.train,trials_hit{2});       
+        trials.FWHit.Train = trials.train(trials.FWHit.TrainIX);
+    else                                                                % If model is not cross-validated and just doing a train/test split
+        trials.AFCHit.TestIX = ismember(trials.test,trials_hit{1});       % Logical array for all of the test trials indicating whether they were a right hit or not
+        trials.AFCHit.Test = trials.test(trials.AFCHit.TestIX);             % Get the trial numbers that are a 2AFC hit and were used in the test
+        trials.FWHit.TestIX = ismember(trials.test,trials_hit{2});       % Logical array for all of the test trials indicating whether they were a left hit or not
+        trials.FWHit.Test = trials.test(trials.FWHit.TestIX);             % Get the trial numbers that are a AW hit and were used in the test
+    end
 
-    % Label test data
-    trueVals.AFChit{sessix} = in.test.y(:,trials.AFCHit.TestIX);
-    trueVals.FWhit{sessix} = in.test.y(:,trials.FWHit.TestIX);
-    modelpred.AFChit{sessix} = pred(:,trials.AFCHit.TestIX);
-    modelpred.FWhit{sessix} = pred(:,trials.FWHit.TestIX);
-
-
-    % %     % shuffle labels for a 'null' distribution
-    % %
-    % %
-    % %     Y = randsample(Y,numel(Y));
-    % %
-    % %     % train/test split
-    % %
-    % %     in.train.y = Y(trials.trainidx);
-    % %     in.test.y  = Y(trials.testidx);
-    % %
-    % %     acc_shuffled(:,sessix) = DLC_ChoiceDecoder(in,rez,trials);
+   
+    % Label test data as true data and model prediction
+    if rez.train==1                                                          % If you are using the whole data set as the training set (if cross-validating), then the test data is just the train data
+        trueVals.AFChit{sessix} = in.train.y(:,trials.AFCHit.TrainIX);
+        trueVals.FWhit{sessix} = in.train.y(:,trials.FWHit.TrainIX);
+        modelpred.AFChit{sessix} = pred(:,trials.AFCHit.TrainIX);
+        modelpred.FWhit{sessix} = pred(:,trials.FWHit.TrainIX);
+    else                                                                     % If you are using a train/test split, then the assign the test data as the data not used for training
+        trueVals.AFChit{sessix} = in.test.y(:,trials.AFCHit.TestIX);
+        trueVals.FWhit{sessix} = in.test.y(:,trials.FWHit.TestIX);
+        modelpred.AFChit{sessix} = pred(:,trials.AFCHit.TestIX);
+        modelpred.FWhit{sessix} = pred(:,trials.FWHit.TestIX);
+    end
 end
-%% Get R^2 values between true CDlate and prediction on each trial
-R2 = correlateTrue_PredictedCDContext(trueVals, modelpred,meta);
-%% Plot histogram of R2 values
-nBins = 8;
-histogram(R2,nBins,'FaceColor',[0.25 0.25 0.25])
-xlabel('R^2 value')
-ylabel('Num sessions')
-%% Plot an example session of CDcontext prediction vs true value
-sessix = 5;                                                     % Which session you want to plot for
-sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
+%% Plot a scatter plot for a single session of true CDContext and predicted CDContext for each trial
+delR2 = [];
+% Each dot = an average value of CDContext during the presample period 
+start = find(obj(1).time>-3,1,'first');
+stop = find(obj(1).time<-2.5,1,'last');
+for sessix = [4,7]%1:length(meta)
+    tempR = mean(trueVals.AFChit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
+    tempL = mean(trueVals.FWhit{sessix}((start+1):(stop+1),:),1,'omitnan');
+    truedat = [tempR, tempL];
 
+    tempR = mean(modelpred.AFChit{sessix}(start:stop,:),1,'omitnan');        % For each trial, get the average predicted CDlate during the delay period
+    tempL = mean(modelpred.FWhit{sessix}(start:stop,:),1,'omitnan');
+    modeldat = [tempR, tempL];
+
+    R2 = corrcoef(truedat,modeldat);
+    R2 = R2(2);
+    delR2 = [delR2, R2];
+    R2 = num2str(R2);
+    figure();
+    coeff = polyfit(truedat,modeldat,1);                   % Find the line of best fit
+    sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
+    scatter(truedat,modeldat,'filled','black')
+    hline = refline(coeff);
+    hline.LineStyle = '--';
+    hline.Color = 'k';
+    xlabel('True data')
+    ylabel('Model prediction')
+    legend('data',['R^2 = ' R2],'Location','best')
+    title(sesstitle)
+end
+%% Plot bar plot to show average R2 values across sessions
 figure();
+bar(mean(delR2),'FaceColor',[0.75 0.75 0.75]); hold on;
+scatter(1,delR2,'filled')
+%% For each trial, find the correlation between the true CDcontext and the predicted CDcontext (in the given time range
+% Get R^2 values between true CDlate and prediction on each trial
+%Specify time-points over which you want to find the correlation 
+% stop = find(obj(1).time<0.05,1,'last');
+% timeTrue = 2:stop;
+% timePred = 1:(stop-1);
 
-plot(trueVals.AFChit{sessix},'Color','black'); hold on;
-plot(modelpred.AFChit{sessix},'Color',[0.75 0.75 0.75]);
-plot(trueVals.FWhit{sessix},'Color','magenta'); 
-plot(modelpred.FWhit{sessix},'Color',[0.75 0 0.75]);
-%%
-% Calculate averages and standard deviation for true CD and predicted CD
-% for this session
-[avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
+% R2 = correlateTrue_PredictedCD(trueVals, modelpred,meta,timeTrue,timePred);
+% %% Plot histogram of R2 values
+% % nBins = 5;
+% % figure();
+% % histogram(R2,nBins,'FaceColor',[0.25 0.25 0.25])
+% % xlabel('R^2 value')
+% % ylabel('Num sessions')
+%% Plot an example session of CDlate prediction vs true value
+for sessix = [4,7]%1:length(meta)
+    sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
 
-% Get confidence intervals
-[upperci, lowerci] = getConfInt(meta, avgCD, stdCD);
+    % Plot all true and predicted CDContext projections for 2AFC trials
+%     figure();
+%     subplot(2,1,1)
+%     plot(obj(1).time,trueVals.AFChit{sessix},'Color',[0 0 1]); hold on;
+%     plot(rez.tm(1:end-1),modelpred.AFChit{sessix},'Color',[0.5 0.5 1]);
+% 
+%     % Plot all true and predicted CDContext projections for 2AW trials 
+%     subplot(2,1,2)
+%     plot(obj(1).time,trueVals.FWhit{sessix},'Color',[1 0 0]); hold on;
+%     plot(rez.tm(1:end-1),modelpred.FWhit{sessix},'Color',[1 0.5 0.5]);
 
-% Plot average CDlate projections and predictions for the session
-plotExampleCDContextPrediction(obj,rez,avgCD,upperci,lowerci,sesstitle)
+    % Calculate averages and standard deviation for true CD and predicted CD
+    % for this session
+    [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
+
+    % Get confidence intervals
+    [upperci, lowerci] = getConfInt(meta, avgCD, stdCD);
+
+    % Plot average CDlate projections and predictions for the session
+    plotExampleCDContextPrediction(obj,rez,avgCD,upperci,lowerci,sesstitle)
+end
 %% FUNCTIONS
 
 

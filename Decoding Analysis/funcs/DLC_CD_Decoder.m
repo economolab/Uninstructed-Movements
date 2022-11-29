@@ -21,12 +21,16 @@ for i = tRange                          % For each time-point...
     x_train = X_train(ixs,:,:);       % Get the regressor training data for the current time-bin 
     x_train = squeeze(mean(x_train,1,'omitnan'));   % Take the average value of the regressor across time 
     x_train = fillmissing(x_train,'constant',0);    % Make NaNs into zeros
+    outlierx = find(abs(x_train)>100);              % If any of the regressors (movement values) have a very large value (greater than 100), label it as an outlier
+    if ~isempty(outlierx)                   
+        x_train(outlierx) = 0;                      % Set these outlier values to 0
+    end
     if size(x_train,1) == 1
         x_train = x_train';
     end
 
     % 'y_train' ends up being (trials x 1)
-    y_train = Y_train(ixs,:,:);
+    y_train = Y_train(ixs,:,:);                     % Get the predictor training data for the current time-bin
     y_train = squeeze(mean(y_train,1,'omitnan'));
     y_train = fillmissing(y_train,'constant',0);    % Make NaNs into zeros
     if size(y_train,1) == 1
@@ -34,25 +38,46 @@ for i = tRange                          % For each time-point...
     end
 
     % Fit the linear regression model
-    mdl = fitrlinear(x_train,y_train);              
-    % cv_mdl = crossval(mdl,'KFold',rez.nFolds);
-
+    %cv_mdl = fitrlinear(x_train,y_train);
+    cv_mdl = fitrlinear(x_train,y_train,'KFold',rez.nFolds);    % Use cross-validation
+   
 
     % Test the model on test data 
     % Get the average test data for the given time-bin
     x_test = squeeze(mean(X_test(ixs,:,:),1,'omitnan'));
     x_test = fillmissing(x_test,'nearest');
+    outlierx = find(abs(x_test)>100);                           % Outliers = regressor/movement feature values greater than 100
+    if ~isempty(outlierx)
+        x_test(outlierx) = 0;
+    end
     if size(x_test,1) == 1
         x_test = x_test';
     end
     
     % Will predict CDlate for the current time-bin across all trials
-    pred(:,ix) = predict(mdl,x_test);       
-%     pred = kfoldPredict(cv_mdl);
-%     pred = predict(cv_mdl,x_test);
+%     temppred = predict(cv_mdl,x_test);
+%     pred(:,ix) =  temppred;      
+    temppred = kfoldPredict(cv_mdl);                            % Use the cross-validated model to predict CDlate for the current time-bin
+    pred(:,ix) = fillmissing(temppred,'nearest');
 
-%     acc(ix) = sum(pred == y_test) / numel(y_test);
-%    acc(ix) = sum(pred == y_train) / numel(y_train);
+    %%% Sanity check  %%%
+% if i > 80
+      % Plot the regressor values for this time-bin for all trials (to see
+      % if there are any large outliers)
+%     plot(x_train);title('Regressors')
+%     hold off;
+%     xlabel('trials')
+%     ylabel('Kinematic measurement')
+% 
+      % Plot the predicted values for this time-bin and the true values for
+      % this time-bin
+%     figure(); plot(pred(:,ix)); hold on; plot(Y_test(ix,:));
+%     xlabel('Trials')
+%     ylabel('Predicted CDlate val')
+%     legend('Predicted','True')
+%     hold off;
+%     pause
+% end
     ix = ix + 1;
 end
 

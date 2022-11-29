@@ -1,4 +1,4 @@
-function plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle)
+function plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle,R2)
 figure();
 plot(obj(1).time,avgCD.Rhit.true,'Color','blue','LineWidth',2); hold on;
 plot(rez.tm(1:end-1),avgCD.Rhit.pred,'Color',[0.5 0.5 1],'LineStyle','--','LineWidth',2);
@@ -18,6 +18,7 @@ xline(-2.5,'black','LineStyle','-.','LineWidth',1.1)
 legend('R hit true','R hit predicted','L hit true','L hit predicted')
 ylabel('a.u.')
 xlabel('Time since go-cue (s)')
-title(sesstitle)
+sesstit = [sesstitle, 'R^2 = ', num2str(R2)];
+title(sesstit)
 xlim([-2.6 2.5])
 end

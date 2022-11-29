@@ -6,11 +6,10 @@ utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'fig1')));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Decoding Analysis'));
 % rmpath(genpath(fullfile(utilspth,'fig1/')));
 % rmpath(genpath(fullfile(utilspth,'mc_stim/')));
-
-% add paths for figure specific functions
-addpath(genpath(pwd))
 
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
@@ -61,6 +60,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB13_ALMVideo(meta,datapth);
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
 
@@ -104,9 +104,18 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+%% Sanity check -- plot heatmap of the kinematic data (to check whether there are huge outliers)
+% sessix = 4;
+% for f = 1:63
+%     imagesc((kin(sessix).dat(:,:,f))')
+%     title(kin(sessix).featLeg{f})
+%     colorbar
+%     pause
+% end
 %% Predict CDLate from DLC features
 
 clearvars -except datapth kin me meta obj params regr nSessions
+clc;
 
 % params
 rez.nFolds = 4;                                     % number of iterations (bootstrap)
@@ -117,7 +126,7 @@ rez.dt = floor(rez.binSize / difTime);              % How many samples confer yo
 rez.tm = obj(1).time(1:rez.dt:numel(obj(1).time));  % Create a new time axis over which to decode (based on the bin size that you want)
 rez.numT = numel(rez.tm);                           % Number of time-points
 
-rez.train = 0.5;                                      % fraction of trials to use for training (1-train for testing)
+rez.train = 1;                                      % fraction of trials to use for training (1-train for testing)
 
 % match number of right and left hits, and right and left misses
 cond2use = 2:5;
@@ -132,10 +141,8 @@ trueVals.Lhit = cell(nSessions,1);
 modelpred.Rhit = cell(nSessions,1);
 modelpred.Lhit = cell(nSessions,1);
 
-
 mask = true(numel(kin(1).featLeg),1);
 rez.featix = find(mask);                    % Indices in the feature legend that correspond to specified body part
-
 
 % Do the decoding for each session
 for sessix = 1:numel(obj)
@@ -153,62 +160,116 @@ for sessix = 1:numel(obj)
 
     % Decoding
     pred = DLC_CD_Decoder(in,rez);
-    pred = pred';
+    pred = mySmooth((pred'),31);
 
     % Divide true data and model predictions into R and L hit trials
-    trials.RHit.TestIX = ismember(trials.test,trials_hit{1});       % Logical array for all of the test trials indicating whether they were a right hit or not
-    trials.RHit.Test = trials.test(trials.RHit.TestIX);             % Get the trial numbers that are a R hit and were used in the test
-    trials.LHit.TestIX = ismember(trials.test,trials_hit{2});       % Logical array for all of the test trials indicating whether they were a left hit or not
-    trials.LHit.Test = trials.test(trials.LHit.TestIX);             % Get the trial numbers that are a L hit and were used in the test
+    if rez.train==1                                                     % If all data is used to train the model (Cross-validated, the true data is just all of it i.e. the training data)
+        trials.RHit.TrainIX = ismember(trials.train,trials_hit{1});       
+        trials.RHit.Train = trials.train(trials.RHit.TrainIX);             
+        trials.LHit.TrainIX = ismember(trials.train,trials_hit{2});       
+        trials.LHit.Train = trials.train(trials.LHit.TrainIX);
+    else                                                                % If model is not cross-validated and just doing a train/test split
+        trials.RHit.TestIX = ismember(trials.test,trials_hit{1});       % Logical array for all of the test trials indicating whether they were a right hit or not
+        trials.RHit.Test = trials.test(trials.RHit.TestIX);             % Get the trial numbers that are a R hit and were used in the test
+        trials.LHit.TestIX = ismember(trials.test,trials_hit{2});       % Logical array for all of the test trials indicating whether they were a left hit or not
+        trials.LHit.Test = trials.test(trials.LHit.TestIX);             % Get the trial numbers that are a L hit and were used in the test
+    end
 
-    % Label test data
-    trueVals.Rhit{sessix} = in.test.y(:,trials.RHit.TestIX);
-    trueVals.Lhit{sessix} = in.test.y(:,trials.LHit.TestIX);
-    modelpred.Rhit{sessix} = pred(:,trials.RHit.TestIX);
-    modelpred.Lhit{sessix} = pred(:,trials.LHit.TestIX);
-
-
-
-    % %     % shuffle labels for a 'null' distribution
-    % %
-    % %
-    % %     Y = randsample(Y,numel(Y));
-    % %
-    % %     % train/test split
-    % %
-    % %     in.train.y = Y(trials.trainidx);
-    % %     in.test.y  = Y(trials.testidx);
-    % %
-    % %     acc_shuffled(:,sessix) = DLC_ChoiceDecoder(in,rez,trials);
+    % Label test data as true data and model prediction
+    if rez.train==1                                                     % If you are using the whole data set as the training set (if cross-validating), then the test data is just the train data
+        trueVals.Rhit{sessix} = in.train.y(:,trials.RHit.TrainIX);
+        trueVals.Lhit{sessix} = in.train.y(:,trials.LHit.TrainIX);
+        modelpred.Rhit{sessix} = pred(:,trials.RHit.TrainIX);
+        modelpred.Lhit{sessix} = pred(:,trials.LHit.TrainIX);
+    else                                                                % If you are using a train/test split, then the assign the test data as the data not used for training
+        trueVals.Rhit{sessix} = in.test.y(:,trials.RHit.TestIX);
+        trueVals.Lhit{sessix} = in.test.y(:,trials.LHit.TestIX);
+        modelpred.Rhit{sessix} = pred(:,trials.RHit.TestIX);
+        modelpred.Lhit{sessix} = pred(:,trials.LHit.TestIX);
+    end
 end
-%% Get R^2 values between true CDlate and prediction on each trial
-R2 = correlateTrue_PredictedCD(trueVals, modelpred);
+%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
+delR2 = [];
+% Each dot = an average value of CDlate during the delay period 
+start = find(obj(1).time>-0.9,1,'first');
+stop = find(obj(1).time<-0.05,1,'last');
+for sessix = 1:length(meta)
+    tempR = mean(trueVals.Rhit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
+    tempL = mean(trueVals.Lhit{sessix}((start+1):(stop+1),:),1,'omitnan');
+    truedat = [tempR, tempL];
+
+    tempR = mean(modelpred.Rhit{sessix}(start:stop,:),1,'omitnan');        % For each trial, get the average predicted CDlate during the delay period
+    tempL = mean(modelpred.Lhit{sessix}(start:stop,:),1,'omitnan');
+    modeldat = [tempR, tempL];
+
+    R2 = corrcoef(truedat,modeldat);
+    R2 = R2(2);
+    delR2 = [delR2, R2];
+    R2 = num2str(R2);
+    coeff = polyfit(truedat,modeldat,1);                   % Find the line of best fit
+    sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
+    scatter(truedat,modeldat,'filled','black')
+    hline = refline(coeff);
+    hline.LineStyle = '--';
+    hline.Color = 'k';
+    xlabel('True data')
+    ylabel('Model prediction')
+    legend('data',['R^2 = ' R2])
+    title(sesstitle)
+    pause
+end
+%% Plot bar plot to show average R2 values across sessions
+figure();
+bar(mean(delR2),'FaceColor',[0.75 0.75 0.75]); hold on;
+scatter(1,delR2,'filled')
+% Get R^2 values between true CDlate and prediction on each trial
+Specify time-points over which you want to find the correlation 
+stop = find(obj(1).time<0.05,1,'last');
+timeTrue = 2:stop;
+timePred = 1:(stop-1);
+
+R2 = correlateTrue_PredictedCD(trueVals, modelpred,meta,timeTrue,timePred);
 %% Plot histogram of R2 values
-nBins = 8;
+nBins = 5;
+figure();
 histogram(R2,nBins,'FaceColor',[0.25 0.25 0.25])
 xlabel('R^2 value')
 ylabel('Num sessions')
 %% Plot an example session of CDlate prediction vs true value
-sessix = 1;                                                     % Which session you want to plot for
+for sessix = 11:15%length(meta)
 sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
+
+figure();
+subplot(2,1,1)
+plot(obj(1).time,trueVals.Rhit{sessix},'Color',[0 0 1]); hold on;
+plot(rez.tm(1:end-1),modelpred.Rhit{sessix},'Color',[0.5 0.5 1]); 
+
+subplot(2,1,2)
+plot(obj(1).time,trueVals.Lhit{sessix},'Color',[1 0 0]); hold on;
+plot(rez.tm(1:end-1),modelpred.Lhit{sessix},'Color',[1 0.5 0.5]);
 
 % Calculate averages and standard deviation for true CD and predicted CD
 % for this session
-[avgCD,stdCD] = getAvgStd(trueVals,modelpred);
+[avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
 
 % Get confidence intervals
 [upperci, lowerci] = getConfInt(meta, avgCD, stdCD);
 
 % Plot average CDlate projections and predictions for the session
-plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle)
+plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle,delR2(sessix))
+end
 %% FUNCTIONS
-function [avgCD,stdCD] = getAvgStd(trueVals,modelpred)
+function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
 
 avgCD.Rhit.true = mean(trueVals.Rhit{sessix},2,'omitnan');      % Get average true CDlate for R and L hits for this session
 avgCD.Lhit.true = mean(trueVals.Lhit{sessix},2,'omitnan');
 stdCD.Rhit.true = std(trueVals.Rhit{sessix},0,2,'omitnan');     % Get standard deviation of true CDlate for R and L hits
 stdCD.Lhit.true = std(trueVals.Lhit{sessix},0,2,'omitnan');
 
+modelpred.Rhit{sessix} = fillmissing(modelpred.Rhit{sessix},"nearest");
+modelpred.Lhit{sessix} = fillmissing(modelpred.Lhit{sessix},"nearest");
+infix = find(isinf(modelpred.Rhit{sessix})); modelpred.Rhit{sessix}(infix) = 0;
+infix = find(isinf(modelpred.Lhit{sessix})); modelpred.Lhit{sessix}(infix) = 0;
 avgCD.Rhit.pred = mean(modelpred.Rhit{sessix},2,'omitnan');     % Get average predicted CDlate for R and L hits for this session
 avgCD.Lhit.pred = mean(modelpred.Lhit{sessix},2,'omitnan');
 stdCD.Rhit.pred = std(modelpred.Rhit{sessix},0,2,'omitnan');    % Get stdev of predicted CDlate for R and L hits for this session
