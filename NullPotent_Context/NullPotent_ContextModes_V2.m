@@ -12,7 +12,7 @@ addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(pwd))
 
 %% PARAMETERS
-params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -47,8 +47,6 @@ params.feat_varToExplain = 80; % num factors for dim reduction of video features
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 
 params.advance_movement = 0;
-
-
 %% SPECIFY DATA TO LOAD
 
 datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
@@ -64,8 +62,6 @@ meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
-
-
 %% LOAD DATA
 
 % ----------------------------------------------
@@ -100,20 +96,20 @@ for sessix = 1:numel(meta)
     % -- input data
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat);
 
-    % -- null and potent spaces
+    % -- Calculate the null and potent spaces for each session
     cond2use = [2 3 4 5]; % 2AFC hit, AW hit, 2AFC miss, AW miss
     nullalltime = 0;      % use all time points to estimate null space if 1
     rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, nullalltime);
 
-    % -- coding dimensions
+    % -- Find coding dimensions from neural activity projected into the null and potent spaces
     cond2use = [1 2];          % 2AFC hits, AW hits (corresponding to null/potent psths in rez)
-    cond2proj = [1:4];         % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
+    cond2proj = 1:4;         % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
     cond2use_trialdat = [2 3]; % for calculating selectivity explained in full neural pop
     cd_null(sessix) = getCodingDimensions_Context(rez(sessix).N_null_psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
     cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).N_potent_psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
 
 end
-%%
+%% Concatenate coding dimensions in the null and potent space across sessions
 cd_null_all = concatRezAcrossSessions_Context(cd_null);
 cd_potent_all = concatRezAcrossSessions_Context(cd_potent);
 
@@ -123,7 +119,6 @@ close all
 
 sav = 0;
 
-
 % -----------------------------------------------------------------------
 % -- Null and Potent Space Single Trial Projections --
 % -----------------------------------------------------------------------
@@ -131,18 +126,7 @@ sav = 0;
 % % - projections showing move / quiet somehow
 cond2use = [2 3]; % 2AFC hits, AW hits
 ndims = 4; % top ndims variance explaining dimensions
-plotSingleTrialNPHeatmaps(rez,params,me,ndims,cond2use,meta);
-
-
-% % - how much variance in move and non-move time points
-cond2use = [2 3]; % 2AFC hits, AW hits
-plotVarianceInEpochs(rez,me,params,cond2use);
-
-% % - ve
-plotVarianceExplained_NP(rez);
-
-% % - ve over time (TODO)
-% % % plotVarianceExplained_NP_overTime(rez);
+% plotSingleTrialNPHeatmaps(rez,params,me,ndims,cond2use,meta);
 
 
 % -----------------------------------------------------------------------
@@ -159,82 +143,7 @@ plotTopDims_NP_Proj(meta,rez,obj,cond2plot,ndims)
 plotmiss = 0;
 
 titlestring = 'Null';
-plotCDProj_Context(cd_null_all,cd_null,sav,titlestring,plotmiss)
-% plotCDVarExp_Context(cd_null_all,sav,titlestring)
-%plotSelectivity_Context(cd_null_all,cd_null,sav,titlestring)
-% plotSelectivityExplained_Context(cd_null_all,cd_null,sav,titlestring)
+% plotCDProj_Context(cd_null_all,cd_null,sav,titlestring,plotmiss)
 
 titlestring = 'Potent';
-plotCDProj_Context(cd_potent_all,cd_potent,sav,titlestring,plotmiss)
-% plotCDVarExp_Context(cd_potent_all,sav,titlestring)
-%plotSelectivity_Context(cd_potent_all,cd_potent,sav,titlestring)
-% plotSelectivityExplained_Context(cd_potent_all,cd_potent,sav,titlestring)
-
-
-
-%% t=0 is the go cue, but only on trials where the animals were not moving PRIOR to the go cue
-% same plots as plotSelectivityExplained
-
-%% t=0 is transitions between non-movement and movement that do not coincide with the go cue
-% same plots as plotSelectivityExplained
-
-stitch_dist = 0.025; % in seconds, stitch together movement bouts shorter than this
-purge_dist = 0.1; % in seconds, remove move bouts shorter than this value, after stitching complete
-tbout = 0.3; % move/non-move bout/transition required to be at least this long in seconds
-[dat.mdat,dat.mdat_leg,dat.qdat,dat.qdat_leg,newme] = nonGC_moveTransitions(obj,me,params,stitch_dist,purge_dist,tbout);
-
-%%
-close all
-
-% TODO: rewrite these functions to be more general
-
-dim = 1; % dim to plot (most to least variance explained)
-
-% plot_nonGC_moveTransitions_singleTrials(dat,obj,newme,rez,params,dim,meta)
-
-% plot_nonGC_moveTransitions_singleTrials_v2(dat,obj,newme,rez,params,dim,meta) % random sampling of move to quiet bouts
-% plot_nonGC_moveTransitions_singleTrials_v3(dat,obj,newme,rez,params,dim,meta) % random sampling of quiet to move bouts
-
-ndims = 10;
-% plot_nonGC_moveTransitions_singleTrials_v4(dat,obj,newme,rez,params,ndims,meta) % all bouts heat map, move to quiet 
-% plot_nonGC_moveTransitions_singleTrials_v5(dat,obj,newme,rez,params,ndims,meta) % all bouts heat map, quiet to move
-
-ndims = 10;
-% plot_nonGC_moveTransitions_trialAvg(dat,obj,newme,rez,params,meta,ndims) % separate tiles for each dimension
-
-% plot_nonGC_moveTransitions_trialAvg_v2(dat,obj,newme,rez,params,meta,ndims) % all dimensions plotted on same axis, 
-
-% plot_nonGC_moveTransitions_trialAvg_v3(dat,obj,newme,rez,params,meta,ndims) % mean,stderr across dimensions
-
-% plot_nonGC_moveTransitions_trialAvg_v4(dat,obj,newme,rez,params,meta,ndims) % var across dimensions, move to quiet
-% plot_nonGC_moveTransitions_trialAvg_v5(dat,obj,newme,rez,params,meta,ndims) % var across dimensions, quiet to move
-
-% plot_nonGC_moveTransitions_trialAvg_v6(dat,obj,newme,rez,params,meta,ndims) % sumsqmag across dimensions, move to quiet
-% plot_nonGC_moveTransitions_trialAvg_v7(dat,obj,newme,rez,params,meta,ndims) % sumsqmag across dimensions, quiet to move
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+% plotCDProj_Context(cd_potent_all,cd_potent,sav,titlestring,plotmiss)

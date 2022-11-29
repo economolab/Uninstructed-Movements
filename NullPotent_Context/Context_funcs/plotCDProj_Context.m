@@ -31,7 +31,7 @@ for i = 1:numel(rez(1).cd_labels) % for each coding direction
     xlim([rez(1).time(1);2])
 
     title([rez(1).cd_labels{i} ' | ' spacename])
-    xlabel('Time (s) from firstLick')
+    xlabel('Time (s) from goCue')
     ylabel('Activity (a.u.)')
     ax.FontSize = 12;
 
