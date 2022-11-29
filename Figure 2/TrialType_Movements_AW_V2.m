@@ -42,12 +42,12 @@ params.quality = {'excellent','great','good','multi','fair','poor'};
 %% SET METADATA
 
 meta = [];
-meta = loadJEB6_ALMVideo(meta);
-meta = loadJEB7_ALMVideo(meta);
-meta = loadEKH1_ALMVideo(meta);
+% meta = loadJEB6_ALMVideo(meta);
+% meta = loadJEB7_ALMVideo(meta);
+% meta = loadEKH1_ALMVideo(meta);
 meta = loadEKH3_ALMVideo(meta);
 meta = loadJGR2_ALMVideo(meta);
-meta = loadJGR3_ALMVideo(meta);
+% meta = loadJGR3_ALMVideo(meta);
 %meta = loadJEB15_ALMVideo(meta);
 
 params.probe = [meta.probe]; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
