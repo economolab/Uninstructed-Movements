@@ -1,7 +1,7 @@
 clear,clc,close all
 
 addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
-addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Utils'));
 %% SET RUN PARAMS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 params.timeWarp = 0;
@@ -122,7 +122,7 @@ moveDelay = findAvgMove(meta,kin,e1,e2);
 %%
 %%%% Find avg movement during first third of session, second third, and
 %%%% last third
-numDivisions = 4;
+numDivisions = 5;
 for gg = 1:length(meta)
     numR = length(moveDelay.right{gg});  numL = length(moveDelay.left{gg});
     divideR = round(numR/numDivisions); divideL = round(numL/numDivisions);
@@ -207,7 +207,7 @@ end
 
 function plotAvgKin_segments(averageL,averageR,numDivisions)
 figure();
-x = [1,2,3,4,6,7,8,9];
+x = [1,2,3,4,5,7,8,9,10,11];
 yL = []; yR = [];
 for d = 1:numDivisions
     yL = [yL, mean(averageL{d})]; yR = [yR, mean(averageR{d})];
@@ -216,13 +216,13 @@ y = [yL, yR];
 b= bar(x,y);
 b.FaceColor = [0.75 0.75 0.75]; hold on;
 
-scatter(1,averageL{1},'red','filled'); scatter(2,averageL{2},'red','filled')  ; scatter(3,averageL{3},'red','filled'); scatter(4,averageL{4},'red','filled')
-scatter(6,averageR{1},'blue','filled'); scatter(7,averageR{2},'blue','filled')  ; scatter(8,averageR{3},'blue','filled'); scatter(9,averageR{4},'blue','filled')
-yy = [averageL{1}',averageL{2}',averageL{3}',averageL{4}']; plot(x(1:4),yy(:,1:4),'Color','black')
-yy = [averageR{1}',averageR{2}',averageR{3}',averageR{4}']; plot(x(5:8),yy(:,1:4),'Color','black')
+scatter(1,averageL{1},'red','filled'); scatter(2,averageL{2},'red','filled')  ; scatter(3,averageL{3},'red','filled'); scatter(4,averageL{4},'red','filled');scatter(5,averageL{5},'red','filled')
+scatter(7,averageR{1},'blue','filled'); scatter(8,averageR{2},'blue','filled')  ; scatter(9,averageR{3},'blue','filled'); scatter(10,averageR{4},'blue','filled'); scatter(11,averageR{5},'blue','filled')
+yy = [averageL{1}',averageL{2}',averageL{3}',averageL{4}',averageL{5}']; plot(x(1:5),yy(:,1:5),'Color','black')
+yy = [averageR{1}',averageR{2}',averageR{3}',averageR{4}',averageL{5}']; plot(x(6:10),yy(:,1:5),'Color','black')
 
 
-xlim([0 10])
+xlim([0 12])
 ylabel('Average motion energy')
 title('ME throughout session')
 end
