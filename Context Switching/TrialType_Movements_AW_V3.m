@@ -13,7 +13,7 @@ addpath(genpath(fullfile(otherpth,'Decoding Analysis')));
 addpath(genpath(fullfile(otherpth,'Context Switching')));
 
 %% PARAMETERS
-params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -31,7 +31,7 @@ params.condition(end+1) = {'miss&~stim.enable&autowater&~early'};               
 
 params.tmin = -3;
 params.tmax = 2.5;
-params.dt = (1/100)*3;
+params.dt = 1/100;
 
 % smooth with causal gaussian kernel
 params.smooth = 15;
@@ -86,6 +86,45 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+%% Plot ME heatmap for example trials 
+for sessix = 4%1:length(meta)
+    date = meta(sessix).date;
+    anm = meta(sessix).anm;
+
+    feat = 'motion_energy';
+    featix = find(strcmp(kin(sessix).featLeg,feat));
+    ME = kin(sessix).dat(:,:,featix);
+    cond2plot = 2:3;
+    for c = 1:length(cond2plot)
+        kin_by_cond.(feat){c} = ME(:,params(sessix).trialid{cond2plot(c)});         % Get the ME or move feature from the conditions that you want to plot
+    end
+
+    figure();
+    numTrixPlot = 30;
+    sm = 20;
+    rangetoPlot = 1:numTrixPlot;
+    for i=1:length(cond2plot)
+        if i==1
+            subplot(1,2,1);
+        elseif i==2
+            subplot(1,2,2);
+        end
+        imagesc(obj(1).time,1:numTrixPlot,mySmooth(kin_by_cond.(feat){i}(:,1:numTrixPlot),sm)'); colormap("linspecer");
+        xlim([-2.7, 0])
+        xlabel('Time before goCue (s)','FontSize',13)
+        ylabel('Trials','FontSize',13)
+        if i==1
+            title('2AFC trials')
+        elseif i==2
+            title('AW trials')
+        end
+        c=colorbar;
+        clim([0 0.75])
+        ylabel(c,feat,'FontSize',12,'Rotation',90);
+    end
+    figtitle =  ['Example Trials from',anm,date];  % Name/title for session
+    sgtitle(figtitle,'FontSize',16)
+end
 %% Plot kinematic features from example trials in 2AFC and AW
 %'jaw_yvel_view1' ; 'nose_yvel_view1'
 feat = 'nose_yvel_view1';                           % Specify the feature you want to look at
@@ -95,30 +134,8 @@ featix = find(strcmp(kin(1).featLeg,feat));         % Find which index correspon
 cond = [2,3];                                       % Which conditions you want to plot the features for 
 offset = 10;                                        % How offset you want the trace from each trial to be 
 nTrials = 7;                                        % Number of trials from each condition that you want to plot
-for sessix = 1:length(meta)                         % For every session...
-    figure();
-    for c = 1:length(cond)                          % Go through each of the specified conditions...
-        if c==1
-            plottitle = '2AFC';
-            col = 'black';
-        else
-            plottitle = 'AW';
-            col = 'magenta';
-        end
-        temp = cond(c);
-        condtrix = params(sessix).trialid{temp};    % Get the trials that correspond to this condition
-        trix2plot = randsample(condtrix,nTrials);   % Randomly sample 'nTrials' number of trials from that condition to plot
-        condfeat = kin(sessix).dat(:,trix2plot,featix); % Get the kinematic data from those trials for the desired feature
-        subplot(1,2,c)
-        for t = 1:size(condfeat,2)
-            plot(obj(sessix).time,offset*t+condfeat(:,t),'Color',col,'LineWidth',2); hold on;   % Plot the movement trace from each of the trials that were randomly selected
-        end
-        title(plottitle)
-        xlim([-3 0])
-        xlabel('Time from first lick (s)')
-        ylabel(feat)
-    end
-end
+%plotExampleFeatTraces(meta,cond,params,kin,obj,offset,nTrials)
+
 %% Find trials in which the animal switches between contexts
 for sessix = 1:numel(meta)
     bp = obj(sessix).bp;
@@ -131,10 +148,11 @@ end
 nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
 % Time period over which you want to average Feature Movement
 start = find(obj(1).time>-3,1,'first');
-stop = find(obj(1).time<0.2,1,'last');
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+stop = find(obj(1).time<samp,1,'last');
 
 %'jaw_yvel_view1' ; 'nose_yvel_view1'
-feat = 'nose_yvel_view1';                           % Specify the feature you want to look at
+feat = 'jaw_yvel_view1';                           % Specify the feature you want to look at
 featix = find(strcmp(kin(1).featLeg,feat));         % Find which index corresponds to that feature
 
 for sessix = 1:numel(meta)
@@ -207,4 +225,31 @@ title('AW to 2AFC switches')
 xlabel('Trials to context switch')
 xlim([-nBufferTrials, nBufferTrials]);
 ylabel([feat '(a.u.)'])
+end
+
+function plotExampleFeatTraces(meta,cond,params,kin,obj,offset,nTrials)
+for sessix = 1:length(meta)                         % For every session...
+    figure();
+    for c = 1:length(cond)                          % Go through each of the specified conditions...
+        if c==1
+            plottitle = '2AFC';
+            col = 'black';
+        else
+            plottitle = 'AW';
+            col = 'magenta';
+        end
+        temp = cond(c);
+        condtrix = params(sessix).trialid{temp};    % Get the trials that correspond to this condition
+        trix2plot = randsample(condtrix,nTrials);   % Randomly sample 'nTrials' number of trials from that condition to plot
+        condfeat = kin(sessix).dat(:,trix2plot,featix); % Get the kinematic data from those trials for the desired feature
+        subplot(1,2,c)
+        for t = 1:size(condfeat,2)
+            plot(obj(sessix).time,offset*t+condfeat(:,t),'Color',col,'LineWidth',2); hold on;   % Plot the movement trace from each of the trials that were randomly selected
+        end
+        title(plottitle)
+        xlim([-3 0])
+        xlabel(['Time from ' params(sessix).alignEvent ' (s)'])
+        ylabel(feat)
+    end
+end
 end

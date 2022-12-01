@@ -13,11 +13,12 @@ patch([rez.tm(10:end-1) fliplr(rez.tm(10:end-1))],[lowerci.FW.pred(9:end)' flipl
 
 xline(0,'black','LineStyle','--','LineWidth',1.1)
 xline(-0.9,'black','LineStyle','-.','LineWidth',1.1)
-xline(-2.5,'black','LineStyle','-.','LineWidth',1.1)
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.goCue);
+xline(samp,'black','LineStyle','-.','LineWidth',1.1)
 
 legend('2AFC hit true','2AFC hit predicted','AW hit true','AW hit predicted','Location','best')
 ylabel('a.u.')
-xlabel('Time since firstLick (s)')
+xlabel('Time since goCue (s)')
 title(sesstitle)
 xlim([-3 2.5])
 end

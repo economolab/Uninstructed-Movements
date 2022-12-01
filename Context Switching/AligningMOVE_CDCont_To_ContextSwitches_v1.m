@@ -23,10 +23,8 @@ params.lowFR               = 1; % remove clusters with firing rates across all t
 
 % set conditions to calculate PSTHs for
 params.condition(1)     = {'(hit|miss|no)'};                             % all trials
-params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % 2AFC hits, no stim
-params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};                % AW hits, no stim
-params.condition(end+1) = {'miss&~stim.enable&~autowater&~early'};              % 2AFC miss, no stim, aw off
-params.condition(end+1) = {'miss&~stim.enable&autowater&~early'};               % AW miss, no stim
+params.condition(end+1) = {'~no&~stim.enable&~autowater&~early'};               % 2AFC response trials, no stim
+params.condition(end+1) = {'~no&~stim.enable&autowater&~early'};                % AW hits response trials, no stim
 
 params.tmin = -3;
 params.tmax = 2.5;
@@ -37,6 +35,10 @@ params.smooth = 15;
 
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_paw','bottom_paw','top_nostril','bottom_nostril'}};
 
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 
@@ -66,17 +68,33 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 % params (struct array) - one entry per session
 % ----------------------------------------------
 [obj,params] = loadSessionData(meta,params);
+
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(meta)
+    me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
+end
+
+%% Load kinematic data
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
+end
 %% Calculate all CDs and find single trial projections
 clearvars -except obj meta params me sav kin
 
-disp('----Calculating Context Mode----')
+disp('----Calculating MoveCDContext Mode----')
 cond2use = [2,3];
 cond2proj = [2,3];
-regr = getCDContext(obj,params,cond2use,cond2proj);
+regr = getMovement_CDContext(obj,params,cond2use,cond2proj,kin);
 
-disp('----Projecting single trials onto CDContext----')
+disp('----Projecting single trials of movement onto MoveCDContext----')
 cd = 'contextPresamp';
-regr = getSingleTrialProjs(regr,obj,cd);
+regr = getMove_SingleTrialProjs(regr,obj,cd,kin);
 %% Find trials in which the animal switches between contexts
 for sessix = 1:numel(meta)
     bp = obj(sessix).bp;
@@ -86,14 +104,14 @@ for sessix = 1:numel(meta)
 end
 %% Find avg context mode across trials in a given session on switch trials
 clear temp
-nBufferTrials = 8;                              % Number of trials that you want to look at before and after switches
+nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
 % Time period over which you want to average CDContext
 start = find(obj(1).time>-3,1,'first');
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
 
 for sessix = 1:numel(meta)
-    CDCont = regr(sessix).singleProj;
+    CDCont = regr(sessix).singleMoveCDProj;
     
     % Find avg CDContext on 2AFC --> AWswitch trials (during the presample period)
     switchtype = 'toAW_ix';
@@ -153,7 +171,7 @@ xline(0,'k--')
 title('2AFC to AW switches')
 xlabel('Trials to context switch')
 xlim([-nBufferTrials, nBufferTrials]);
-ylabel('Normalized CDContext proj (a.u.)')
+ylabel('Normalized MOVE-CDContext proj (a.u.)')
 
 subplot(1,2,2)
 toplot = mean(to2AFC,1,'omitnan');
@@ -166,5 +184,6 @@ xline(0,'k--')
 title('AW to 2AFC switches')
 xlabel('Trials to context switch')
 xlim([-nBufferTrials, nBufferTrials]);
-ylabel('Normalized CDContext proj (a.u.)')
+ylabel('Normalized MOVE-CDContext proj (a.u.)')
 end
+

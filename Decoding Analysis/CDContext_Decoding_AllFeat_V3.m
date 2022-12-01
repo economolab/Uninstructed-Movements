@@ -12,7 +12,7 @@ otherpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-
 addpath(genpath(fullfile(otherpth,'Decoding Analysis')));
 
 %% PARAMETERS
-params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data
@@ -187,8 +187,9 @@ end
 delR2 = [];
 % Each dot = an average value of CDContext during the presample period 
 start = find(obj(1).time>-3,1,'first');
-stop = find(obj(1).time<-2.5,1,'last');
-for sessix = [4,7]%1:length(meta)
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+stop = find(obj(1).time<samp,1,'last');
+for sessix = 6%1:length(meta)
     tempR = mean(trueVals.AFChit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
     tempL = mean(trueVals.FWhit{sessix}((start+1):(stop+1),:),1,'omitnan');
     truedat = [tempR, tempL];
@@ -232,7 +233,7 @@ scatter(1,delR2,'filled')
 % % xlabel('R^2 value')
 % % ylabel('Num sessions')
 %% Plot an example session of CDlate prediction vs true value
-for sessix = [4,7]%1:length(meta)
+for sessix = 6%1:length(meta)
     sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
 
     % Plot all true and predicted CDContext projections for 2AFC trials

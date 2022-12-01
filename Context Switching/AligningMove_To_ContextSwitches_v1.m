@@ -12,7 +12,7 @@ otherpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-
 addpath(genpath(fullfile(otherpth,'Decoding Analysis')));
 
 %% PARAMETERS
-params.alignEvent          = 'firstLick'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
 % time warping only operates on neural data for now.
 % TODO: time warp for video and bpod data

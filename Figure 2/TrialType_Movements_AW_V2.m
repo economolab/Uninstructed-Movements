@@ -81,7 +81,7 @@ disp('DATA LOADED AND PROCESSED')
 disp(' ')
 %%
 % Remove unwanted sessions
-[meta,objs,params] = useInclusionCriteria(objs,params,meta);
+%[meta,objs,params] = useInclusionCriteria(objs,params,meta);
 
 %% Combine cells from both probes in a session
 anm = 'JEB15';
@@ -222,6 +222,7 @@ tmax = -0.5;
 xlim([-2.6 tmax])
 c = colorbar; clim([0 6])
 hold on;
+
 
 Nplotted = 0;
 triallabel = kinsorted(sessix).triallabel;
