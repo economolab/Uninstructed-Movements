@@ -45,6 +45,8 @@ params.feat_varToExplain = 80; % num factors for dim reduction of video features
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 
 params.advance_movement = 0;
+
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
 datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
@@ -107,7 +109,8 @@ cd = 'contextPresamp';
 neur = getSingleTrialProjs(neur,obj,cd);
 %% Find avg CDCont and MOVE-CDCont during the presample period on each trial
 % Time period over which you want to average CDContext
-start = find(obj(1).time>-3,1,'first');
+trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+start = find(obj(1).time>trialstart,1,'first');
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
 
@@ -116,9 +119,33 @@ for sessix = 1:length(meta)
     neur(sessix).presampAvg = mean(neur(sessix).singleProj(start:stop,:),1,'omitnan');
 end
 %% Make a scatter plot for each session of CDCont vs MOVE-CDCont during presample period on each trial
+ngroups = 10;
 for sessix = 1:length(meta)
+    % Sort MoveCDCont and CDCont in ascending order
+    [move,sortix] = sort(regr(sessix).presampAvg,'ascend');
+    neural = neur(sessix).presampAvg(sortix);
+
+    nTrials = length(move);
+    trixPerGroup = floor(nTrials/ngroups);                  % How many trials you want to be in each group
+    
+    % Divide the MOVE-CDCont and neural CDCont into nGroups according to
+    % the MOVE-CDCont
+    decile.Move = NaN(1,ngroups); errbar.Move = NaN(1,ngroups);
+    decile.Neur = NaN(1,ngroups); errbar.Neur = NaN(1,ngroups);
+    cnt = 1;
+    for g = 1:ngroups
+        if g==ngroups
+            ixrange = cnt:nTrials;
+        else
+            ixrange = cnt:(cnt+trixPerGroup);
+        end
+        decile.Move(g) = mean(move(ixrange),'omitnan'); errbar.Move(g) = 1.96*(std(move(ixrange),0,2,'omitnan'))/(length(ixrange));
+        decile.Neur(g) = mean(neural(ixrange),'omitnan'); errbar.Neur(g) = 1.96*(std(neural(ixrange),0,2,'omitnan'))/(length(ixrange));
+        cnt = cnt+trixPerGroup+1;
+    end
+    
     figure();
-    scatter(regr(sessix).presampAvg, neur(sessix).presampAvg)
+    errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o')
     xlabel('MOVE-CDContext')
     ylabel('Neural CDContext')
 end

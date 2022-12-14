@@ -1,8 +1,8 @@
-function rez = getMovement_CDContext(obj,params,cond2use,cond2proj,kin)
+function rez = getMovement_CDlate(obj,params,cond2use,cond2proj,kin,feats2use)
 
-cd_labels = {'contextPresamp'};
-cd_epochs = {'sample'};
-cd_times = {[-0.26 -0.02]}; % in seconds, relative to respective epochs
+cd_labels = {'MOVECDlate'};
+cd_epochs = {'delay'};
+cd_times = {[0.4 0.85]}; % in seconds, relative to respective epochs
 
 for sessix = 1:numel(obj)
 
@@ -10,7 +10,7 @@ for sessix = 1:numel(obj)
     % --setup results struct--
     % ------------------------------------------
     rez(sessix).time = obj(sessix).time;
-    rez(sessix).movedat = formatKin(kin(sessix).dat,params(sessix),rez(sessix).time,cond2use);
+    rez(sessix).movedat = formatKin(kin(sessix).dat,params(sessix),rez(sessix).time,cond2use,feats2use);
     rez(sessix).condition = params(sessix).condition;
     rez(sessix).trialid = params(sessix).trialid;
     rez(sessix).alignEvent = params(sessix).alignEvent;
