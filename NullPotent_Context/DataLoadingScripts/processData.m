@@ -31,6 +31,9 @@ disp('--Spikes Aligned')
 disp(' ')
 
 % get trial avg psth and single trial data
+if ~isfield(params,'bctype')
+    params.bctype = 'none';
+end
 obj = getSeq(obj,params,prbnum);
 disp(' ')
 disp('--PSTHs and Single Trial Data Done')

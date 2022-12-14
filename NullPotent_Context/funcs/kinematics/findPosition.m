@@ -40,7 +40,7 @@ for i = 1:nTrials % for each trial
 
 
     % fill missing values for all features except tongue
-    if ~contains(feat,'tongue')
+    if ~contains(feat,'tongue') || ~contains(feat,'paw')
         xpos(:,i) = fillmissing(xpos(:,i),'nearest');
         ypos(:,i) = fillmissing(ypos(:,i),'nearest');
     end
