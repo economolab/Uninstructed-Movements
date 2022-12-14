@@ -47,6 +47,8 @@ params.feat_varToExplain = 80; % num factors for dim reduction of video features
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 
 params.advance_movement = 0;
+
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
 datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
@@ -98,14 +100,6 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%% Sanity check -- plot heatmap of the kinematic data (to check whether there are huge outliers)
-% sessix = 4;
-% for f = 1:63
-%     imagesc((kin(sessix).dat(:,:,f))')
-%     title(kin(sessix).featLeg{f})
-%     colorbar
-%     pause
-% end
 %% Predict CDContext from DLC features
 
 clearvars -except datapth kin me meta obj params regr nSessions
@@ -186,10 +180,11 @@ end
 %% Plot a scatter plot for a single session of true CDContext and predicted CDContext for each trial
 delR2 = [];
 % Each dot = an average value of CDContext during the presample period 
-start = find(obj(1).time>-3,1,'first');
+trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+start = find(obj(1).time>trialstart,1,'first');
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
-for sessix = 6%1:length(meta)
+for sessix = 1:length(meta)
     tempR = mean(trueVals.AFChit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
     tempL = mean(trueVals.FWhit{sessix}((start+1):(stop+1),:),1,'omitnan');
     truedat = [tempR, tempL];
@@ -233,7 +228,7 @@ scatter(1,delR2,'filled')
 % % xlabel('R^2 value')
 % % ylabel('Num sessions')
 %% Plot an example session of CDlate prediction vs true value
-for sessix = 6%1:length(meta)
+for sessix = 1:length(meta)
     sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
 
     % Plot all true and predicted CDContext projections for 2AFC trials

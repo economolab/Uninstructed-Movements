@@ -2,7 +2,7 @@ function rez = getCDContext(obj,params,cond2use,cond2proj)
 
 cd_labels = {'contextPresamp'};
 cd_epochs = {'sample'};
-cd_times = {[-0.42 -0.02]}; % in seconds, relative to respective epochs
+cd_times = {[-0.26 -0.02]}; % in seconds, relative to respective epochs
 
 for sessix = 1:numel(obj)
 

@@ -12,7 +12,8 @@ delay = mode(rez(1).ev.delay - rez(1).align);
 
 
 for i = 1:numel(rez(1).cd_labels) % for each coding direction
-    f = figure; hold on
+    figure();
+    hold on
 %     f.Position = [680   748   396   230];
     ax = gca;
     %     ax = nexttile; hold on;
