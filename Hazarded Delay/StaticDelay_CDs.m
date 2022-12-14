@@ -43,14 +43,6 @@ params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 params.advance_movement = 0;
-
-% Haz delay params
-params.delay(1) = 0.3000;
-params.delay(2) = 0.6000;
-params.delay(3) = 1.2000;
-params.delay(4) = 1.8000;
-params.delay(5) = 2.4000;
-params.delay(6) = 3.6000;
 %% SPECIFY DATA TO LOAD
 
 datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
@@ -89,10 +81,7 @@ for gg = 1:length(meta)
     date = obj(sesh).pth.dt;                  % Session date
     probenum = string(met.probe);       % Which probe was used
 
-%     del(sesh).delaylen = obj(sesh).bp.ev.goCue - obj(sesh).bp.ev.delay;       % Find the delay length for all trials
     conditions = {1,2};
-%     del(sesh).del_trialid = getDelayTrix(params(sesh),conditions,del(sesh));     % Group the trials in each condition based on their delay length
-%     del(sesh).delPSTH = getPSTHbyDel(params(sesh),del(sesh),obj(sesh));             % Get avg PSTH for each delay length
 
     % Find the probability of jaw [Jaw] movement at all time points in the session for trials of
     % specific conditions

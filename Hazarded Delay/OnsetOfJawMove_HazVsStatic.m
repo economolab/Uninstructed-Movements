@@ -76,8 +76,7 @@ for i = 1:numel(ctrlmeta)
     obj = getPSTHs(obj,ctrlmeta(i));
     ctrlobjs{i} = obj;
 end
-%% Plot summary figure for average across all animals
-
+%%
 %%%% Find average prob of jaw movement for each animal (across each of its
 % sessions) %%%%
 conditions = {1};
@@ -105,9 +104,7 @@ Ctrl.avg = medfilt1(mean(Ctrltemp.haz,2,'omitnan'),10);
 Ctrl.std = std(Ctrltemp.haz,0,2,'omitnan');
 
 [upperci, lowerci] = getConfInt(meta, ctrlmeta,All, Ctrl);
-
-
-%%
+%% Plot summary figure for average across all animals
 %%%% Plot probability of jaw movement %%%% 
 figure();
 colors = {[0 0 0],[0.5 0.5 0.5]};

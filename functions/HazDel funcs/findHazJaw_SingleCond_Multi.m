@@ -25,7 +25,7 @@ for a = 1:nAnimals
         % specific conditions
         jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'prob',params);    % (1 x conditions cell array)
         % Each cell: (time x trials in that condition)
-
+    
         for p = 1:length(params.delay)                  % For each delay length...
             gix = find(met.del_trialid{1}==p);              % Get the trial IDs in the first condition that have the current delay length
             tempjaw = nanmean(jaw_by_cond{1}(:,gix),2);     % Find avg jaw velocity for first condition trials with that delay

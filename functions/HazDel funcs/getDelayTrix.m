@@ -1,20 +1,20 @@
 % Function for assigning trials a group number based on their delay length
 % INPUTS: 
-% met = current meta file
+% params = current paramsa file
 % conditions = cell array of the conditions that you want to look at
 % delaylen = (nTrials x 1) array where each entry is the delay length for
 % that trial
 
 % OUTPUTS:
-% Adds a field 'del_trialid' to met (1 x numConditions) cell array.  Each
+% Adds a field 'del_trialid' to params (1 x numConditions) cell array.  Each
 % entry is a (nTrials x 1) array that lists the delay length group that the
 % trial belongs to 
-function del_trialid = getDelayTrix(met,conditions,del)
+function del_trialid = getDelayTrix(params,conditions,del)
 del_trialid = cell(1,numel(conditions));        % Place to store delay lengths for the trials that fit your conditions
 
 Ntrix = 0;
 for i = 1:numel(conditions)             % For each condition...
-    cond = met.trialid{i};                      % Get the trial numbers that fit the condition
+    cond = params.trialid{i};                      % Get the trial numbers that fit the condition
     Ntrix = Ntrix + length(cond);               % Get number of trials that fit your conditions
     del_trialid{i} = NaN(length(cond),1);
     for ii = 1:length(cond)                 % For each trial in the current condition...

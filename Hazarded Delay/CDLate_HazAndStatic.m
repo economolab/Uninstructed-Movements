@@ -1,4 +1,3 @@
-% DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
 % add paths for data loading scripts, all fig funcs, and utils
@@ -131,15 +130,8 @@ for sesh = 1:length(meta)
     del(sesh).delPSTH = temp;
     del(sesh).jawvel = tempj;
 end
-%% Find CDs
+%% Find CDLate the way that Inagaki et al., 2019, Nature does it (slight variation)
 for sesh = 1:length(meta)
-    % cd early mode (find using all delay lengths)
-    e1 = mode(ev.sample) + 0.4 - mode(ev.(params(sesh).alignEvent));
-    e2 = mode(ev.sample) + 0.8 - mode(ev.(params(sesh).alignEvent));
-    times = del(sesh).taxis>e1 & del(sesh).taxis<e2;
-    psth = obj(sesh).psth;
-    del(sesh).cdearly_mode = calcCD_Haz(psth,times);
-
     % cd late mode (found only using delay length 1.2s)
     del2use = 3;
     e1 = mode(ev.goCue) - 0.4 - mode(ev.(params(sesh).alignEvent));
@@ -165,11 +157,9 @@ for sesh = 1:length(meta)
     % orthogonalized mode
     smooth = 51;
     for f = 1:numel(fns)
-        if f==1
-            tempname = strcat(fns{f}(1:7),'_latent');
-        else
-            tempname = strcat(fns{f}(1:6),'_latent');
-        end
+
+        tempname = strcat(fns{f}(1:6),'_latent');
+
         for c = 1:numel(conditions)
             latent(:,c) = mySmooth(del(sesh).delPSTH{del2use}(:,:,c)*del(sesh).(fns{f}),smooth);
         end
@@ -177,16 +167,13 @@ for sesh = 1:length(meta)
     end
 end
 %% Avg CDs and jaw vel across sessions
-clear temp
-temp.cdearly_latent = NaN(length(del(1).taxis),numel(conditions),length(meta));    % time x conditions x sessions
-temp.cdlate_latent = NaN(length(del(1).taxis),numel(conditions),length(meta));
+clear temp    
+temp.cdlate_latent = NaN(length(del(1).taxis),numel(conditions),length(meta));  % time x conditions x sessions
 temp.jawvel = NaN(length(del(1).taxis),numel(conditions),length(meta));
 for sesh = 1:length(meta)
-    temp.cdearly_latent(:,:,sesh) = del(sesh).cdearly_latent;
     temp.cdlate_latent(:,:,sesh) = del(sesh).cdlate_latent;
     temp.jawvel(:,:,sesh) = del(sesh).jawvel{del2use};
 end
-Avg.cdearly_latent = mean(temp.cdearly_latent,3,'omitnan');  Std.cdearly = std(temp.cdearly_latent,0,3,'omitnan');
 Avg.cdlate_latent = mean(temp.cdlate_latent,3,'omitnan');  Std.cdlate = std(temp.cdlate_latent,0,3,'omitnan');
 Avg.jawvel = mean(temp.jawvel,3,'omitnan');  Std.jawvel = std(temp.jawvel,0,3,'omitnan');
 
@@ -204,33 +191,24 @@ for c = 1:numel(conditions)
     else
         fn = 'L';
     end
-    subplot(3,1,1)
-    plot(taxis,Avg.cdearly_latent(:,c),'Color',colors{c},'LineWidth',1.5);hold on;
-    patch([taxis(10:end) fliplr(taxis(10:end))],[lowerci.early.(fn)(9:end)' fliplr(upperci.early.(fn)(9:end)')],colors{c},'FaceAlpha',0.2,'EdgeColor','none')
-    title('CDEarly')
-    ylabel('a.u.')
-    xlim([-1.5 2.5])
-     xline(0,'LineStyle','-.','LineWidth',1.15,'Color',[0 0 0])
-    xline(0.9,'LineStyle','--','LineWidth',1,'Color',[0 0 0])
-    xline(-1.3,'LineStyle','-.','LineWidth',1,'Color',[0 0 0])
-
-    subplot(3,1,2)
+ 
+    subplot(2,1,1)
     plot(taxis,Avg.cdlate_latent(:,c),'Color',colors{c},'LineWidth',1.5);hold on;
     patch([taxis(10:end) fliplr(taxis(10:end))],[lowerci.late.(fn)(9:end)' fliplr(upperci.late.(fn)(9:end)')],colors{c},'FaceAlpha',0.2,'EdgeColor','none')
     title('CDLate')
     ylabel('a.u.')
-    xlim([-1.5 2.5])
+    xlim([-1.5 1.25])
      xline(0,'LineStyle','-.','LineWidth',1.15,'Color',[0 0 0])
-    xline(0.9,'LineStyle','--','LineWidth',1,'Color',[0 0 0])
+    xline(1.2,'LineStyle','--','LineWidth',1,'Color',[0 0 0])
     xline(-1.3,'LineStyle','-.','LineWidth',1,'Color',[0 0 0])
 
-    subplot(3,1,3)
+    subplot(2,1,2)
     plot(taxis,100*Avg.jawvel(:,c),'Color',colors{c},'LineWidth',1.5);hold on;
     patch([taxis(10:end) fliplr(taxis(10:end))],[100*lowerci.jawvel.(fn)(9:end)' fliplr(100*upperci.jawvel.(fn)(9:end)')],colors{c},'FaceAlpha',0.2,'EdgeColor','none')
     title('Probability of jaw move')
-    xlim([-1.5 2.5])
+    xlim([-1.5 1.25])
      xline(0,'LineStyle','-.','LineWidth',1.15,'Color',[0 0 0])
-    xline(0.9,'LineStyle','--','LineWidth',1,'Color',[0 0 0])
+    xline(1.2,'LineStyle','--','LineWidth',1,'Color',[0 0 0])
     xline(-1.3,'LineStyle','-.','LineWidth',1,'Color',[0 0 0])
     ylabel('%')
     xlabel(['Time from ' params(1).alignEvent ' (s)'])
@@ -249,10 +227,6 @@ for c = 1:numel(conditions)
     else
         fn = 'L';
     end
-    upperci.early.(fn) = (Avg.cdearly_latent(2:end,c)+1.96*(Std.cdearly(2:end,c)/nSessions));  % Find the upper 95% confidence interval for each condition
-    lowerci.early.(fn) = (Avg.cdearly_latent(2:end,c)-1.96*(Std.cdearly(2:end,c)/nSessions));  % Find lower 95% condifence interval for each condition
-    %upperci.early.(fn) = fillmissing(upperci.early,'next'); lowerci.early.(fn) = fillmissing(lowerci.early,'next');
-
     upperci.late.(fn) = (Avg.cdlate_latent(2:end,c)+1.96*(Std.cdlate(2:end,c)/nSessions));  % Find the upper 95% confidence interval for each condition
     lowerci.late.(fn) = (Avg.cdlate_latent(2:end,c)-1.96*(Std.cdlate(2:end,c)/nSessions));  % Find lower 95% condifence interval for each condition
     %upperci.late.(fn) = fillmissing(upperci.late,'next'); lowerci.late.(fn) = fillmissing(lowerci.late,'next');
