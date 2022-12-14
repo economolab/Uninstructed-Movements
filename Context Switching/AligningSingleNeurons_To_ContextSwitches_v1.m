@@ -43,6 +43,8 @@ params.feat_varToExplain = 80; % num factors for dim reduction of video features
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 
 params.advance_movement = 0;
+
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
 datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
@@ -76,14 +78,16 @@ end
 %% Find avg context mode across trials in a given session on switch trials
 clear temp
 
-sessix = 6;
+sessix = 1;
 
-nBufferTrials = 8;                              % Number of trials that you want to look at before and after switches
+nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
 % Time period over which you want to average a cell's FR
-start = find(obj(1).time>-3,1,'first');
-stop = find(obj(1).time<-2.4,1,'last');
-
+trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+start = find(obj(1).time>trialstart,1,'first');
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+stop = find(obj(1).time<samp,1,'last');
 nCells = size(obj(sessix).trialdat,2);
+
 for c = 1:nCells
     cellPSTH = obj(sessix).trialdat(:,c,:);
 
