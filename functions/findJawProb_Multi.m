@@ -18,7 +18,8 @@ for a = 1:nAnimals
 
         % Find the probability of jaw [trident] movement at all time points in the session for trials of
         % specific conditions
-        jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'prob',params);    % (1 x conditions cell array)
+        %jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'prob',params);    % (1 x conditions cell array)
+        jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'vel',params);    % (1 x conditions cell array)
         % Each cell: (time x trials in that condition)
         
         jawvel.haz{i} = mean(jaw_by_cond{1},2,'omitnan');         

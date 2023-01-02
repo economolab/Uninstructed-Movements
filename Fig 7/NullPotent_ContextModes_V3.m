@@ -30,7 +30,7 @@ params.condition(1)     = {'(hit|miss|no)'};                             % all t
 params.condition(end+1) = {'hit&~stim.enable&~autowater'};               % all 2AFC hits, no stim
 params.condition(end+1) = {'hit&~stim.enable&autowater'};                % all AW hits, no stim
 params.condition(end+1) = {'miss&~stim.enable&~autowater'};              % error 2AFC, no stim, aw off
-params.condition(end+1) = {'miss&~stim.enable&autowater'};              % error AW, no stim
+params.condition(end+1) = {'miss&~stim.enable&autowater'};               % error AW, no stim
 
 params.tmin = -3;
 params.tmax = 2.5;

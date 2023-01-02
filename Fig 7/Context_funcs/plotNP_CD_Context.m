@@ -11,9 +11,7 @@ delay = mode(rez_null(1).ev.delay - rez_null(1).align);
 for i = 1:numel(rez_null(1).cd_labels) % for each coding direction
     figure();
     hold on
-%     f.Position = [680   748   396   230];
     ax = gca;
-    %     ax = nexttile; hold on;
     tempdat = allrez_null.cd_proj;
     tempmean = mean(tempdat,3);
     temperror = std(tempdat,[],3)./sqrt(numel(rez_null));
