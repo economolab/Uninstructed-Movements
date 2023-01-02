@@ -108,8 +108,10 @@ Ctrl.std = std(Ctrltemp.haz,0,2,'omitnan');
 %%%% Plot probability of jaw movement %%%% 
 figure();
 colors = {[0 0 0],[0.5 0.5 0.5]};
-plot(taxis_haz,100*All.avg,'Color',colors{1},'LineWidth',2);hold on;
-plot(taxis,100*Ctrl.avg,'Color',colors{2},'LineWidth',1.5,'LineStyle','-.')
+% plot(taxis_haz,100*All.avg,'Color',colors{1},'LineWidth',2);hold on;
+% plot(taxis,100*Ctrl.avg,'Color',colors{2},'LineWidth',1.5,'LineStyle','-.')
+plot(taxis_haz,All.avg,'Color',colors{1},'LineWidth',2);hold on;
+plot(taxis,Ctrl.avg,'Color',colors{2},'LineWidth',1.5,'LineStyle','-.')
 patch([taxis_haz(10:end) fliplr(taxis_haz(10:end))],[lowerci.haz(9:end)' fliplr(upperci.haz(9:end)')],[0.25 0.25, 0.25],'FaceAlpha',0.2,'EdgeColor','none')
 patch([taxis(10:end) fliplr(taxis(10:end))],[lowerci.static(9:end)' fliplr(upperci.static(9:end)')],[0.5 0.5 0.5],'FaceAlpha',0.2,'EdgeColor','none')
 xlim([-1 1.2])
@@ -125,12 +127,12 @@ ylabel('Probability of jaw movement (%)')
 function [upperci, lowerci] = getConfInt(meta, ctrlmeta,All, Ctrl)
 nSessions = length(meta);
 
-upperci.haz = 100*(All.avg(2:end)+1.96*(All.std(2:end)/nSessions));  % Find the upper 95% confidence interval for each condition
-lowerci.haz = 100*(All.avg(2:end)-1.96*(All.std(2:end)/nSessions));  % Find lower 95% condifence interval for each condition  
+upperci.haz = (All.avg(2:end)+1.96*(All.std(2:end)/nSessions));  % Find the upper 95% confidence interval for each condition
+lowerci.haz = (All.avg(2:end)-1.96*(All.std(2:end)/nSessions));  % Find lower 95% condifence interval for each condition  
 upperci.haz = fillmissing(upperci.haz,'next'); lowerci.haz = fillmissing(lowerci.haz,'next');
 
 nSessions = length(ctrlmeta);
-upperci.static = 100*(Ctrl.avg(2:end)+1.96*(Ctrl.std(2:end)/nSessions));  
-lowerci.static = 100*(Ctrl.avg(2:end)-1.96*(Ctrl.std(2:end)/nSessions));  
+upperci.static = (Ctrl.avg(2:end)+1.96*(Ctrl.std(2:end)/nSessions));  
+lowerci.static = (Ctrl.avg(2:end)-1.96*(Ctrl.std(2:end)/nSessions));  
 upperci.static = fillmissing(upperci.static,'next'); lowerci.static = fillmissing(lowerci.static,'next');
 end
