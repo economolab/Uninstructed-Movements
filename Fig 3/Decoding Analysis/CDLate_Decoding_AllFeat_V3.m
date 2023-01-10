@@ -22,10 +22,10 @@ params.lowFR               = 1; % remove clusters with firing rates across all t
 
 % set conditions to calculate PSTHs for
 params.condition(1)     = {'(hit|miss|no)'};                             % all trials
-params.condition(end+1) = {'R&hit&~stim.enable&~autowater'};             % R 2AFC hits, no stim
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater'};             % L 2AFC hits, no stim
-params.condition(end+1) = {'R&miss&~stim.enable&~autowater'};            % R error 2AFC, no stim, aw off
-params.condition(end+1) = {'L&miss&~stim.enable&~autowater'};            % L error 2AFC, no stim
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % R 2AFC hits, no stim
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % L 2AFC hits, no stim
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % R error 2AFC, no stim, aw off
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % L error 2AFC, no stim
 
 params.tmin = -2.5;
 params.tmax = 2.5;

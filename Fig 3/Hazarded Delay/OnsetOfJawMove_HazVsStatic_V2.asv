@@ -1,0 +1,123 @@
+% Compare jaw movement and velocity during the static delay and hazarded
+% delay tasks
+clear,clc,close all
+
+% add paths for data loading scripts, all fig funcs, and utils
+utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
+addpath(genpath(fullfile(utilspth,'funcs')));
+addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3';
+addpath(genpath(fullfile(figpth,'funcs')));
+addpath(genpath(fullfile(figpth,'Hazarded Delay')));
+%% LOAD Hazarded Delay data
+% Everything aligned to the delay period; tmin = -2.5, tmax = 3; dt = 1/200
+% HAVE TO ACCOUNT FOR 0.5 SECOND DELAY WITHOUT SPIKEGLX
+load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3\Hazarded Delay\BehavData\JEB11_JEB12_objs.mat');
+load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3\Hazarded Delay\BehavData\JEB11_JEB12_meta.mat');
+load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3\Hazarded Delay\BehavData\JEB11_JEB12_params.mat');
+
+% Set params for hazarded delay data
+params.tmin = meta(1).tmin; params.tmax = meta(1).tmax;
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+params.smooth = 15;
+
+% Re-structure Hazarded Delay data to be the same format
+[params,obj] = cleanUpData(params, meta,objs);
+%% PARAMETERS
+ctrlparams.alignEvent          = 'delay'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+ctrlparams.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+ctrlparams.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+ctrlparams.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+ctrlparams.condition(1)     = {'(hit|miss|no)'};                             % all trials
+ctrlparams.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};        % All 2AFC hits, no stim
+
+ctrlparams.tmin = -2.5;
+ctrlparams.tmax = 3;
+ctrlparams.dt = 1/200;
+
+% smooth with causal gaussian kernel
+ctrlparams.smooth = 15;
+
+% cluster qualities to use
+ctrlparams.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+ctrlparams.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+ctrlparams.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+ctrlparams.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+
+ctrlparams.advance_movement = 0;
+%% SPECIFY DATA TO LOAD
+
+datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+
+ctrlmeta = [];
+
+% --- ALM ---
+ctrlmeta = loadJEB6_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB7_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadEKH1_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadEKH3_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJGR2_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJGR3_ALMVideo(ctrlmeta,datapth);
+%ctrlmeta = loadJEB13_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB14_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB15_ALMVideo(ctrlmeta,datapth);
+
+ctrlparams.probe = {ctrlmeta.probe}; % put probe numbers into ctrlparams, one entry for element in ctrlmeta, just so i don't have to change code i've already written
+
+%% LOAD DATA
+% ----------------------------------------------
+% -- Neural Data --
+% obj (struct array) - one entry per session
+% ctrlparams (struct array) - one entry per session
+% ----------------------------------------------
+[obj,ctrlparams] = loadSessionData(ctrlmeta,ctrlparams);
+%%
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(ctrlmeta)
+    disp(['Loading ME for session ' num2str(sessix)])
+    me(sessix) = loadMotionEnergy(obj(sessix), ctrlmeta(sessix), ctrlparams(sessix), datapth);
+end
+%% Load kinematic data
+nSessions = numel(ctrlmeta);
+for sessix = 1:numel(ctrlmeta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), ctrlparams(sessix));
+end
+%% FUNCTIONS
+function [params,obj] = cleanUpData(params, meta,objs)
+% Reorganize params into a struct to match structure of updated data
+temp = params;
+clear params
+for sessix = 1:numel(meta)
+    temp2 = temp;
+    temp2.trialid = meta(sessix).trialid;
+    params(sessix) = temp2;
+end
+clear temp temp2
+
+% Reorganize objs into a struct to match structure of updated data
+temp = objs;
+clear objs
+for sessix = 1:numel(meta)
+    temp2 = temp{1};
+    temp2.time = params(sessix).taxis;
+    obj(sessix) = temp2;
+end
+end
