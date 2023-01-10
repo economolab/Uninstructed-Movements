@@ -1,4 +1,4 @@
-% Predicting context from null and potent dimensions
+% Predicting context from random null and potent dimensions
 % -------------------------------------------------------------------------------------
 % Using all 2AFC and all AW trials to find the Null and Potent Spaces
 % -------------------------------------------------------------------------------------
@@ -125,12 +125,12 @@ end
 % The classifier was trained on randomly selected 90% of the trials in each session and then tested on the remaining 10% of the trials.  
 % The training/testing was repeated 50 times for every given number of neurons and for all the sessions that may be included. 
 % The correct rates from the 50 repetitions were then averaged. 
+clearvars -except obj meta params me sav rez
 
-clear acc
-
-nfolds = 4;                                                 % # of folds for cross-validation in SVM classifier
-nIterations = 10;                                           % # of iterations that you randomly select Train trials
-nDims = 12;                                                 % Total number of dimensions that will be utilized as an input to the classifier
+classparams.randomized = 'random';                          % Whether you want the dimensions to be randomly selected or to be picked in order
+classparams.nfolds = 4;                                                 % # of folds for cross-validation in SVM classifier
+classparams.nIterations = 50;                                           % # of iterations that you randomly select Train trials
+classparams.nDims = 12;                                                 % Total number of dimensions that will be utilized as an input to the classifier
 conds2class = [6,11];                                       % Specify the conditions that you want to be included in the classifier (Rn: ~early AW and ~early 2AFC)
 for sessix = 1:length(meta)
     % Times to look at the Null/Potent PSTHs for each dimension
@@ -143,17 +143,17 @@ for sessix = 1:length(meta)
     %%% randomly selected #s of null and potent dimensions
     % Null space
     spacename = 'Null';
-    percentCorr = doContextClassifier(nDims, nfolds, nIterations,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
+    percentCorr = doContextClassifier(classparams,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
     acc(sessix).Null = percentCorr;
 
     % Potent space
     spacename = 'Potent';
-    percentCorr = doContextClassifier(nDims, nfolds, nIterations,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
+    percentCorr = doContextClassifier(classparams,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
     acc(sessix).Potent = percentCorr;
 end
 
 %% Concatenate the SVM accuracies for all sessions
-clearvars -except obj meta params me sav acc
+clearvars -except obj meta params me sav acc classparams rez
 
 all.Null = []; all.Potent = [];
 for sessix = 1:length(meta)
@@ -168,16 +168,34 @@ ax = gca;
 % Plot avg accuracy of classifier using Null space dimensions
 col = [0 1 0];
 temperr = 1.96*(std(all.Null,0,1)/sqrt(length(meta)));
-shadedErrorBar(1:nDims,mean(all.Null,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
+shadedErrorBar(1:classparams.nDims,mean(all.Null,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
 hold on;
 
 % Plot avg accuracy of classifier using Potent space dimensions
 col = [1 0 1];
 temperr = 1.96*(std(all.Potent,0,1)/sqrt(length(meta)));
-shadedErrorBar(1:nDims,mean(all.Potent,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
-xlim([1 nDims])
+shadedErrorBar(1:classparams.nDims,mean(all.Potent,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
+xlim([1 classparams.nDims])
 ylabel('Classifier accuracy (%)')
 xlabel('# dimensions used')
+%%
+sessix = 4;
+null = rez(sessix).N_null_psth;
+potent = rez(sessix).N_potent_psth;
+cond1 = 5;
+cond2 = 10;
+cond3 = 6;
+cond4 = 7;
+plot3(mySmooth(potent(55:80,1,cond1),51),mySmooth(potent(55:80,2,cond1),51),mySmooth(null(55:80,1,cond1),51),'r','LineWidth', 2)
+hold on;
+plot3(mySmooth(potent(55:80,1,cond2),51),mySmooth(potent(55:80,2,cond2),51),mySmooth(null(55:80,1,cond2),51),'b','LineWidth', 2)
+
+% plot3(mySmooth(potent(55:80,1,cond3),51),mySmooth(potent(55:80,2,cond3),51),mySmooth(null(55:80,1,cond3),51),'g','LineWidth', 2)
+% hold on;
+% plot3(mySmooth(potent(55:80,1,cond4),51),mySmooth(potent(55:80,2,cond4),51),mySmooth(null(55:80,1,cond4),51),'k','LineWidth', 2)
+xlabel('Potent dim 1')
+ylabel('Potent dim 2')
+zlabel('Null dim 1')
 
 
 

@@ -3,7 +3,7 @@ trials.nAll = [];
 for c = conds2class                                                     % For each of the conditions being used in your classifier...
     trials.nAll = [trials.nAll,length(params.trialid{c})];              % Get the number of trials in that condition
 end
-trials.nTest = trainFrac*(min(trials.nAll));                            % Whichever condition has a fewer # of trials, take this # of trials
+trials.nTest = ceil(trainFrac*(min(trials.nAll)));                            % Whichever condition has a fewer # of trials, take this # of trials
 
 temp = find(trials.nAll~=min(trials.nAll));                             % Which condition has more trials
 condMax = conds2class(temp);

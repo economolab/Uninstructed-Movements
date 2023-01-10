@@ -1,4 +1,4 @@
-% Predicting context from null and potent dimensions
+% Predicting context from ordered null and potent dimensions
 % -------------------------------------------------------------------------------------
 % Using all 2AFC and all AW trials to find the Null and Potent Spaces
 % -------------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ for sessix = 1:numel(meta)
     cond2proj = 2:11;     % (NUMBERING ACCORDING TO PARAMS.CONDITION)
     rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime);
 end
-%%
+%% Build a support vector machine to classify context 
 % Wu et al (Axel, Shadlen), 2020: Support vector machine to classify trial-type from activity of single neurons.  
 % We used the firing rates in the 500 ms time window before animal's first lick. The decoding capability of each area was 
 % estimated by using varying numbers of randomly selected neurons that are recorded simultaneously in a session. 
@@ -126,11 +126,12 @@ end
 % The training/testing was repeated 50 times for every given number of neurons and for all the sessions that may be included. 
 % The correct rates from the 50 repetitions were then averaged. 
 
-clear acc
+clearvars -except obj meta params me sav rez
 
-nfolds = 4;                                                 % # of folds for cross-validation in SVM classifier
-nIterations = 10;                                           % # of iterations that you randomly select Train trials
-nDims = 12;                                                 % Total number of dimensions that will be utilized as an input to the classifier
+classparams.randomized = 'ordered';                          % Whether you want the dimensions to be randomly selected or to be picked in order
+classparams.nfolds = 4;                                                 % # of folds for cross-validation in SVM classifier
+classparams.nIterations = 10;                                           % # of iterations that you randomly select Train trials
+classparams.nDims = 12;                                                 % Total number of dimensions that will be utilized as an input to the classifier
 conds2class = [6,11];                                       % Specify the conditions that you want to be included in the classifier (Rn: ~early AW and ~early 2AFC)
 for sessix = 1:length(meta)
     % Times to look at the Null/Potent PSTHs for each dimension
@@ -139,37 +140,46 @@ for sessix = 1:length(meta)
     samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
     params(sessix).times.stop = find(obj(1).time<samp,1,'last');
 
-    %%% SVM 
+    %%% Use SVM to classify trial-type (2AFC or AW) based on pre-sample full neural population projected onto 
+    %%% randomly selected #s of null and potent dimensions
     % Null space
     spacename = 'Null';
-    percentCorr = doContextClassifier(nDims, nfolds, nIterations,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
+    percentCorr = doContextClassifier(classparams,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
     acc(sessix).Null = percentCorr;
 
+    % Potent space
     spacename = 'Potent';
-    percentCorr = doContextClassifier(nDims, nfolds, nIterations,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
+    percentCorr = doContextClassifier(classparams,params(sessix), obj(sessix), rez(sessix),spacename,conds2class);
     acc(sessix).Potent = percentCorr;
 end
 
-%%
+%% Concatenate the SVM accuracies for all sessions
+clearvars -except obj meta params me sav acc classparams
+
 all.Null = []; all.Potent = [];
 for sessix = 1:length(meta)
     all.Null = [all.Null; acc(sessix).Null];
     all.Potent = [all.Potent; acc(sessix).Potent];
 end
-%%
+%% Plot
 alpha = 0.2;
 figure();
 ax = gca;
+
+% Plot avg accuracy of classifier using Null space dimensions
 col = [0 1 0];
 temperr = 1.96*(std(all.Null,0,1)/sqrt(length(meta)));
-shadedErrorBar(1:nDims,mean(all.Null,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
+shadedErrorBar(1:classparams.nDims,mean(all.Null,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
 hold on;
+
+% Plot avg accuracy of classifier using Potent space dimensions
 col = [1 0 1];
 temperr = 1.96*(std(all.Potent,0,1)/sqrt(length(meta)));
-shadedErrorBar(1:nDims,mean(all.Potent,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
-xlim([1 nDims])
+shadedErrorBar(1:classparams.nDims,mean(all.Potent,1,'omitnan'),temperr,{'Color',col,'LineWidth',2}, alpha, ax);
+xlim([1 classparams.nDims])
 ylabel('Classifier accuracy (%)')
 xlabel('# dimensions used')
+
 
 
 
