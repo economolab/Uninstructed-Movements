@@ -28,7 +28,7 @@ params.condition(end+1) = {'miss&~stim.enable&autowater&~early'};               
 
 params.tmin = -3;
 params.tmax = 2.5;
-params.dt = 1/100;
+params.dt = 1/200;
 
 % smooth with causal gaussian kernel
 params.smooth = 15;
@@ -84,7 +84,7 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 %% Plot ME heatmap for example trials 
-for sessix = 4%1:length(meta)
+for sessix = 7%1:length(meta)
     date = meta(sessix).date;
     anm = meta(sessix).anm;
 
@@ -99,15 +99,16 @@ for sessix = 4%1:length(meta)
     figure();
     numTrixPlot = 30;
     sm = 20;
-    rangetoPlot = 1:numTrixPlot;
     for i=1:length(cond2plot)
+        nCondTrix = size(kin_by_cond.(feat){i},2);
+        trix2plot = randsample(nCondTrix,numTrixPlot);
         if i==1
             subplot(1,2,1);
         elseif i==2
             subplot(1,2,2);
         end
-        imagesc(obj(1).time,1:numTrixPlot,mySmooth(kin_by_cond.(feat){i}(:,1:numTrixPlot),sm)'); colormap("linspecer");
-        xlim([-2.7, 0])
+        imagesc(obj(1).time,1:numTrixPlot,mySmooth(kin_by_cond.(feat){i}(:,trix2plot),sm)'); colormap("linspecer");
+        xlim([-2.5, 0])
         xlabel('Time before goCue (s)','FontSize',13)
         ylabel('Trials','FontSize',13)
         if i==1
@@ -116,7 +117,7 @@ for sessix = 4%1:length(meta)
             title('AW trials')
         end
         c=colorbar;
-        clim([0 0.75])
+        clim([0 60])
         ylabel(c,feat,'FontSize',12,'Rotation',90);
     end
     figtitle =  ['Example Trials from',anm,date];  % Name/title for session

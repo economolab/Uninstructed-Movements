@@ -170,7 +170,7 @@ for sessix = 1:length(meta)
     regr_all = [regr_all, regr(sessix).presampAvg];
 end
 %% Plot scatter plot of grouped MoveCD and CDCont across sessions
-ngroups = 30;
+ngroups = 20;
 % Sort MoveCDCont and CDCont in ascending order
 [move,sortix] = sort(regr_all,'ascend');
 neural = neur_all(sortix);
@@ -195,7 +195,7 @@ for g = 1:ngroups
 end
 
 figure();
-errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o','Color','black'); hold on;
+errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o'); hold on;
 R2 = corrcoef(decile.Move,decile.Neur);
 R2 = R2(2);
 R2 = num2str(R2);
