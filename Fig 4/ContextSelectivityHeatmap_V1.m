@@ -150,7 +150,7 @@ for sessix = 1:length(meta)                                 % For every session.
     for cond = 1:size(obj(sessix).psth,3)
         trix = params(sessix).trialid{cond};
         trix2use = randsample(trix,modparams.subTrials);
-        epochAvg{cond} = temp(:,trix);
+        epochAvg{cond} = temp(:,trix2use);
     end
     
 

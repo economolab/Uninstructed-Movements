@@ -107,42 +107,42 @@ neur = getCodingDimensions_aw(obj,params,cond2use,cond2proj);
 
 disp('----Projecting single trials of movement onto CDContext----')
 cd = 'context';
-neur = getSingleTrialProjs(neur,obj,cd);
+neur = getSingleTrialProjs(neur,obj,cd,'nonorthog');
 %% Plot heatmap of single-trial MOVE-CDContext over the course of the session
 load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ContextColormap.mat');
-
-% 1,2,5 = best sessions
-sessrange = [1,2,5];
-tmax = 0;                               % what you want max of xlim to be
-for sessix = 2%sessrange
-    figure(sessix);
-    nTrials = size(regr(sessix).singleMoveCDProj,2);
-    imagesc(obj(1).time,1:nTrials,regr(sessix).singleMoveCDProj'); c = colorbar; colormap(linspecer) %colormap(ContextColormap)
-    if sessix == 1
-        clim([-5 4])
-    elseif sessix == 2
-        clim([-4 5])
-    elseif sessix == 5
-        clim([-3 4])
-    end
-    xlim([-2.5, tmax])
-    ylabel('Trials within session')
-    xlabel('Time from go cue (s)')
-
-    triallabel = obj(sessix).bp.autowater;              % Get the label for each trial as autowater or 2AFC
-    hold on;
-    Nplotted = 0;
-    for j = 1:length(triallabel)
-        Nplotted = Nplotted+1;
-        if triallabel(j)==0                                                         % If a 2AFC trial, plot a black rectangle on the side
-            plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'Color',[0.75 0.75 0.75], 'LineWidth', 10);
-        end
-        if triallabel(j)==1                                                         % If an AW trial, plot a magenta rectangle on the side
-            plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'magenta', 'LineWidth', 10);
-        end
-    end
-    ylabel(c,'Move-CDContext','FontSize',12,'Rotation',90);
-end
+% 
+% % 1,2,5 = best sessions
+% sessrange = [1,2,5];
+% tmax = 0;                               % what you want max of xlim to be
+% for sessix = 2%sessrange
+%     figure(sessix);
+%     nTrials = size(regr(sessix).singleMoveCDProj,2);
+%     imagesc(obj(1).time,1:nTrials,regr(sessix).singleMoveCDProj'); c = colorbar; colormap(linspecer) %colormap(ContextColormap)
+%     if sessix == 1
+%         clim([-5 4])
+%     elseif sessix == 2
+%         clim([-4 5])
+%     elseif sessix == 5
+%         clim([-3 4])
+%     end
+%     xlim([-2.5, tmax])
+%     ylabel('Trials within session')
+%     xlabel('Time from go cue (s)')
+% 
+%     triallabel = obj(sessix).bp.autowater;              % Get the label for each trial as autowater or 2AFC
+%     hold on;
+%     Nplotted = 0;
+%     for j = 1:length(triallabel)
+%         Nplotted = Nplotted+1;
+%         if triallabel(j)==0                                                         % If a 2AFC trial, plot a black rectangle on the side
+%             plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'Color',[0.75 0.75 0.75], 'LineWidth', 10);
+%         end
+%         if triallabel(j)==1                                                         % If an AW trial, plot a magenta rectangle on the side
+%             plot([0 0]+(tmax-0.05), -0.5+Nplotted+[0.1 0.9], 'magenta', 'LineWidth', 10);
+%         end
+%     end
+%     ylabel(c,'Move-CDContext','FontSize',12,'Rotation',90);
+% end
 
 %% Find avg CDCont and MOVE-CDCont during the presample period on each trial
 % Time period over which you want to average CDContext
@@ -151,9 +151,12 @@ start = find(obj(1).time>trialstart,1,'first');
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
 
+% Take the presample average; normalize to max value
 for sessix = 1:length(meta)
-    regr(sessix).presampAvg = mean(regr(sessix).singleMoveCDProj(start:stop,:),1,'omitnan');
-    neur(sessix).presampAvg = mean(neur(sessix).singleProj(start:stop,:),1,'omitnan');
+     temp = mean(regr(sessix).singleMoveCDProj(start:stop,:),1,'omitnan');
+     regr(sessix).presampAvg = temp./(max(abs(temp)));
+     temp = mean(neur(sessix).singleProj(start:stop,:),1,'omitnan');
+     neur(sessix).presampAvg = temp./(max(abs(temp)));
 end
 %% Plot all trials on same scatter plot
 % for sessix = 1:length(meta)
@@ -161,81 +164,129 @@ end
 %     hold on;
 % end
 %% Concatenate pre-sample averages across sessions
-neur_all = []; regr_all = [];
-for sessix = 1:length(meta)
-%     neur_all = [neur_all, neur(sessix).presampAvg./max(abs(neur(sessix).presampAvg))];
-%     regr_all = [regr_all, regr(sessix).presampAvg./max(abs(regr(sessix).presampAvg))];
-
-    neur_all = [neur_all, neur(sessix).presampAvg];
-    regr_all = [regr_all, regr(sessix).presampAvg];
-end
+% neur_all = []; regr_all = [];
+% for sessix = 1:length(meta)
+% %     neur_all = [neur_all, neur(sessix).presampAvg./max(abs(neur(sessix).presampAvg))];
+% %     regr_all = [regr_all, regr(sessix).presampAvg./max(abs(regr(sessix).presampAvg))];
+% 
+%     neur_all = [neur_all, neur(sessix).presampAvg];
+%     regr_all = [regr_all, regr(sessix).presampAvg];
+% end
 %% Plot scatter plot of grouped MoveCD and CDCont across sessions
-ngroups = 30;
-% Sort MoveCDCont and CDCont in ascending order
-[move,sortix] = sort(regr_all,'ascend');
-neural = neur_all(sortix);
-
-nTrials = length(move);
-trixPerGroup = floor(nTrials/ngroups);                  % How many trials you want to be in each group
-
-% Divide the MOVE-CDCont and neural CDCont into nGroups according to
-% the MOVE-CDCont
-decile.Move = NaN(1,ngroups); errbar.Move = NaN(1,ngroups);
-decile.Neur = NaN(1,ngroups); errbar.Neur = NaN(1,ngroups);
-cnt = 1;
-for g = 1:ngroups
-    if g==ngroups
-        ixrange = cnt:nTrials;
-    else
-        ixrange = cnt:(cnt+trixPerGroup);
-    end
-    decile.Move(g) = mean(move(ixrange),'omitnan'); errbar.Move(g) = 1.96*(std(move(ixrange),0,2,'omitnan'))/(length(ixrange));
-    decile.Neur(g) = mean(neural(ixrange),'omitnan'); errbar.Neur(g) = 1.96*(std(neural(ixrange),0,2,'omitnan'))/(length(ixrange));
-    cnt = cnt+trixPerGroup+1;
-end
-
-figure();
-errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o','Color','black'); hold on;
-R2 = corrcoef(decile.Move,decile.Neur);
-R2 = R2(2);
-R2 = num2str(R2);
-coeff = polyfit(decile.Move,decile.Neur,1);                   % Find the line of best fit
-hline = refline(coeff);
-hline.LineStyle = '--';
-hline.Color = 'k';
-legend('data',['R^2 = ' R2],'Location','best')
-
-xlabel('MOVE-CDContext')
-ylabel('Neural CDContext')
+% ngroups = 30;
+% % Sort MoveCDCont and CDCont in ascending order
+% [move,sortix] = sort(regr_all,'ascend');
+% neural = neur_all(sortix);
+% 
+% nTrials = length(move);
+% trixPerGroup = floor(nTrials/ngroups);                  % How many trials you want to be in each group
+% 
+% % Divide the MOVE-CDCont and neural CDCont into nGroups according to
+% % the MOVE-CDCont
+% decile.Move = NaN(1,ngroups); errbar.Move = NaN(1,ngroups);
+% decile.Neur = NaN(1,ngroups); errbar.Neur = NaN(1,ngroups);
+% cnt = 1;
+% for g = 1:ngroups
+%     if g==ngroups
+%         ixrange = cnt:nTrials;
+%     else
+%         ixrange = cnt:(cnt+trixPerGroup);
+%     end
+%     decile.Move(g) = mean(move(ixrange),'omitnan'); errbar.Move(g) = 1.96*(std(move(ixrange),0,2,'omitnan'))/(length(ixrange));
+%     decile.Neur(g) = mean(neural(ixrange),'omitnan'); errbar.Neur(g) = 1.96*(std(neural(ixrange),0,2,'omitnan'))/(length(ixrange));
+%     cnt = cnt+trixPerGroup+1;
+% end
+% 
+% figure();
+% errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o','Color','black'); hold on;
+% R2 = corrcoef(decile.Move,decile.Neur);
+% R2 = R2(2);
+% R2 = num2str(R2);
+% coeff = polyfit(decile.Move,decile.Neur,1);                   % Find the line of best fit
+% hline = refline(coeff);
+% hline.LineStyle = '--';
+% hline.Color = 'k';
+% legend('data',['R^2 = ' R2],'Location','best')
+% 
+% xlabel('MOVE-CDContext')
+% ylabel('Neural CDContext')
 
 %% Make a scatter plot for each session of CDCont vs MOVE-CDCont during presample period on each trial
-ngroups = 5;
-for sessix = 1:length(meta)
+R2_all = [];
+ngroups = 20;
+mkrsize = 7;
+for sessix = 6%1:length(meta)
     % Sort MoveCDCont and CDCont in ascending order
     [move,sortix] = sort(regr(sessix).presampAvg,'ascend');
     neural = neur(sessix).presampAvg(sortix);
 
     nTrials = length(move);
-    trixPerGroup = floor(nTrials/ngroups);                  % How many trials you want to be in each group
+    trixPerGroup = floor(nTrials/ngroups)-1;                  % How many trials you want to be in each group
     
     % Divide the MOVE-CDCont and neural CDCont into nGroups according to
     % the MOVE-CDCont
     decile.Move = NaN(1,ngroups); errbar.Move = NaN(1,ngroups);
     decile.Neur = NaN(1,ngroups); errbar.Neur = NaN(1,ngroups);
     cnt = 1;
-    for g = 1:ngroups
-        if g==ngroups
+    for g = 1:ngroups                                           % For each group...
+        if g==ngroups                                           % If its the last group, adjust the group size so that you don't surpass the number of trials
             ixrange = cnt:nTrials;
         else
-            ixrange = cnt:(cnt+trixPerGroup);
+            ixrange = cnt:(cnt+trixPerGroup);                   % Get which indices correspond to the current group
         end
+        % Take the average and find the 95% CI for each group
         decile.Move(g) = mean(move(ixrange),'omitnan'); errbar.Move(g) = 1.96*(std(move(ixrange),0,2,'omitnan'))/(length(ixrange));
         decile.Neur(g) = mean(neural(ixrange),'omitnan'); errbar.Neur(g) = 1.96*(std(neural(ixrange),0,2,'omitnan'))/(length(ixrange));
         cnt = cnt+trixPerGroup+1;
     end
     
+    % Plot a scatter plot with error bars 
     figure();
-    errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o')
+    errorbar(decile.Move,decile.Neur,errbar.Neur,errbar.Neur,errbar.Move,errbar.Move,'o','Color','black','MarkerSize',mkrsize,'LineWidth',0.8)
+    R2 = corrcoef(decile.Move,decile.Neur);
+    R2 = R2(2);
+    R2_all = [R2_all, R2];
+    R2 = num2str(R2);
+    coeff = polyfit(decile.Move,decile.Neur,1);                   % Find the line of best fit
+    hline = refline(coeff);
+    hline.LineStyle = '--';
+    hline.Color = 'k';
+    legend('data',['R^2 = ' R2],'Location','best')
     xlabel('MOVE-CDContext')
     ylabel('Neural CDContext')
 end
+%% Plot a bar plot to show the R2 values for each session
+nSessions = length(meta);
+anmNames = cell(1,nSessions);                                    % Animal names for each session
+for sessix = 1:nSessions
+    anmNames{sessix} = meta(sessix).anm;
+end
+uniqueAnm = unique(anmNames);
+
+exsess = 6;                                                     % The index of the session that you want to be highlighted
+markerSize = 60;
+figure();
+bar(mean(R2_all),'FaceColor',[0.75 0.75 0.75]); hold on;         % Plot the average R2 value across all sessions
+for sessix = 1:nSessions
+    curranm = anmNames{sessix};                 % Get the name of the animal for this session
+    switch curranm                                  % Switch the marker shape depending on which animal is being plotted
+        case uniqueAnm{1}
+            shape = 'o';
+        case uniqueAnm{2}
+            shape = '<';
+        case uniqueAnm{3}
+            shape = '^';
+        case uniqueAnm{4}
+            shape = 'v';
+        case uniqueAnm{5}
+            shape = '>';
+        case uniqueAnm{6}
+            shape = 'square';
+    end
+    scatter(1,R2_all(sessix),markerSize,'filled',shape,'black'); hold on;
+end
+scatter(1,R2_all(exsess),markerSize,'filled','pentagram','cyan','MarkerEdgeColor','black')
+legend([' ',anmNames])
+ylim([0.4 1])
+ax = gca;
+ax.FontSize = 16;
