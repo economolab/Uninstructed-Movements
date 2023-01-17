@@ -91,8 +91,9 @@ for sesh = 1:length(meta)
     temp = cell(1,length(params(1).delay));
     for d = 1:length(params(1).delay)
         blah = mySmooth(del(sesh).delPSTH.right{d},smooth)-mySmooth(del(sesh).delPSTH.left{d},smooth);
-        temp{d} = sqrt(blah.^2);
+        %temp{d} = sqrt(blah.^2);
         %temp{d} = mySmooth(blah,smooth);
+
     end
     del(sesh).selectivity = temp;
 end

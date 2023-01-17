@@ -15,6 +15,7 @@ xline(0,'black','LineStyle','--','LineWidth',1.1)
 xline(-0.9,'black','LineStyle','-.','LineWidth',1.1)
 xline(-2.5,'black','LineStyle','-.','LineWidth',1.1)
 
+
 legend('R hit true','R hit predicted','L hit true','L hit predicted','Location','best')
 ylabel('a.u.')
 xlabel('Time since go-cue (s)')

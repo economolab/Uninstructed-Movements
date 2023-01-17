@@ -21,8 +21,9 @@ load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Moveme
 % Set params for hazarded delay data
 params.tmin = meta(1).tmin; params.tmax = meta(1).tmax;
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
-    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw'}};
 params.smooth = 15;
+params.advance_movement = 0;
 
 % Re-structure Hazarded Delay data to be the same format
 [params,obj] = cleanUpData(params, meta,objs);
@@ -83,7 +84,10 @@ ctrlparams.probe = {ctrlmeta.probe}; % put probe numbers into ctrlparams, one en
 % obj (struct array) - one entry per session
 % ctrlparams (struct array) - one entry per session
 % ----------------------------------------------
-[ctrlobj,ctrlparams] = loadSessionData(ctrlmeta,ctrlparams);
+[ctrlobj,ctrlparams] = loadSessionData_VidOnly(ctrlmeta,ctrlparams);
+for sessix = 1:length(ctrlobj)
+    ctrlobj(sessix).time = obj(1).time;
+end
 %%
 % % ------------------------------------------
 % -- Motion Energy --
@@ -100,6 +104,124 @@ for sessix = 1:numel(ctrlmeta)
     disp(message)
     ctrlkin(sessix) = getKinematics(ctrlobj(sessix), me(sessix), ctrlparams(sessix));
 end
+%% Load kin data for Haz animals
+nSessions = numel(meta);
+sess2incl = true(1,length(meta));
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    if obj(sessix).bp.Ntrials ~= size(obj(sessix).traj{1},2) || obj(sessix).bp.Ntrials ~= size(obj(sessix).traj{2},2)
+        disp('Number of Bpod trials does not match number of video files for this session')
+        sess2incl(sessix) = 0;
+    else
+        kin(sessix) = getKinematics_NoME(obj(sessix), params(sessix));
+    end
+end
+
+% Remove sessions that aren't good
+kin(~sess2incl) = [];
+obj(~sess2incl) = [];
+meta(~sess2incl) = [];
+params(~sess2incl) = [];
+%% Get avg jaw velocity for all ctrl sessions
+cond2use = 2;
+feature = 'jaw_yvel_view1';
+
+for sessix = 1:length(ctrlmeta)
+    featix = find(strcmp(ctrlkin(sessix).featLeg,feature));
+    condtrix = ctrlparams(sessix).trialid{cond2use};
+    tempjaw = squeeze(ctrlkin(sessix).dat(:,condtrix,featix));
+    tempjaw = abs(tempjaw);
+
+    ctrlobj(sessix).jawvel = mean(tempjaw,2);
+end
+%% Get avg jaw velocity for all haz delay sessions
+feature = 'jaw_yvel_view1';
+del2use = 1.2;
+
+for sessix = 1:length(meta)
+    featix = find(strcmp(kin(sessix).featLeg,feature));
+    cond = obj(sessix).bp.hit&~obj(sessix).bp.stim.enable&~obj(sessix).bp.autowater&~obj(sessix).bp.early;
+    delLength = obj(sessix).bp.ev.goCue-obj(sessix).bp.ev.delay;
+    deltrix = find(delLength==del2use);
+    condtrix = find(cond);
+    ix = find(ismember(deltrix,condtrix));
+    tempjaw = squeeze(kin(sessix).dat(:,ix,featix));
+    tempjaw = abs(tempjaw);
+
+    % Normalize to max jaw vel during delay period
+%     deljaw = tempjaw(startix:stopix,:);
+%     maxjaw = max(deljaw);
+%     tempjaw = tempjaw./maxjaw;
+
+    obj(sessix).jawvel = mean(tempjaw,2);
+end
+%% Concatenate avg jaw velocities across all sessions
+smooth = 21;
+temp1 = [];
+blah1 = [];
+
+delay = mode(ctrlobj(1).bp.ev.delay)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+startix = find(ctrlobj(1).time>delay,1,'first');
+stopix = find(ctrlobj(1).time<go,1,'last');
+for sessix = 1:length(ctrlmeta)
+    tempjaw = ctrlobj(sessix).jawvel;
+     % Normalize to max jaw vel during delay period
+%     deljaw = tempjaw(startix:stopix,:);
+%     maxjaw = max(deljaw);
+%     tempjaw = tempjaw./maxjaw;
+%     temp1 = [temp1,mySmooth(tempjaw,smooth)];
+    temp1 = [temp1,mySmooth(ctrlobj(sessix).jawvel,smooth)];
+    
+end
+jv.ctrl = temp1;
+
+%%
+delay = 0;
+go = del2use;
+startix = find(obj(1).time>delay,1,'first');
+stopix = find(obj(1).time<go,1,'last');
+
+temp2 = []; blah2 = [];
+for sessix = 1:length(meta)
+%     tempjaw = obj(sessix).jawvel;
+%     deljaw = tempjaw(startix:stopix,:);
+%     maxjaw = max(deljaw);
+%     tempjaw = tempjaw./maxjaw;
+%     temp2 = [temp2,mySmooth(tempjaw,smooth)];
+    temp2 = [temp2,mySmooth(obj(sessix).jawvel,smooth)];
+    
+end
+jv.haz = temp2;
+
+clear temp1; clear temp2
+%% Plot
+ctrlcol = [0.6 0.6 0.6];
+hazcol = [0 0 0];
+go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+del2use = 1.2;
+smooth = 70;
+alph = 0.2;
+figure();
+ax = gca;
+toplot = mySmooth(mean(jv.haz,2),smooth);
+nSess = size(jv.haz,2);
+err = 1.96*(mySmooth(std(jv.haz,0,2),smooth)./sqrt(nSess));
+shadedErrorBar(obj(1).time+0.5,toplot,err,{'Color',hazcol,'LineWidth',2},alph,ax);
+hold on;
+
+toplot = mySmooth(mean(jv.ctrl,2),smooth);
+nSess = size(jv.ctrl,2);
+err = 1.96*(mySmooth(std(jv.ctrl,0,2),smooth)./sqrt(nSess));
+shadedErrorBar(obj(1).time,toplot,err,{'Color',ctrlcol,'LineWidth',2},alph,ax);
+xline(0,'LineStyle','-.','Color',[0.75 0.75 0.75],'LineWidth',1.5)
+xline(go,'LineStyle','--','Color',ctrlcol,'LineWidth',1.5)
+xline(del2use,'LineStyle','--','Color',hazcol,'LineWidth',1.5)
+legend(' ',' ',' ','Haz',' ',' ',' ','Static','Location','best')
+xlim([-1.3 2])
+xlabel('Time from delay onset (s)')
+ylabel('Jaw velocity')
 %% FUNCTIONS
 function [params,obj] = cleanUpData(params, meta,objs)
 % Reorganize params into a struct to match structure of updated data
@@ -116,8 +238,8 @@ clear temp temp2
 temp = objs;
 clear objs
 for sessix = 1:numel(meta)
-    temp2 = temp{1};
-    temp2.time = params(sessix).taxis;
+    temp2 = temp{sessix};
+    temp2.time = params(sessix).taxis; %+0.5
     obj(sessix) = temp2;
 end
 end

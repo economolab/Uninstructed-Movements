@@ -21,8 +21,9 @@ load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Moveme
 % Set params for hazarded delay data
 params.tmin = meta(1).tmin; params.tmax = meta(1).tmax;
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
-    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw'}};
 params.smooth = 15;
+params.advance_movement = 0;
 
 % Re-structure Hazarded Delay data to be the same format
 [params,obj] = cleanUpData(params, meta,objs);
@@ -38,7 +39,8 @@ ctrlparams.lowFR               = 1; % remove clusters with firing rates across a
 
 % set conditions to calculate PSTHs for
 ctrlparams.condition(1)     = {'(hit|miss|no)'};                             % all trials
-ctrlparams.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};        % All 2AFC hits, no stim
+ctrlparams.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};        % R 2AFC hits, no stim
+ctrlparams.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};        % L 2AFC hits, no stim
 
 ctrlparams.tmin = -2.5;
 ctrlparams.tmax = 3;
@@ -83,23 +85,137 @@ ctrlparams.probe = {ctrlmeta.probe}; % put probe numbers into ctrlparams, one en
 % obj (struct array) - one entry per session
 % ctrlparams (struct array) - one entry per session
 % ----------------------------------------------
-[obj,ctrlparams] = loadSessionData(ctrlmeta,ctrlparams);
+[ctrlobj,ctrlparams] = loadSessionData_VidOnly(ctrlmeta,ctrlparams);
+for sessix = 1:length(ctrlobj)
+    ctrlobj(sessix).time = obj(1).time;
+end
 %%
-% ------------------------------------------
+% % ------------------------------------------
 % -- Motion Energy --
 % me (struct array) - one entry per session
 % ------------------------------------------
 for sessix = 1:numel(ctrlmeta)
     disp(['Loading ME for session ' num2str(sessix)])
-    me(sessix) = loadMotionEnergy(obj(sessix), ctrlmeta(sessix), ctrlparams(sessix), datapth);
+    me(sessix) = loadMotionEnergy(ctrlobj(sessix), ctrlmeta(sessix), ctrlparams(sessix), datapth);
 end
 %% Load kinematic data
 nSessions = numel(ctrlmeta);
 for sessix = 1:numel(ctrlmeta)
     message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
     disp(message)
-    kin(sessix) = getKinematics(obj(sessix), me(sessix), ctrlparams(sessix));
+    ctrlkin(sessix) = getKinematics(ctrlobj(sessix), me(sessix), ctrlparams(sessix));
 end
+%% Load kin data for Haz animals
+nSessions = numel(meta);
+sess2incl = true(1,length(meta));
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    if obj(sessix).bp.Ntrials ~= size(obj(sessix).traj{1},2) || obj(sessix).bp.Ntrials ~= size(obj(sessix).traj{2},2)
+        disp('Number of Bpod trials does not match number of video files for this session')
+        sess2incl(sessix) = 0;
+    else
+        kin(sessix) = getKinematics_NoME(obj(sessix), params(sessix));
+    end
+end
+
+% Remove sessions that aren't good
+kin(~sess2incl) = [];
+obj(~sess2incl) = [];
+meta(~sess2incl) = [];
+params(~sess2incl) = [];
+%% Get avg jaw velocity for all ctrl sessions
+cond2use = [2,3];
+feature = 'jaw_yvel_view1';
+
+for sessix = 1:length(ctrlmeta)
+    featix = find(strcmp(ctrlkin(sessix).featLeg,feature));
+    sessavg = NaN(length(ctrlobj(1).time),length(cond2use));
+    for c = 1:length(cond2use)
+        cond = cond2use(c);
+        condtrix = ctrlparams(sessix).trialid{cond};
+        tempjaw = squeeze(ctrlkin(sessix).dat(:,condtrix,featix));
+        tempjaw = abs(tempjaw);
+        sessavg(:,c) = mean(tempjaw,2);
+    end
+    ctrlobj(sessix).jawvel = sessavg;
+end
+%% Get avg jaw velocity for all haz delay sessions
+feature = 'jaw_yvel_view1';
+del2use = 1.2;
+
+for sessix = 1:length(meta)
+    featix = find(strcmp(kin(sessix).featLeg,feature));
+    sessavg = NaN(length(ctrlobj(1).time),2);
+    for c = 1:2
+        if c==1
+            cond = obj(sessix).bp.R&obj(sessix).bp.hit&~obj(sessix).bp.stim.enable&~obj(sessix).bp.autowater&~obj(sessix).bp.early;
+        elseif c==2
+            cond = obj(sessix).bp.L&obj(sessix).bp.hit&~obj(sessix).bp.stim.enable&~obj(sessix).bp.autowater&~obj(sessix).bp.early;
+        end
+        delLength = obj(sessix).bp.ev.goCue-obj(sessix).bp.ev.delay;
+        deltrix = find(delLength==del2use);
+        condtrix = find(cond);
+        ix = find(ismember(deltrix,condtrix));
+        tempjaw = squeeze(kin(sessix).dat(:,ix,featix));
+        tempjaw = abs(tempjaw);
+        sessavg(:,c) = mean(tempjaw,2);
+    end
+    obj(sessix).jawvel = sessavg;
+end
+%% Concatenate avg jaw velocities across all sessions
+smooth = 41;
+temp1 = [];
+
+delay = mode(ctrlobj(1).bp.ev.delay)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+startix = find(ctrlobj(1).time>delay,1,'first');
+stopix = find(ctrlobj(1).time<go,1,'last');
+for sessix = 1:length(ctrlmeta)
+    tempjaw = ctrlobj(sessix).jawvel;
+     % Normalize to max jaw vel during delay period
+%     deljaw = tempjaw(startix:stopix,:);
+%     maxjaw = max(deljaw);
+%     tempjaw = tempjaw./maxjaw;
+%     temp1 = [temp1,mySmooth(tempjaw,smooth)];
+    tempjaw = mySmooth(ctrlobj(sessix).jawvel(:,1),smooth)-mySmooth(ctrlobj(sessix).jawvel(:,2),smooth);
+     if mean(tempjaw(startix:stopix))<0
+        tempjaw = -1*tempjaw;
+    end
+    temp1 = [temp1,tempjaw];
+end
+jv.ctrl = temp1;
+%%
+delay = 0;
+go = del2use;
+startix = find(obj(1).time>delay,1,'first');
+stopix = find(obj(1).time<go,1,'last');
+
+temp2 = [];
+for sessix = 1:length(meta)
+%     tempjaw = obj(sessix).jawvel;
+%     deljaw = tempjaw(startix:stopix,:);
+%     maxjaw = max(deljaw);
+%     tempjaw = tempjaw./maxjaw;
+%     temp2 = [temp2,mySmooth(tempjaw,smooth)];
+    %temp2 = [temp2,mySmooth(obj(sessix).jawvel,smooth)];
+    tempjaw = mySmooth(obj(sessix).jawvel(:,1),smooth)-mySmooth(obj(sessix).jawvel(:,2),smooth);
+    %plot(mySmooth(obj(sessix).jawvel(:,1),smooth),'blue'); hold on; plot(mySmooth(obj(sessix).jawvel(:,2),smooth)); hold off
+    if mean(tempjaw(startix:stopix))<0
+        tempjaw = -1*tempjaw;
+    end
+    temp2 = [temp2,tempjaw];
+end
+jv.haz = temp2;
+
+clear temp1; clear temp2
+%%
+plot(obj(1).time+0.5,mean(jv.haz,2)); 
+hold on; plot(obj(1).time,mean(jv.ctrl,2));
+legend('Haz','Static')
+xline(0.9)
+xline(1.2)
+xlim([-2.3 1.2])
 %% FUNCTIONS
 function [params,obj] = cleanUpData(params, meta,objs)
 % Reorganize params into a struct to match structure of updated data
@@ -116,8 +232,8 @@ clear temp temp2
 temp = objs;
 clear objs
 for sessix = 1:numel(meta)
-    temp2 = temp{1};
-    temp2.time = params(sessix).taxis;
+    temp2 = temp{sessix};
+    temp2.time = params(sessix).taxis; %+0.5
     obj(sessix) = temp2;
 end
 end

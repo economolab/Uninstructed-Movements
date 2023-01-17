@@ -53,15 +53,15 @@ datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
 meta = [];
 
 % --- ALM ---
-%meta = loadJEB13_ALMVideo(meta,datapth);
-meta = loadJEB6_ALMVideo(meta,datapth);
-meta = loadJEB7_ALMVideo(meta,datapth);
-meta = loadEKH1_ALMVideo(meta,datapth);
-meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);
-meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB14_ALMVideo(meta,datapth);
-meta = loadJEB15_ALMVideo(meta,datapth);
+% meta = loadJEB6_ALMVideo(meta,datapth);
+% meta = loadJEB7_ALMVideo(meta,datapth);
+% meta = loadEKH1_ALMVideo(meta,datapth);
+% meta = loadEKH3_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB14_ALMVideo(meta,datapth);
+% meta = loadJEB15_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -101,21 +101,6 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%% Sanity check -- plot heatmap of the kinematic data (to check whether there are huge outliers)
-% sessix = 15;
-% nfeats = length(kin(sessix).featLeg);
-% for f = 1:nfeats
-%     subplot(1,2,1)
-%     imagesc((kin(sessix).dat(:,:,f))')
-%     title(kin(sessix).featLeg{f})
-%     colorbar
-% 
-%     subplot(1,2,2)
-%     imagesc((kin(sessix).dat_std(:,:,f))')
-%     title(kin(sessix).featLeg{f})
-%     colorbar
-%     pause
-% end
 %% Predict CDLate from DLC features
 
 clearvars -except datapth kin me meta obj params regr nSessions
@@ -192,12 +177,12 @@ for sessix = 1:numel(obj)
         modelpred.Lhit{sessix} = pred(:,trials.LHit.TestIX);
     end
 end
-%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
-delR2 = [];
+%% Get R2 value for all sessions during delay
+JEB13_delR2 = [];
 % Each dot = an average value of CDlate during the delay period 
 start = find(obj(1).time>-0.9,1,'first');
 stop = find(obj(1).time<-0.05,1,'last');
-for sessix = 6%1:length(meta)
+for sessix = 1:length(meta)
     tempR = mean(trueVals.Rhit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
     tempL = mean(trueVals.Lhit{sessix}((start+1):(stop+1),:),1,'omitnan');
     truedat = [tempR, tempL];
@@ -208,123 +193,48 @@ for sessix = 6%1:length(meta)
 
     R2 = corrcoef(truedat,modeldat);
     R2 = R2(2);
-    delR2 = [delR2, R2];
-    R2 = num2str(R2);
-    coeff = polyfit(truedat,modeldat,1);                   % Find the line of best fit
-    sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
-    scatter(truedat,modeldat,20,'filled','black')
-    hline = refline(coeff);
-    hline.LineStyle = '--';
-    hline.Color = 'k';
-    xlabel('True data')
-    ylabel('Model prediction')
-    legend('data',['R^2 = ' R2],'Location','Best')
-    title(sesstitle)
-    %pause
+    JEB13_delR2 = [JEB13_delR2, R2];
 end
 %% Plot bar plot to show average R2 values across sessions
+load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3\Decoding Analysis\delR2Vals_NoJEB13.mat')
+delR2_ALL = [nonJEB13.delR2, JEB13_delR2];                              % Group the R2 values for JEB13 and all other animals
+anmNames = nonJEB13.anmNames;
+JEB13_anmNames = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13'};
+anmNames_all = [anmNames,JEB13_anmNames];                               % Animal names for each session
+nSessions = numel(anmNames_all);
+
+uniqueAnm = unique(anmNames_all);
+
+exsess = 22;                                                            % The index of the session that you want to be highlighted
+markerSize = 60;
 figure();
-bar(mean(delR2),'FaceColor',[0.75 0.75 0.75]); hold on;
-scatter(1,delR2,'filled')
+bar(mean(delR2_ALL),'FaceColor',[0.75 0.75 0.75]); hold on;         % Plot the average R2 value across all sessions
+for sessix = 1:nSessions
+    curranm = anmNames_all{sessix};                 % Get the name of the animal for this session
+    switch curranm                                  % Switch the marker shape depending on which animal is being plotted
+        case uniqueAnm{1}
+            shape = 'o';
+        case uniqueAnm{2}
+            shape = '<';
+        case uniqueAnm{3}
+            shape = '^';
+        case uniqueAnm{4}
+            shape = 'v';
+        case uniqueAnm{5}
+            shape = '>';
+        case uniqueAnm{6}
+            shape = 'square';
+        case uniqueAnm{7}
+            shape = 'diamond';
+        case uniqueAnm{8}
+            shape = 'hexagram';
+        case uniqueAnm{9}
+            shape = 'pentagram';
+    end
+    scatter(1,delR2_ALL(sessix),markerSize,'filled',shape,'black'); hold on;
+end
+scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','cyan','MarkerEdgeColor','black')
+legend([' ',anmNames_all])
+ylim([0.4 1])
 ax = gca;
 ax.FontSize = 16;
-
-% Get R^2 values between true CDlate and prediction on each trial
-% Specify time-points over which you want to find the correlation 
-stop = find(obj(1).time<0.05,1,'last');
-timeTrue = 2:stop;
-timePred = 1:(stop-1);
-
-R2 = correlateTrue_PredictedCD(trueVals, modelpred,meta,timeTrue,timePred);
-%% Plot histogram of R2 values
-nBins = 5;
-figure();
-histogram(R2,nBins,'FaceColor',[0.25 0.25 0.25])
-xlabel('R^2 value')
-ylabel('Num sessions')
-%% Plot an example session of CDlate prediction vs true value
-for sessix = 1:length(meta)
-sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
-
-% Calculate averages and standard deviation for true CD and predicted CD
-% for this session
-[avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
-colors = getColorsUpdated();
-alph  = 0.2;
-
-for i = 1:4
-    if i==1
-        dir = 'Rhit';
-        data = 'true';
-        col = colors.rhit;
-        linestyle = '-';
-        time = obj(1).time;
-    elseif i==2
-        dir = 'Lhit';
-        data = 'true';
-        col = colors.lhit;
-        linestyle = '-';
-        time = obj(1).time;
-    elseif i==3
-        dir = 'Rhit';
-        data = 'pred';
-        col = colors.rhit;
-        linestyle = '--';
-        time = rez.tm(1:end-1);
-    elseif i==4
-        dir = 'Lhit';
-        data = 'pred';
-        col = colors.lhit;
-        linestyle = '--';
-        time = rez.tm(1:end-1);
-    end
-    toplot = avgCD.(dir).(data);
-    nTrials = size(trueVals.(dir){sessix},2);
-    err = 1.96*(stdCD.(dir).(data)./sqrt(nTrials));
-    ax = gca;
-    shadedErrorBar(time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',linestyle},alph,ax); hold on;
-    %
-    % % Get confidence intervals
-    % [upperci, lowerci] = getConfInt(meta, avgCD, stdCD);
-    %
-    % % Plot average CDlate projections and predictions for the session
-    % plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle,delR2(sessix))
-end
-
-sample = mode(obj(1).bp.ev.sample) - mode(obj(1).bp.ev.goCue);      % Timing of sample, delay and trialstart for plotting
-delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.goCue);
-go = mode(obj(1).bp.ev.goCue) - mode(obj(1).bp.ev.goCue);
-
-xline(go,'black','LineStyle','--','LineWidth',1.1)
-xline(delay,'black','LineStyle','-.','LineWidth',1.1)
-xline(sample,'black','LineStyle','-.','LineWidth',1.1)
-R2 = JEB13_delR2(sessix);
-legend('R hit true','R hit predicted','L hit true','L hit predicted','Location','best')
-ylabel('a.u.')
-xlabel('Time since go-cue (s)')
-sesstit = [sesstitle, 'R^2 = ', num2str(R2)];
-title(sesstit)
-set(gca, 'YDir','reverse')
-xlim([-2.5 2.5])
-hold off;
-pause
-end
-%%
-
-%% FUNCTIONS
-function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
-
-avgCD.Rhit.true = mean(trueVals.Rhit{sessix},2,'omitnan');      % Get average true CDlate for R and L hits for this session
-avgCD.Lhit.true = mean(trueVals.Lhit{sessix},2,'omitnan');
-stdCD.Rhit.true = std(trueVals.Rhit{sessix},0,2,'omitnan');     % Get standard deviation of true CDlate for R and L hits
-stdCD.Lhit.true = std(trueVals.Lhit{sessix},0,2,'omitnan');
-
-modelpred.Rhit{sessix} = fillmissing(modelpred.Rhit{sessix},"nearest");
-modelpred.Lhit{sessix} = fillmissing(modelpred.Lhit{sessix},"nearest");
-infix = find(isinf(modelpred.Rhit{sessix})); modelpred.Rhit{sessix}(infix) = 0;
-infix = find(isinf(modelpred.Lhit{sessix})); modelpred.Lhit{sessix}(infix) = 0;
-avgCD.Rhit.pred = mean(modelpred.Rhit{sessix},2,'omitnan');     % Get average predicted CDlate for R and L hits for this session
-avgCD.Lhit.pred = mean(modelpred.Lhit{sessix},2,'omitnan');
-stdCD.Rhit.pred = std(modelpred.Rhit{sessix},0,2,'omitnan');    % Get stdev of predicted CDlate for R and L hits for this session
-stdCD.Lhit.pred = std(modelpred.Lhit{sessix},0,2,'omitnan');
-end
