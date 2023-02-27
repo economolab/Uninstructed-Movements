@@ -72,7 +72,7 @@ datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
 
 meta = [];
 
-% --- ALM --- 
+% --- ALM ---
 meta = loadJEB6_ALMVideo(meta,datapth);
 meta = loadJEB7_ALMVideo(meta,datapth);
 meta = loadEKH1_ALMVideo(meta,datapth);
@@ -120,89 +120,102 @@ for sessix = 1:numel(meta)
     cond2proj = 2:11;     % (NUMBERING ACCORDING TO PARAMS.CONDITION)
     rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime);
 end
-%% Find dimensions which are selective for context
-trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-modparams.start = find(obj(1).time>trialstart,1,'first');
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-modparams.stop = find(obj(1).time<samp,1,'last');
+%% Get the reaction (after go-cue) for each trial
+rt = firstJawRT(obj);
+%%
+cond2use = [6,11];    % All 2AFC hit trials, all AW hit trials (NUMBERING ACCORDING TO PARAMS.CONDITION)
+space = 'null_sort';
+spacename = 'N_null';
+[rez,me] = sortProjbyRT(rez,spacename,space,params,rt,meta,cond2use,me);
 
-modparams.subTrials = 40;
-modparams.sig = 0.05;
-conds2use = [6,11];       % With reference to params.trialid
+space = 'potent_sort';
+spacename = 'N_potent';
+[rez,me] = sortProjbyRT(rez,spacename,space,params,rt,meta,cond2use,me);
+%% Group projections onto null/potent dims by RT
+conds2use = [5,10];
+ngroups = 4;
+space = 'null_sort';
+[nullgrouped] = groupProjbyRT(meta,conds2use,rez,ngroups,obj,space);
+space = 'potent_sort';
+[potentgrouped] = groupProjbyRT(meta,conds2use,rez,ngroups,obj,space);
+%%
+cols = {[0 0 0],[0.4 0.4 0.4],[0.6 0.6 0.6],[0.75 0.75 0.75]};
+sm = 100;
 
+space = 'null';                 % 'null' or 'potent'
+plotRTGrouped(meta,space,nullgrouped,potentgrouped,sm,ngroups,cols)
+%% Functions
+function [rez,me] = sortProjbyRT(rez,spacename,space,params,rt,meta,cond2use,me)
 for sessix = 1:length(meta)
-    currez = rez(sessix);
-    spacename = 'N_null';
-    space = 'null';
-    [selectiveDims,projdif] = findAllSelectiveDims(currez,spacename,params(sessix),modparams,conds2use);
-    rez(sessix).selectiveDimensions.(space) = selectiveDims;
-    rez(sessix).projdif.(space) = projdif; 
+    % Get the single trial projections onto all null/potent dimensions in this session
+    singleproj = rez(sessix).(spacename);
 
-    spacename = 'N_potent';
-    space = 'potent';
-    [selectiveDims,projdif] = findAllSelectiveDims(currez,spacename,params(sessix),modparams,conds2use);
-    rez(sessix).selectiveDimensions.(space) = selectiveDims;
-    rez(sessix).projdif.(space) = projdif; 
-end
-%% Find context selectivity for all dimensions in the null and potent space 
-conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
-ctxtSelect.null = NaN(size(rez(1).N_potent,1),length(meta));
-ctxtSelect.potent = NaN(size(rez(1).N_potent,1),length(meta));
+    % Sort the projections for each trial according to the reaction time (separated by condition)
+    for c = 1:length(cond2use)                      % For each condition...
+        cond = cond2use(c);
+        trix = params(sessix).trialid{cond};
+        condproj = singleproj(:,trix,:);            % Get the projections on all trials of this condition
+        condme = me(sessix).data(:,trix);
+        condrt = rt{sessix}(trix);                  % Get the RTs for all trials of this condition
 
-for sessix = 1:numel(meta)
-    for i=1:2
-        if i==1
-            spacename = 'N_null_psth';
-            space = 'null';
-        else
-            spacename = 'N_potent_psth';
-            space = 'potent';
-        end
-        % Get the projections for all conditions onto each null or potent dimension
-        proj = rez(sessix).(spacename);
-        nDims = size(proj,2);
-
-        % Take the difference projections for 2AFC and AW
-        selAllDims = proj(:,:,conds2use(1))-proj(:,:,conds2use(2));
-        tempSel = [];
-        
-        % Only consider selectivity for selective dimensions
-        for d = 1:nDims                                                 % For every dimension...
-            if rez(sessix).selectiveDimensions.(space)(d)                       % If it is a selective dimension...
-                temp = selAllDims(:,d);                                    % Take the selectivty for that dimension
-                if ~rez(sessix).projdif.(Spac(d)                              % If it is selective for AW
-                    temp = -1*(temp);                                   % Flip it
-                end
-                tempSel = [tempSel,temp];
-            end
-        end
-        ctxtSelect.(space)(:,sessix) = mean(tempSel,2,'omitnan');  
+        [~,sortix] = sort(condrt,'ascend');         % Sort the RTs in ascending order
+        condproj = condproj(:,sortix,:);            % Sort the projections in the same order
+        condme = condme(:,sortix);
+        rez(sessix).(space){c} = condproj;          % Save these sorted projections
+        me(sessix).sorted{c} = condme;
     end
 end
+end
+
+function [grouped] = groupProjbyRT(meta,conds2use,rez,ngroups,obj,space)
+for sessix = 1:length(meta)
+    for c = 1:length(conds2use)
+        nTrials = size(rez(sessix).(space){c},2);
+        trixPerGroup = floor(nTrials/ngroups);                  % How many trials you want to be in each group
+
+        nDims = size(rez(sessix).(space){c},3);
+        % Divide the projections onto all dimensions into nGroups
+        grouped(sessix).sort{c} = NaN(length(obj(1).time),ngroups,nDims);
+        cnt = 1;
+        for g = 1:ngroups
+            if g==ngroups
+                ixrange = cnt:nTrials;
+            else
+                ixrange = cnt:(cnt+trixPerGroup);
+            end
+            grouped(sessix).sort{c}(:,g,:) = mean(rez(sessix).(space){c}(:,ixrange,:),2,'omitnan'); 
+            cnt = cnt+trixPerGroup+1;
+        end
+    end
+end
+end
+
 %%
-colors = getColors_Updated();
-alpha = 0.2;
-figure();
-ax = gca;
-smooth = 31;
+function plotRTGrouped(meta,space,nullgrouped,potentgrouped,sm,ngroups,cols)
+for sessix = 1:length(meta)
+    if strcmp(space,'null')
+        temp = nullgrouped;
+    else
+        temp = potentgrouped;
+    end
+    for dim = 1:size(temp(sessix).sort{1},3)
+        for group = 1:ngroups
+            subplot(1,2,1)
+            toplot = mySmooth(temp(sessix).sort{1}(:,group,dim),sm);
+            plot(toplot,'Color',cols{group},'LineWidth',1.5); hold on;
+            title([space ', 2AFC'])
+            ax1=gca;
 
-col = colors.null;
-% temperr = 1.96*(mySmooth(std(ctxtSelect.null,0,2),smooth)/sqrt(length(meta)));
-% toplot = mySmooth(mean(ctxtSelect.null,2,'omitnan'),smooth);
-temperr = 1.96*(std(ctxtSelect.null,0,2)/sqrt(length(meta)));
-toplot = mean(ctxtSelect.null,2,'omitnan');
-shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
+            subplot(1,2,2)
+            toplot = mySmooth(temp(sessix).sort{2}(:,group,dim),sm);
+            plot(toplot,'Color',cols{group},'LineWidth',1.5); hold on;
+            title([space ', AW'])
+            ax2 = gca;
+        end
+        hold(ax1,'off');  hold(ax2,'off');
+        sgtitle([meta(sessix).anm,' ',meta(sessix).date])
+        pause
+    end
 
-col = colors.potent;
-temperr = 1.96*(std(ctxtSelect.potent,0,2)/sqrt(length(meta)));
-toplot = mean(ctxtSelect.potent,2,'omitnan');
-shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
-
-xlim([trialstart 2.5])
-xline(samp,'k--','LineWidth',1.5)
-xline(samp+1.3,'k--','LineWidth',1.5)
-xline(samp+1.3+0.9,'k--','LineWidth',1.5)
-xlabel('Time from go cue (s)')
-ylabel('Selectivity across all null/potent dimensions (a.u.)')
-
-
+end
+end

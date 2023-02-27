@@ -111,7 +111,8 @@ clearvars -except obj meta params me sav
 % -----------------------------------------------------------------------
 
 for sessix = 1:numel(meta)
-    % -- input data
+    % -- input data (the FR of each individual neuron will be converted to
+    % a value between 0 and 1)
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat, obj(sessix));
 
     % -- Calculate the null and potent spaces for each session
@@ -144,44 +145,6 @@ for sessix = 1:length(meta)
     rez(sessix).selectiveDimensions.(space) = selectiveDims;
     rez(sessix).projdif.(space) = projdif; 
 end
-%% Find average context selectivity for all dimensions in the null and potent space 
-clearvars -except rez obj meta params trialstart samp
-
-start = find(obj(1).time>trialstart,1,'first');
-stop = find(obj(1).time<samp,1,'last');
-conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
-sm = 31;                                        % Smoothing parameter for the condition-averaged projections
-
-spacename = 'N_null_psth';
-space = 'null';
-[NullSel,NullNonSel,ctxtSelect_bySess.null] = findContextSelectivity_allDims(rez,meta,space,spacename,conds2use,sm,start,stop);
-spacename = 'N_potent_psth';
-space = 'potent';
-[PotentSel,PotentNonSel,ctxtSelect_bySess.potent] = findContextSelectivity_allDims(rez,meta,space,spacename,conds2use,sm,start,stop);
-%% Line plot of average context-selectivity across all selective null or potent dimensions 
-colors = getColors_Updated();
-alpha = 0.2;
-smooth = 31;
-plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,'alldims')
-%% Normalize selective dimensions
-goCue = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
-start = find(obj(1).time>(goCue+0.6),1,'first');
-stop = find(obj(1).time<(goCue+2),1,'last');
-
-% Sort dimensions according to average selectivity in the presample period and normalize each dimension to its max selectivity
-%%% Null space %%%
-selectNorm.null = normalizeSelDims(NullSel,start, stop);
-
-%%% Potent space %%%
-selectNorm.potent = normalizeSelDims(PotentSel,start, stop);
-%% Heatmap of all selective dimensions
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ContextColormap.mat');
-
-delay = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
-
-plotSelectivityHeatmap(delay,go,samp,selectNorm,obj,ContextColormap)
 %% Concatenate condition averaged projections onto selective dimensions across sessions
 conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
 condprojAllSess.null = [];
@@ -210,11 +173,7 @@ dims2plot = 1:3;
 colors = getColors_Updated();
 figure();
 plotTopPCs(dims2plot,latents,colors,VE,obj)
-%%
 
-%%% TO-DO: find a way to assess "persistence" in the selective null/potent dims %%%
-% From Inagaki's 2019 Nature paper, Discrete Attractor Dynamics (drift of a
-% trajectory)
 %% Functions
 function [allSessSel,allSessNonSel,ctxtSelect_bySess] = findContextSelectivity_allDims(rez,meta,space,spacename,conds2use,sm,start,stop)
 
@@ -300,6 +259,31 @@ for i = 1:size(condprojAllSess.(space),3)                           % For all be
     end                                                             % And smooth the latent
 end
 end
+
+function [allSessSelProj] = findContextProj_allDims(rez,meta,space,spacename,conds2use,sm)
+allSessSelProj{1} = [];
+allSessSelProj{2} = [];
+for sessix = 1:numel(meta)                      % For each session...
+    % For null and potent spaces
+
+    % Get the trial-averaged projections for all conditions onto each null or potent dimension
+    proj = rez(sessix).(spacename);
+    nDims = size(proj,2);
+
+    for c = 1:length(conds2use)
+        condproj = mySmooth(proj(:,:,conds2use(c)),sm);
+
+        % Only consider projections for selective dimensions
+        for d = 1:nDims                                                 % For every dimension...
+            if rez(sessix).selectiveDimensions.(space)(d)               % If it is a selective dimension...
+                temp = condproj(:,d);                                   % Take the avg projection for that dimension for this condition
+
+                allSessSelProj{c}= [allSessSelProj{c},temp];                  % Store the projections for all dimensions, not averaged by session
+            end
+        end
+    end
+end
+end
 %% Plotting functions
 function plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,samples)
 figure();
@@ -313,7 +297,8 @@ if strcmp(samples,'sessions')
 elseif strcmp(samples,'alldims')
     normaliz = size(NullSel.flipped,2);
 end
-temperr = 1.96*(std(NullSel.flipped,0,2)/sqrt(normaliz));
+%temperr = 1.96*(std(NullSel.flipped,0,2)/sqrt(normaliz));
+temperr = (std(NullSel.flipped,0,2)/sqrt(normaliz));    % SEM
 toplot = mean(NullSel.flipped,2,'omitnan');
 shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
 
@@ -325,15 +310,16 @@ elseif strcmp(samples,'alldims')
 end
 
 col = colors.potent;
-temperr = 1.96*(std(PotentSel.flipped,0,2)/sqrt(normaliz));
+%temperr = 1.96*(std(PotentSel.flipped,0,2)/sqrt(normaliz));
+temperr = (std(PotentSel.flipped,0,2)/sqrt(normaliz));      % SEM
 toplot = mean(PotentSel.flipped,2,'omitnan');
 shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
 
-xlim([trialstart 2.5])
-xline(samp,'k--','LineWidth',1.5)
-xline(samp+1.3,'k--','LineWidth',1.5)
-xline(samp+1.3+0.9,'k--','LineWidth',1.5)
-xlabel('Time from go cue (s)')
+xlim([trialstart 2])
+xline(samp,'k--','LineWidth',1)
+xline(samp+1.3,'k--','LineWidth',1)
+xline(samp+1.3+0.9,'k--','LineWidth',1)
+xlabel('Time from go cue/water drop (s)')
 ylabel('Selectivity across all null/potent dimensions (a.u.)')
 end
 
@@ -370,11 +356,13 @@ for d= dims2plot
     plot(obj(1).time,latents.null(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
     plot(obj(1).time,latents.null(:,d,2),'Color',colors.aw,'LineWidth',1.5)
     title(['VE = ' num2str(VE.null(d)) ' %'])               % Display the variance explained by the PC as the title of the subplot
-    
+    xlim([-2.6 2.3])
+
     % Potent space
     subplot(2,length(dims2plot),d+3)
     plot(obj(1).time,latents.potent(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
     plot(obj(1).time,latents.potent(:,d,2),'Color',colors.aw,'LineWidth',1.5)
     title(['VE = ' num2str(VE.potent(d)) ' %'])             % Display the variance explained by the PC as the title of the subplot
+    xlim([-2.6 2.3])
 end
 end

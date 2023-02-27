@@ -48,7 +48,7 @@ for cond = 1:numel(conditions)
         if strcmp(toplot,'prob')
             temptri(2:end, i) = abs(diff(tsinterp)-basederiv)>derivthresh;      % Values > 0 = jaw is moving
         elseif strcmp(toplot,'vel')
-            temptri(2:end, i) = abs(diff(tsinterp)-basederiv);              % Values > 0 = jaw is moving
+            temptri(2:end, i) = abs(diff(tsinterp)-basederiv);                  % Values > 0 = jaw is moving
         end
     end
     jawstd{cond} = std(temptri,0,2,'omitnan');

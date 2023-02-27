@@ -111,7 +111,8 @@ clearvars -except obj meta params me sav
 % -----------------------------------------------------------------------
 
 for sessix = 1:numel(meta)
-    % -- input data
+    % -- input data (the FR of each individual neuron will be converted to
+    % a value between 0 and 1)
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat, obj(sessix));
 
     % -- Calculate the null and potent spaces for each session
@@ -150,7 +151,7 @@ clearvars -except rez obj meta params trialstart samp
 start = find(obj(1).time>trialstart,1,'first');
 stop = find(obj(1).time<samp,1,'last');
 conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
-sm = 31;                                        % Smoothing parameter for the condition-averaged projections
+sm = 100;                                        % Smoothing parameter for the condition-averaged projections
 
 spacename = 'N_null_psth';
 space = 'null';
@@ -158,63 +159,31 @@ space = 'null';
 spacename = 'N_potent_psth';
 space = 'potent';
 [PotentSel,PotentNonSel,ctxtSelect_bySess.potent] = findContextSelectivity_allDims(rez,meta,space,spacename,conds2use,sm,start,stop);
-%% Line plot of average context-selectivity across all selective null or potent dimensions 
-colors = getColors_Updated();
-alpha = 0.2;
-smooth = 31;
-plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,'alldims')
-%% Normalize selective dimensions
-goCue = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
-start = find(obj(1).time>(goCue+0.6),1,'first');
-stop = find(obj(1).time<(goCue+2),1,'last');
-
-% Sort dimensions according to average selectivity in the presample period and normalize each dimension to its max selectivity
-%%% Null space %%%
-selectNorm.null = normalizeSelDims(NullSel,start, stop);
-
-%%% Potent space %%%
-selectNorm.potent = normalizeSelDims(PotentSel,start, stop);
-%% Heatmap of all selective dimensions
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ContextColormap.mat');
-
-delay = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
-
-plotSelectivityHeatmap(delay,go,samp,selectNorm,obj,ContextColormap)
-%% Concatenate condition averaged projections onto selective dimensions across sessions
-conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
-condprojAllSess.null = [];
-condprojAllSess.potent = [];
-for sessix = 1:length(meta)
-    space = 'null';
-    spacename = 'N_null_psth';
-    selDimIx = find(rez(sessix).selectiveDimensions.(space));
-    temp = rez(sessix).(spacename)(:,selDimIx,conds2use);
-    condprojAllSess.(space) = cat(2,condprojAllSess.(space),temp);
-
-    space = 'potent';
-    spacename = 'N_potent_psth';
-    selDimIx = find(rez(sessix).selectiveDimensions.(space));
-    temp = rez(sessix).(spacename)(:,selDimIx,conds2use);
-    condprojAllSess.(space) = cat(2,condprojAllSess.(space),temp);
-end
-%% Do PCA on selective dimensions
-space = 'null';
-[coeff.null,score.null,latents.null,VE.null] = doPCAonSelDims(condprojAllSess,space);
-
-space = 'potent';
-[coeff.potent,score.potent,latents.potent,VE.potent] = doPCAonSelDims(condprojAllSess,space);
-%% Plot projections onto top dimensions for null and potent space
-dims2plot = 1:3;
-colors = getColors_Updated();
-figure();
-plotTopPCs(dims2plot,latents,colors,VE,obj)
 %%
+clearvars -except colors meta PotentSel NullSel obj params rez samp trialstart 
+epochs.trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+epochs.sample = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+epochs.delay = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
+epochs.go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
 
-%%% TO-DO: find a way to assess "persistence" in the selective null/potent dims %%%
-% From Inagaki's 2019 Nature paper, Discrete Attractor Dynamics (drift of a
-% trajectory)
+
+Nullslope = findSelDimSlopes(NullSel.flipped,epochs,obj);
+Potentslope = findSelDimSlopes(PotentSel.flipped,epochs,obj);
+%%
+colors = getColors_Updated();
+X = categorical({'Presample','Delay','Response'});
+X = reordercats(X,{'Presample','Delay','Response'});
+Y = [mean(Nullslope.presample), mean(Potentslope.presample); ...
+    mean(Nullslope.delay), mean(Potentslope.delay);...
+    mean(Nullslope.resp), mean(Potentslope.resp)];
+b = bar(X,Y);
+b(1).FaceColor = colors.null;
+b(2).FaceColor = colors.potent;
+hold on; 
+ylabel('Slope (a.u)')
+xlabel('Epoch')
+legend('Null','Potent','Location','best')
+
 %% Functions
 function [allSessSel,allSessNonSel,ctxtSelect_bySess] = findContextSelectivity_allDims(rez,meta,space,spacename,conds2use,sm,start,stop)
 
@@ -254,127 +223,6 @@ for sessix = 1:numel(meta)                      % For each session...
 end
 end
 
-function selectNorm = normalizeSelDims(spaceSel,start, stop)
-% Normalize each dimension to its own max selectivity (to show dynamics of
-% selectivity for each dimension over the course of the trial)
-maxSelect =  max(abs(spaceSel.nonflip),[],1);                    % Max magnitude of context selectivity for each dimension
-selectNorm = [];
-for c = 1:length(maxSelect)                                        % For every dimension... 
-    selectNorm(:,c) = spaceSel.nonflip(:,c)./maxSelect(c);       % Normalize all selectivity values to the max selectivity val
-end 
-% response = mean(selectNorm.null(start:stop,:),1);
-% [~,sortix] = sort(response,'descend');
-full = mean(selectNorm,1);
-[~,sortix] = sort(full,'descend');
-selectNorm = selectNorm(:,sortix);
-end
 
-function [coeff,score,latents,VE] = doPCAonSelDims(condprojAllSess,space)
-% concatenate data into a 2D array of size (C*T,D) where C is number of
-% conditions, T is time points, D is number of dimensions
-A = [];                                         % Pre-allocate activity matrix of dimensions
-for i = 1:size(condprojAllSess.(space),3)                      % For all behavioral conditions...
-    A = [A; condprojAllSess.(space)(:,:,i)];                   % Concatenate the activity matrices for all conditions 
-end
 
-Ndims = 10; % number of principal components to look at 
-
-% coeff is the principal components. Should be of size (D,D). Each column
-% is a principal component, and each element of each column is the weight
-% associated with a dimension.
-% score is the projection of the full dimensional data onto the principal
-% components (score = psth * coeff)
-[coeff, score,blah1,blah2,VE] = pca(A - mean(A), 'NumComponents', Ndims);          % Perform PCA on centered data
-clear A
-
-% project each condition onto the principal components
-latents = zeros(size(condprojAllSess.(space),1),Ndims,size(condprojAllSess.(space),3));           % (time,nDims,numCond)
-sm = 21;                                                                                           % How much smoothing you want to do
-
-% The latents are the same as the 'scores' given by the PCA function
-% But these are smoothed and separated in the third dimension by behavioral
-% condition
-for i = 1:size(condprojAllSess.(space),3)                           % For all behavioral conditions...
-    for j = 1:Ndims                                                 % For all principal components...
-        latents(:,j,i) = mySmooth(condprojAllSess.(space)(:,:,i)*coeff(:,j),sm);   % Assign the 'latents' to be neuron's trial-averaged PSTH weighted by their coefficients for the given PC
-    end                                                             % And smooth the latent
-end
-end
 %% Plotting functions
-function plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,samples)
-figure();
-ax = gca;
-col = colors.null;
-% temperr = 1.96*(mySmooth(std(ctxtSelect.null,0,2),smooth)/sqrt(length(meta)));
-% toplot = mySmooth(mean(ctxtSelect.null,2,'omitnan'),smooth);
-% What to normalize by for the confidence interval calculations
-if strcmp(samples,'sessions')
-    normaliz = length(meta);
-elseif strcmp(samples,'alldims')
-    normaliz = size(NullSel.flipped,2);
-end
-temperr = 1.96*(std(NullSel.flipped,0,2)/sqrt(normaliz));
-toplot = mean(NullSel.flipped,2,'omitnan');
-shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
-
-
-if strcmp(samples,'sessions')
-    normaliz = length(meta);
-elseif strcmp(samples,'alldims')
-    normaliz = size(PotentSel.flipped,2);
-end
-
-col = colors.potent;
-temperr = 1.96*(std(PotentSel.flipped,0,2)/sqrt(normaliz));
-toplot = mean(PotentSel.flipped,2,'omitnan');
-shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
-
-xlim([trialstart 2.5])
-xline(samp,'k--','LineWidth',1.5)
-xline(samp+1.3,'k--','LineWidth',1.5)
-xline(samp+1.3+0.9,'k--','LineWidth',1.5)
-xlabel('Time from go cue (s)')
-ylabel('Selectivity across all null/potent dimensions (a.u.)')
-end
-
-function plotSelectivityHeatmap(delay,go,samp,selectNorm,obj,ContextColorMap)
-subplot(1,2,1)
-nDims = size(selectNorm.null,2);
-imagesc(obj(1).time,1:nDims,selectNorm.null'); c = colorbar;
-ax = gca;
-colormap(ax,linspecer)
-title('Null')
-ylabel('Dimensions')
-xlabel('Time from go cue (s)')
-line([samp,samp],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-line([delay,delay],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-line([go,go],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-
-subplot(1,2,2)
-nDims = size(selectNorm.potent,2);
-imagesc(obj(1).time,1:nDims,selectNorm.potent'); c = colorbar;
-ylabel(c,'Normalized selectivity','FontSize',9,'Rotation',90);
-ax = gca;
-colormap(ax,linspecer)
-title('Potent')
-line([samp,samp],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-line([delay,delay],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-line([go,go],[1,nDims],'Color','black','LineStyle','--','LineWidth',1.5)
-xlabel('Time from go cue (s)')
-end
-
-function plotTopPCs(dims2plot,latents,colors,VE,obj)
-for d= dims2plot
-    % Null space
-    subplot(2,length(dims2plot),d)
-    plot(obj(1).time,latents.null(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
-    plot(obj(1).time,latents.null(:,d,2),'Color',colors.aw,'LineWidth',1.5)
-    title(['VE = ' num2str(VE.null(d)) ' %'])               % Display the variance explained by the PC as the title of the subplot
-    
-    % Potent space
-    subplot(2,length(dims2plot),d+3)
-    plot(obj(1).time,latents.potent(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
-    plot(obj(1).time,latents.potent(:,d,2),'Color',colors.aw,'LineWidth',1.5)
-    title(['VE = ' num2str(VE.potent(d)) ' %'])             % Display the variance explained by the PC as the title of the subplot
-end
-end

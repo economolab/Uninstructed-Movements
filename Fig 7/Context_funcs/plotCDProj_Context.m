@@ -2,11 +2,7 @@ function plotCDProj_Context(allrez,rez,sav,spacename,plotmiss)
 
 pptx.newVersions = [1 0 0]; % 1 - creates new version of pptx, 0 - add to existing if already exists, 1 entry for each figure created here
 
-if strcmp(spacename,'Null')
-    clrs.AFChit = [0.65 0.65 0.65]; clrs.AWhit = [1 0.5 0.5];
-else
-    clrs.AFChit = [0 0 0]; clrs.AWhit = [1 0 1];
-end
+clrs = getColors_Updated();
 
 lw = 3.5;
 alph = 0.5;
@@ -16,7 +12,6 @@ delay = mode(rez(1).ev.delay - rez(1).align);
 
 
 for i = 1:numel(rez(1).cd_labels) % for each coding direction
-    figure();
     hold on
 %     f.Position = [680   748   396   230];
     ax = gca;
@@ -24,28 +19,26 @@ for i = 1:numel(rez(1).cd_labels) % for each coding direction
     tempdat = allrez.cd_proj(:,:,:);
     tempmean = mean(tempdat,3);
     nSessions = size(tempdat,3);
-    temperror = 1.96*(std(tempdat,[],3)./sqrt(nSessions));
-    shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.AFChit,'LineWidth',lw},alph, ax)
-    shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.AWhit,'LineWidth',lw},alph, ax)
+    %temperror = 1.96*(std(tempdat,[],3)./sqrt(nSessions));
+    temperror = (std(tempdat,[],3)./sqrt(nSessions));                       % Standard error of the mean
+    shadedErrorBar(rez(1).time,tempmean(:,1),temperror(:,1),{'Color',clrs.afc,'LineWidth',lw},alph, ax)
+    shadedErrorBar(rez(1).time,tempmean(:,2),temperror(:,2),{'Color',clrs.aw,'LineWidth',lw},alph, ax)
     if plotmiss
         sm = 21;
         shadedErrorBar(rez(1).time,mySmooth(tempmean(:,3),sm),mySmooth(temperror(:,3),sm),{'Color',clrs.AFChit*0.5,'LineWidth',lw},alph, ax)
         shadedErrorBar(rez(1).time,mySmooth(tempmean(:,4),sm),mySmooth(temperror(:,4),sm),{'Color',clrs.AWhit*0.5,'LineWidth',lw},alph, ax)
     end
 
-%     xlim([rez(1).time(1);rez(1).time(end)])
-    xlim([rez(1).time(1);2])
-
     title([rez(1).cd_labels{i} ' | ' spacename])
     xlabel('Time (s) from goCue')
     ylabel('Activity (a.u.)')
     ax.FontSize = 12;
 
-    xline(sample,'k:','LineWidth',2)
-    xline(delay,'k:','LineWidth',2)
-    xline(0,'k:','LineWidth',2)
-    xlim([-2.5 0])
-    ylim([-0.2 0.15])
+    xline(sample,'k--','LineWidth',1)
+    xline(delay,'k--','LineWidth',1)
+    xline(0,'k--','LineWidth',1)
+    xlim([-2.6 2])
+    %ylim([-0.2 0.15])
 
     curmodename = rez(1).cd_labels{i};
     shadetimes = rez(1).time(rez(1).cd_times.(curmodename));

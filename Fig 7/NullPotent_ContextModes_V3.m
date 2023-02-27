@@ -76,7 +76,7 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 % params (struct array) - one entry per session
 % ----------------------------------------------
 [obj,params] = loadSessionData(meta,params);
-
+%%
 % ------------------------------------------
 % -- Motion Energy --
 % me (struct array) - one entry per session
@@ -103,96 +103,98 @@ for sessix = 1:numel(meta)
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat, obj(sessix));
 
     % -- Calculate the null and potent spaces for each session
-    cond2use = [2 3 4 5]; % 2AFC hit, AW hit, 2AFC miss, AW miss (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    nullalltime = 0;      % use all time points to estimate null space if 1
-    cond2proj = [2 3];    % (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime);
+    cond2use = [2 3 4 5];   % All 2AFC hit trials, all AW hit trials (NUMBERING ACCORDING TO PARAMS.CONDITION)
+    nullalltime = 0;        % use all time points to estimate null space if 1
+    AWonly = 0;             % use only AW to find null and potent spaces 
+    delayOnly = 0;          % use only delay period to find null and potent spaces
+    cond2proj = [2 3];       % (NUMBERING ACCORDING TO PARAMS.CONDITION)
+    rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime,AWonly,delayOnly);
 
-    % -- Find coding dimensions from neural activity projected into the null and potent spaces
+    % -- Find coding dimensions from RECONSTRUCTED full neural activity which is reconstructed from the null and potent spaces
     cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
     cond2proj = [1 2];           % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
     cond2use_trialdat = [2 3];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    cd_null(sessix) = getCodingDimensions_Context(rez(sessix).N_null_psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
-    cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).N_potent_psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+    cd_null(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.null,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+    cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.potent,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
 
 end
 %% Project single trials onto Null and Potent CDs
 disp('----Projecting single trials onto CDContext----')
 cd = 'context';
 
-[cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez);
+[cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
 %% Plot heatmap of single trialCDContext Null and Potent over the course of a session
-tmax = 0;                               % what you want max of xlim to be
-for sessix = 1:length(meta)%sessrange
-    plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax)
-end
-
-%% Find trials in which the animal switches between contexts
-for sessix = 1:numel(meta)
-    bp = obj(sessix).bp;
-    [toAW_ix, toAFC_ix] = findSwitchTrials(bp);
-    % toAW_ix = the first trial in an AW block; toAFC_ix = the first trial in a 2AFC block
-    obj(sessix).toAW_ix = toAW_ix;  obj(sessix).toAFC_ix = toAFC_ix;
-end
-%% Find avg context mode across trials in a given session on switch trials
-clear temp
-nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
-% Time period over which you want to average CDContext
-trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-start = find(obj(1).time>trialstart,1,'first');
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-stop = find(obj(1).time<samp,1,'last');
-
-for s=1:2
-    if s==1
-        space = cd_null;
-        spacename = 'Null';
-    else
-        space = cd_potent;
-        spacename = 'Potent';
-    end
-    for sessix = 1:numel(meta)
-        CDCont = space(sessix).singleProj.context;
-
-        % Find avg CDContext on 2AFC --> AWswitch trials (during the presample period)
-        switchtype = 'toAW_ix';
-        contswitch(sessix).toAW_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
-
-        % Find avg CDContext on AW --> 2AFC switch trials (during the presample period)
-        switchtype = 'toAFC_ix';
-        contswitch(sessix).to2AFC_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
-    end
-end
-%%
-% Normalize the CDContext values to the max of the absolute values (for
-% each session--i.e. each session will have CDCont values between -1 and 1)
-% for sessix = 1:length(meta)
-%     blah = contswitch(sessix);
-%     blah = normalizeCDCont(blah);
-%     contswitch(sessix) = blah;
+% tmax = 0;                               % what you want max of xlim to be
+% for sessix = 1:length(meta)%sessrange
+%     plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax)
 % end
-%% Plot switch-aligned CDContext
-% Concatenate all switch-aligned CDContexts from across sessions
-for s=1:2
-    if s==1
-        spacename = 'Null';
-    else
-        spacename = 'Potent';
-    end
-    toAW = []; to2AFC = [];
-    for sessix = 1:length(meta)
-        toAW = [toAW; contswitch(sessix).toAW_CDCont.(spacename)];
-        to2AFC = [to2AFC; contswitch(sessix).to2AFC_CDCont.(spacename)];
-    end
-    col = [0.35 0.35 0.35];
-    nSessions = length(meta);
-    tRange = -nBufferTrials:nBufferTrials;           % Number of trials that you want to plot
-    stdCD = getStd(toAW,to2AFC);                     % Get the standard deviation of CDCont across all trials (from all sessions)
-    alpha = 0.2;                                     % Opacity of confidence intervals
-
-    plotSwitchAlignedCDCont(toAW, to2AFC,stdCD, nSessions, tRange, alpha, col,nBufferTrials)
-    sgtitle(spacename)
-end
+% 
+% %% Find trials in which the animal switches between contexts
+% for sessix = 1:numel(meta)
+%     bp = obj(sessix).bp;
+%     [toAW_ix, toAFC_ix] = findSwitchTrials(bp);
+%     % toAW_ix = the first trial in an AW block; toAFC_ix = the first trial in a 2AFC block
+%     obj(sessix).toAW_ix = toAW_ix;  obj(sessix).toAFC_ix = toAFC_ix;
+% end
+% %% Find avg context mode across trials in a given session on switch trials
+% clear temp
+% nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
+% % Time period over which you want to average CDContext
+% trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+% start = find(obj(1).time>trialstart,1,'first');
+% samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+% stop = find(obj(1).time<samp,1,'last');
+% 
+% for s=1:2
+%     if s==1
+%         space = cd_null;
+%         spacename = 'Null';
+%     else
+%         space = cd_potent;
+%         spacename = 'Potent';
+%     end
+%     for sessix = 1:numel(meta)
+%         CDCont = space(sessix).singleProj.context;
+% 
+%         % Find avg CDContext on 2AFC --> AWswitch trials (during the presample period)
+%         switchtype = 'toAW_ix';
+%         contswitch(sessix).toAW_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
+% 
+%         % Find avg CDContext on AW --> 2AFC switch trials (during the presample period)
+%         switchtype = 'toAFC_ix';
+%         contswitch(sessix).to2AFC_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
+%     end
+% end
+% %%
+% % Normalize the CDContext values to the max of the absolute values (for
+% % each session--i.e. each session will have CDCont values between -1 and 1)
+% % for sessix = 1:length(meta)
+% %     blah = contswitch(sessix);
+% %     blah = normalizeCDCont(blah);
+% %     contswitch(sessix) = blah;
+% % end
+% %% Plot switch-aligned CDContext
+% % Concatenate all switch-aligned CDContexts from across sessions
+% for s=1:2
+%     if s==1
+%         spacename = 'Null';
+%     else
+%         spacename = 'Potent';
+%     end
+%     toAW = []; to2AFC = [];
+%     for sessix = 1:length(meta)
+%         toAW = [toAW; contswitch(sessix).toAW_CDCont.(spacename)];
+%         to2AFC = [to2AFC; contswitch(sessix).to2AFC_CDCont.(spacename)];
+%     end
+%     col = [0.35 0.35 0.35];
+%     nSessions = length(meta);
+%     tRange = -nBufferTrials:nBufferTrials;           % Number of trials that you want to plot
+%     stdCD = getStd(toAW,to2AFC);                     % Get the standard deviation of CDCont across all trials (from all sessions)
+%     alpha = 0.2;                                     % Opacity of confidence intervals
+% 
+%     plotSwitchAlignedCDCont(toAW, to2AFC,stdCD, nSessions, tRange, alpha, col,nBufferTrials)
+%     sgtitle(spacename)
+% end
 %% Concatenate coding dimensions in the null and potent space across sessions
 cd_null_all = concatRezAcrossSessions_Context(cd_null);
 cd_potent_all = concatRezAcrossSessions_Context(cd_potent);
@@ -217,23 +219,27 @@ ndims = 4;                              % top ndims variance explaining dimensio
 % -----------------------------------------------------------------------
 ndims = 5;                              % how many n/p dimensions to plot, in order of variance explained
 cond2plot = 1:2;                        % 2AFC hit, AW hit (reference to conditions used to find null_psth)
-%plot_NP_PSTH(rez,obj,params,ndims,cond2plot,meta)
-plotTopDims_NP_Proj(meta,rez,obj,cond2plot,ndims)
+% plot_NP_PSTH(rez,obj,params,ndims,cond2plot,meta)
+% plotTopDims_NP_Proj(meta,rez,obj,cond2plot,ndims)
 %%
 % -----------------------------------------------------------------------
 % -- Coding Dimensions --
 % -----------------------------------------------------------------------
 plotmiss = 0;
 
+figure();
+
 titlestring = 'Null';
-%plotCDProj_Context(cd_null_all,cd_null,sav,titlestring,plotmiss)
+subplot(1,2,1)
+plotCDProj_Context(cd_null_all,cd_null,sav,titlestring,plotmiss)
 
 titlestring = 'Potent';
-%plotCDProj_Context(cd_potent_all,cd_potent,sav,titlestring,plotmiss)
+subplot(1,2,2)
+plotCDProj_Context(cd_potent_all,cd_potent,sav,titlestring,plotmiss)
 
 %plotCDContext_Selectivity(cd_null_all, cd_potent_all,cd_null)
 
-plotCDContext_SelectivityScatter(cd_null_all, cd_potent_all,cd_potent,obj(1),params(1))
+% plotCDContext_SelectivityScatter(cd_null_all, cd_potent_all,cd_potent,obj(1),params(1))
 
 
 %plotNP_CD_Context(cd_null_all,cd_null,cd_potent_all,cd_potent)

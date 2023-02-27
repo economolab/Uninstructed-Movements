@@ -111,7 +111,8 @@ clearvars -except obj meta params me sav
 % -----------------------------------------------------------------------
 
 for sessix = 1:numel(meta)
-    % -- input data
+    % -- input data (the FR of each individual neuron will be converted to
+    % a value between 0 and 1)
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat, obj(sessix));
 
     % -- Calculate the null and potent spaces for each session
@@ -163,6 +164,19 @@ colors = getColors_Updated();
 alpha = 0.2;
 smooth = 31;
 plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,'alldims')
+%%
+conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
+sm = 51;                                        % Smoothing parameter for the condition-averaged projections
+
+spacename = 'N_null_psth';
+space = 'null';
+[NullSelProj] = findContextProj_allDims(rez,meta,space,spacename,conds2use,sm);
+
+spacename = 'N_potent_psth';
+space = 'potent';
+[PotentSelProj] = findContextProj_allDims(rez,meta,space,spacename,conds2use,sm);
+%%
+plotAvgSelProj(colors,NullSelProj, PotentSelProj, alpha,obj,trialstart,samp)
 %% Normalize selective dimensions
 goCue = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
 start = find(obj(1).time>(goCue+0.6),1,'first');
@@ -182,6 +196,54 @@ samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
 
 plotSelectivityHeatmap(delay,go,samp,selectNorm,obj,ContextColormap)
+%%
+% Get the indices of all cells which are included and context-modulated
+tempix = find(includedCells&modulatedCells);
+selectivityMod = selectNorm(:,tempix);                                  % Selectivity values for these cells
+psthMod = psth_all(:,tempix,:);                                         % PSTHs for these cells                
+clear tempix 
+
+% Get the presample average selectivity for all modulated cells
+preAvg = mean(selectivityMod(start:stop,:),1,'omitnan');
+
+% Find cells which are selective for 2AFC
+afcix = find(preAvg>0);                                                 % Cells with a positive selectivity value
+included.selectivity.AFC = selectivityMod(:,afcix);
+included.psth.AFC = psthMod(:,afcix,:);
+temp = mean(included.selectivity.AFC(start:stop,:),1,'omitnan');        % Get the average pre-sample selectivity for 2AFC selective cells
+[~,sortix] = sort(temp,'descend');                                      % Sort 2AFC-selective cells in order of pre-sample selectivity
+included.selectivity.AFC = included.selectivity.AFC(:,sortix);
+included.psth.AFC = included.psth.AFC(:,sortix,:);                      % Sort PSTHs in same order
+
+% Do the same thing for AW-preferring cells
+awix = find(preAvg<0);                                                  % Cells with a negative selectivity value are AW-selective
+included.selectivity.AW = selectivityMod(:,awix);
+included.psth.AW = psthMod(:,awix,:);
+temp = mean(included.selectivity.AW(start:stop,:),1,'omitnan');
+[~,sortix] = sort(temp,'ascend');  
+included.selectivity.AW = included.selectivity.AW(:,sortix);
+included.psth.AW = included.psth.AW(:,sortix,:);
+
+% Concatenate the sorted selectivity and PSTH values for 2AFC and AW preferring cells (preserving the sorted order)
+selectivityMod = [included.selectivity.AFC,included.selectivity.AW];
+psthMod = cat(2,included.psth.AFC,included.psth.AW);
+
+% Number of cells in each type
+nums.AFC = size(included.selectivity.AFC,2);
+nums.AW = size(included.selectivity.AW,2);
+
+% Get the cells which are not modulated by context and sort them according to presample selectivity
+tempix = find(includedCells&~modulatedCells);
+selectivityNonMod = selectNorm(:,tempix);
+psthNonMod = psth_all(:,tempix,:);
+temp = mean(selectivityNonMod(start:stop,:),1,'omitnan');
+[~,sortix] = sort(temp,'descend');  
+selectivityNonMod = selectivityNonMod(:,sortix);
+psthNonMod = psthNonMod(:,sortix,:);
+
+% Concatenate such that cells are ordered with: 2AFC-selective first (sorted), AW-selective, then non-selective
+toplot_all = [selectivityMod,selectivityNonMod];
+psthplot_all = cat(2,psthMod, psthNonMod);
 %% Concatenate condition averaged projections onto selective dimensions across sessions
 conds2use = [5,10];       % With reference to the conditions which were projected onto the N/P dims above
 condprojAllSess.null = [];
@@ -300,6 +362,31 @@ for i = 1:size(condprojAllSess.(space),3)                           % For all be
     end                                                             % And smooth the latent
 end
 end
+
+function [allSessSelProj] = findContextProj_allDims(rez,meta,space,spacename,conds2use,sm)
+allSessSelProj{1} = [];
+allSessSelProj{2} = [];
+for sessix = 1:numel(meta)                      % For each session...
+    % For null and potent spaces
+
+    % Get the trial-averaged projections for all conditions onto each null or potent dimension
+    proj = rez(sessix).(spacename);
+    nDims = size(proj,2);
+
+    for c = 1:length(conds2use)
+        condproj = mySmooth(proj(:,:,conds2use(c)),sm);
+
+        % Only consider projections for selective dimensions
+        for d = 1:nDims                                                 % For every dimension...
+            if rez(sessix).selectiveDimensions.(space)(d)               % If it is a selective dimension...
+                temp = condproj(:,d);                                   % Take the avg projection for that dimension for this condition
+
+                allSessSelProj{c}= [allSessSelProj{c},temp];                  % Store the projections for all dimensions, not averaged by session
+            end
+        end
+    end
+end
+end
 %% Plotting functions
 function plotAvgSelectivity_NP(NullSel,PotentSel, meta, colors, alpha, smooth, trialstart, samp,obj,samples)
 figure();
@@ -313,7 +400,8 @@ if strcmp(samples,'sessions')
 elseif strcmp(samples,'alldims')
     normaliz = size(NullSel.flipped,2);
 end
-temperr = 1.96*(std(NullSel.flipped,0,2)/sqrt(normaliz));
+%temperr = 1.96*(std(NullSel.flipped,0,2)/sqrt(normaliz));
+temperr = (std(NullSel.flipped,0,2)/sqrt(normaliz));    % SEM
 toplot = mean(NullSel.flipped,2,'omitnan');
 shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
 
@@ -325,15 +413,16 @@ elseif strcmp(samples,'alldims')
 end
 
 col = colors.potent;
-temperr = 1.96*(std(PotentSel.flipped,0,2)/sqrt(normaliz));
+%temperr = 1.96*(std(PotentSel.flipped,0,2)/sqrt(normaliz));
+temperr = (std(PotentSel.flipped,0,2)/sqrt(normaliz));      % SEM
 toplot = mean(PotentSel.flipped,2,'omitnan');
 shadedErrorBar(obj(1).time,toplot,temperr,{'Color',col,'LineWidth',2}, alpha, ax); hold on;
 
-xlim([trialstart 2.5])
-xline(samp,'k--','LineWidth',1.5)
-xline(samp+1.3,'k--','LineWidth',1.5)
-xline(samp+1.3+0.9,'k--','LineWidth',1.5)
-xlabel('Time from go cue (s)')
+xlim([trialstart 2])
+xline(samp,'k--','LineWidth',1)
+xline(samp+1.3,'k--','LineWidth',1)
+xline(samp+1.3+0.9,'k--','LineWidth',1)
+xlabel('Time from go cue/water drop (s)')
 ylabel('Selectivity across all null/potent dimensions (a.u.)')
 end
 
@@ -370,11 +459,13 @@ for d= dims2plot
     plot(obj(1).time,latents.null(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
     plot(obj(1).time,latents.null(:,d,2),'Color',colors.aw,'LineWidth',1.5)
     title(['VE = ' num2str(VE.null(d)) ' %'])               % Display the variance explained by the PC as the title of the subplot
-    
+    xlim([-2.6 2.3])
+
     % Potent space
     subplot(2,length(dims2plot),d+3)
     plot(obj(1).time,latents.potent(:,d,1),'Color',colors.afc,'LineWidth',1.5); hold on;
     plot(obj(1).time,latents.potent(:,d,2),'Color',colors.aw,'LineWidth',1.5)
     title(['VE = ' num2str(VE.potent(d)) ' %'])             % Display the variance explained by the PC as the title of the subplot
+    xlim([-2.6 2.3])
 end
 end
