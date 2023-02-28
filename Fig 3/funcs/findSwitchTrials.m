@@ -1,3 +1,11 @@
+%%% Function 'findSwitchTrials' %%%
+% Finds trials in a session where there is a "context switch" (i.e. identifies trials that is the first autowater trial after a block of 2AFC
+% trials and vice versa)
+
+% INPUTS: bp = the Bpod data for a given session
+% OUTPUTS: toAW_ix = the indices of trials in a session that is the first autowater trial after a block of 2afc trials
+% toAFC_ix = indices of trials in a session that is the first 2AFC trial after a block of AW trials
+
 function [toAW_ix, toAFC_ix] = findSwitchTrials(bp)
 % 2AFC to AW switch trials
 AWix = find(bp.autowater&~bp.stim.enable);      % Find all AW trials that were not stim trials

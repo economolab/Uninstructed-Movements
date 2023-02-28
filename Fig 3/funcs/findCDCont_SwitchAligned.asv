@@ -12,10 +12,7 @@
 %       I.e. if you want to look at the average jaw velocity during the presample period, you would get the obj.time indices that 
 %       correspond to the  beginning and end of the presample period.
 
-% OUTPUTS: toAW_CDCont = average value of whatever metric you are looking at in the format of (B x S)
-%       where 'B' = the number of trials that you are looking at on either end of the switch trial (I.e. if you are looking 
-%       at 5 trials before and after the switch trial, 'B' will = 11)
-%       'S' = number of switch trials
+% OUTPUTS: toAW_CDCont = (BoundaryTrix x 
 function toAW_CDCont = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop)
 
 BoundaryTrix = (2*nBufferTrials)+1;              % Current switch trial will be middle, then want to look at nBufferTrials before and nBufferTrials after switch

@@ -89,7 +89,7 @@ stop = find(obj(1).time<samp,1,'last');
 nCells = size(obj(sessix).trialdat,2);
 
 for c = 1:nCells
-    cellPSTH = obj(sessix).trialdat(:,c,:);
+    cellPSTH = obj(sessix).trialdat(:,c,:);         % (time x trials) for this cell
 
     % Find avg CDContext on 2AFC --> AWswitch trials (during the presample period)
     switchtype = 'toAW_ix';
