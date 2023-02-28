@@ -136,7 +136,7 @@ for sessix = 1:length(meta)
     psth2use = [];
     for c = cond2use
         condtrix = params(sessix).trialid{c};
-        trix2use = deltrix(ismember(deltrix,condtrix));
+        trix2use = deltrix(ismember(deltrix,condtrix)); 
         condpsth = mean(temppsth(:,:,trix2use),3,'omitnan');
         condpsth = mySmooth(condpsth,smooth);
         psth2use = cat(3,psth2use,condpsth);
@@ -154,7 +154,9 @@ for sessix = 1:length(meta)
     selectivity_All = [selectivity_All,selectivity];
 end
 %%
-clearvars -except selectivity_All params meta obj
+tempobj = obj(1); tempparams = params(1);
+clearvars -except selectivity_All tempobj tempparams
+obj = tempobj; params = tempparams;
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------Static Delay-----------------------------------------
@@ -317,30 +319,36 @@ for sessix = 1:length(ctrlmeta)
     selectivity_AllCtrl = [selectivity_AllCtrl,selectivity];
 end
 %%
-ctrlcol = [0.6 0.6 0.6];
-hazcol = [0 0 0];
+clearvars -except selectivity_All selectivity_AllCtrl obj meta params kin ctrlobj ctrlmeta ctrlparams ctrlkin
+
+colors = getColors_Updated();
+ctrlcol = colors.afc;
+hazcol = [0.5 0.5 0.5];
 go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+ctrlstop = find(ctrlobj(1).time<go,1,'last');
 del2use = 1.2;
 smooth = 70;
 alph = 0.2;
 
 figure();
 toplot = mean(selectivity_All,2,'omitnan');
-err = 1.96*(std(selectivity_All,0,2,'omitnan')/sqrt(size(selectivity_All,2)));
+%err = 1.96*(std(selectivity_All,0,2,'omitnan')/sqrt(size(selectivity_All,2)));
+err = std(selectivity_All,0,2,'omitnan')/sqrt(size(selectivity_All,2));
 ax = gca;
 shadedErrorBar(obj(1).time, toplot, err ,{'Color',hazcol,'LineWidth',2.5}, alph, ax); hold on;
 
 toplot = mean(selectivity_AllCtrl,2,'omitnan');
-err = 1.96*(std(selectivity_AllCtrl,0,2,'omitnan')/sqrt(size(selectivity_AllCtrl,2)));
+%err = 1.96*(std(selectivity_AllCtrl,0,2,'omitnan')/sqrt(size(selectivity_AllCtrl,2)));
+err = std(selectivity_AllCtrl,0,2,'omitnan')/sqrt(size(selectivity_AllCtrl,2));
 ax = gca;
-shadedErrorBar(obj(1).time, toplot, err ,{'Color',ctrlcol,'LineWidth',2.5}, alph, ax);
+shadedErrorBar(obj(1).time(1:ctrlstop), toplot(1:ctrlstop), err(1:ctrlstop) ,{'Color',ctrlcol,'LineWidth',2.5}, alph, ax);
 %plot(obj(1).time,toplot,'Color',ctrlcol,'LineStyle','--','LineWidth',1.75)
 
-xline(0,'LineStyle','-.','Color',[0.75 0.75 0.75],'LineWidth',1.5)
+xline(0,'LineStyle','--','Color','black','LineWidth',1.5)
 xline(go,'LineStyle','--','Color',ctrlcol,'LineWidth',1.5)
 xline(del2use,'LineStyle','--','Color',hazcol,'LineWidth',1.5)
-xline(-1.3,'LineStyle','-.','Color',[0.75 0.75 0.75],'LineWidth',1.5)
+%xline(-1.3,'LineStyle','-.','Color',[0.75 0.75 0.75],'LineWidth',1.5)
 %legend(' ',' ',' ','Haz',' ',' ',' ','Static','Location','best')
-xlim([-1.4 2])
+xlim([-1.3 del2use])
 xlabel('Time from delay onset (s)')
 ylabel('Selectivity (spks/s)')

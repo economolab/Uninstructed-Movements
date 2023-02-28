@@ -83,7 +83,7 @@ end
 sess2omit = false(length(meta),1);
 LAFCstimCond = 1;
 RAFCstimCond = 3;
-EffectCutoff = 0.15;
+EffectCutoff = 0.10;
 perfCutoff = 0.55;
 for sessix = 1:length(meta)
     temp = perf_all(sessix,:);
@@ -98,32 +98,70 @@ for sessix = 1:length(meta)
     end
 end
 perf_all(sess2omit,:) = [];
-%% Plot
+%% Do t-test
 clearvars -except obj meta rez params perf_all lickCutoff sess2omit
+%perf_all = (sessions x conditions)
+%% Plot
+anmNames = {'MAH13','MAH13','MAH13','MAH13','MAH13','MAH13',...
+    'MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14'};
+anmNames(sess2omit) = [];
+cols = getColors_Updated();
+sigcutoff = 0.05;
+plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff)
 
-
-colors = {[1 0 0],[1 0 0],[0 0 1],[0 0 1]};
-%plotPerfV1(colors,perf_all,lickCutoff)
-
-colors = {[1 0 0],[1 0.5 0.5],[0 0 1],[0.5 0.5 1]};
-plotPerfV2(colors,perf_all,lickCutoff)
-
+%plotPerfV2(colors,perf_all,lickCutoff,anmNames)
 
 %%
-function plotPerfV1(colors,perf_all,lickCutoff)
+function plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff)
 figure();
 subplot(1,2,1)
+uniqueAnm = unique(anmNames);
+nAnimals = length(uniqueAnm);
+
 conds2plot = 1:4;
 for x = conds2plot
-    xx = x*ones(size(perf_all,1),1);
-    if x==1||x==3
-        scatter(xx,perf_all(:,x),'filled','MarkerFaceColor',colors{x}); hold on;
-    else 
-        scatter(xx,perf_all(:,x),'MarkerEdgeColor',colors{x}); hold on;
+    switch x
+        case 1
+            facecol = cols.lhit;
+            edgecol = [1 1 1];
+        case 2
+            facecol = [1 1 1];
+            edgecol = cols.lhit;
+        case 3
+            facecol = cols.rhit;
+            edgecol = [1 1 1];
+        case 4
+            facecol = [1 1 1];
+            edgecol = cols.rhit;
     end
-    for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,1:2),'Color','black')
-        plot(3:4,perf_all(sessix,3:4),'Color','black')
+
+    bar(x,mean(perf_all(:,x)),'FaceColor',facecol,'EdgeColor',edgecol); hold on;
+    for anm = 1:nAnimals
+        curranm = uniqueAnm{anm};
+        anmix = find(strcmp(anmNames,curranm));
+        switch anm
+            case 1
+                shape = 'o';
+            case 2
+                shape = '^';
+        end
+        xx = x*ones(length(anmix),1);
+        scatter(xx,perf_all(anmix,x),'filled',shape,'MarkerFaceColor','black');
+    end
+end
+for sessix = 1:size(perf_all,1)
+    plot(1:2,perf_all(sessix,1:2),'Color','black')
+    plot(3:4,perf_all(sessix,3:4),'Color','black')
+end
+for test = 1:(length(conds2plot)/2)
+    x = perf_all(:,(test*2)-1);
+    y = perf_all(:,test*2);
+    hyp = ttest(x,y,'Alpha',sigcutoff);
+    disp(num2str(hyp))
+    if hyp&&test==1
+        scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')
+    elseif hyp&&test==2
+        scatter(3.5,1.05,30,'*','MarkerEdgeColor','black')
     end
 end
 xlim([0 5])
@@ -136,15 +174,49 @@ subplot(1,2,2)
 conds2plot = 5:8;
 for x = 1:length(conds2plot)
     cond = conds2plot(x);
-    xx = x*ones(size(perf_all,1),1);
-    if x==1||x==3
-        scatter(xx,perf_all(:,cond),'filled','MarkerFaceColor',colors{x}); hold on;
-    else 
-        scatter(xx,perf_all(:,cond),'MarkerEdgeColor',colors{x}); hold on;
+
+    switch x
+        case 1
+            facecol = cols.lhit_aw;
+            edgecol = [1 1 1];
+        case 2
+            facecol = [1 1 1];
+            edgecol = cols.lhit_aw;
+        case 3
+            facecol = cols.rhit_aw;
+            edgecol = [1 1 1];
+        case 4
+            facecol = [1 1 1];
+            edgecol = cols.rhit_aw;
     end
-    for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,conds2plot(1:2)),'Color','black')
-        plot(3:4,perf_all(sessix,conds2plot(3:4)),'Color','black')
+
+    bar(x,mean(perf_all(:,cond)),'FaceColor',facecol,'EdgeColor',edgecol); hold on;
+    for anm = 1:nAnimals
+        curranm = uniqueAnm{anm};
+        anmix = find(strcmp(anmNames,curranm));
+        switch anm
+            case 1
+                shape = 'o';
+            case 2
+                shape = '^';
+        end
+        xx = x*ones(length(anmix),1);
+        scatter(xx,perf_all(anmix,cond),'filled',shape,'MarkerFaceColor','black');
+    end
+end
+for sessix = 1:size(perf_all,1)
+    plot(1:2,perf_all(sessix,conds2plot(1:2)),'Color','black')
+    plot(3:4,perf_all(sessix,conds2plot(3:4)),'Color','black')
+end
+for test = 1:(length(conds2plot)/2)
+    x = perf_all(:,conds2plot((test*2)-1));
+    y = perf_all(:,conds2plot(test*2));
+    hyp = ttest(x,y,'Alpha',sigcutoff);
+    disp(num2str(hyp))
+    if hyp&&test==1
+        scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')
+    elseif hyp&&test==2
+        scatter(3.5,1.05,30,'*','MarkerEdgeColor','black')
     end
 end
 xlim([0 5])
@@ -154,22 +226,24 @@ ylabel(['Proportion of trials w/ lick within ' num2str(lickCutoff) ' (s) of wate
 title('Autowater')
 end
 
-function plotPerfV2(colors,perf_all,lickCutoff)
+function plotPerfV2(colors,perf_all,lickCutoff,anmNames)
+nSessions = numel(anmNames);
+
 figure();
 subplot(1,2,1)
 conds2plot = 1:4;
 means = mean(perf_all,1,'omitnan');
 for x = conds2plot
     if x==1||x==2
-        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors{1}); hold on;
+        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors.lhit); hold on;
     else
-        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors{3}); hold on;
+        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors.rhit); hold on;
     end
-    plot(1:2,means(1:2),'Color',colors{1},'LineWidth',3)
-    plot(3:4,means(3:4),'Color',colors{3},'LineWidth',3)
+    plot(1:2,means(1:2),'Color',colors.lhit,'LineWidth',3)
+    plot(3:4,means(3:4),'Color',colors.rhit,'LineWidth',3)
     for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,1:2),'Color',colors{2})
-        plot(3:4,perf_all(sessix,3:4),'Color',colors{4})
+        plot(1:2,perf_all(sessix,1:2),'Color',colors.lhit)
+        plot(3:4,perf_all(sessix,3:4),'Color',colors.rhit)
     end
 end
 xlim([0 5])
@@ -183,15 +257,15 @@ conds2plot = 5:8;
 for x = 1:length(conds2plot)
     cond = conds2plot(x);
     if x==1||x==2
-        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors{1}); hold on;
+        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors.lhit_aw); hold on;
     else
-        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors{3}); hold on;
+        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors.rhit_aw); hold on;
     end
-    plot(1:2,means(5:6),'Color',colors{1},'LineWidth',3)
-    plot(3:4,means(7:8),'Color',colors{3},'LineWidth',3)
+    plot(1:2,means(5:6),'Color',colors.lhit_aw,'LineWidth',3)
+    plot(3:4,means(7:8),'Color',colors.rhit_aw,'LineWidth',3)
     for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,5:6),'Color',colors{2})
-        plot(3:4,perf_all(sessix,7:8),'Color',colors{4})
+        plot(1:2,perf_all(sessix,5:6),'Color',colors.lhit_aw)
+        plot(3:4,perf_all(sessix,7:8),'Color',colors.rhit_aw)
     end
 end
 xlim([0 5])

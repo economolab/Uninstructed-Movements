@@ -84,7 +84,7 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 %% Plot ME heatmap for example trials 
-for sessix = 7%1:length(meta)
+for sessix = 1%1:length(meta)
     date = meta(sessix).date;
     anm = meta(sessix).anm;
 
@@ -117,7 +117,7 @@ for sessix = 7%1:length(meta)
             title('AW trials')
         end
         c=colorbar;
-        clim([0 60])
+        clim([2 45])
         ylabel(c,feat,'FontSize',12,'Rotation',90);
     end
     figtitle =  ['Example Trials from',anm,date];  % Name/title for session

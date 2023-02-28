@@ -1,4 +1,5 @@
-function modecond = findMoreMove(conditions,kin,kinfeat,met,taxis)
+% Identify the condition in which the animal moves more
+function [modecond,modekin] = findMoreMove(conditions,kin,kinfeat,params,obj,times)
 % Pre-allocate values to be stored for each condition
 jv = cell(1,numel(conditions));
 maxmin = NaN(1,numel(conditions));
@@ -8,26 +9,24 @@ cnt = 0;
 
 % Define time-points over which you want to find the average kinematic
 % measure
-e1 = find(taxis>-0.5,1,'first');
-e2 = find(taxis>-0.05,1,'first');
+e1 = find(obj.time>times(1),1,'first');
+e2 = find(obj.time>times(2),1,'first');
+
+kinix = find(strcmp(kin.featLeg,kinfeat));
 % For each condition, find the average kinematic measure during the
 % specified time epoch
 for cc = 1:numel(conditions)
-    cond = conditions{cc};
-    nTrials = length(met.trialid{cond});
+    cond = conditions(cc);
+    condtrix = params.trialid{cond};
     % Grab all of the kinematic feature values for this condition
-    if cc == 1
-        jv{cc} = kin.(kinfeat)(:,1:nTrials);
-        cnt = nTrials;
-    else
-        jv{cc} = kin.(kinfeat)(:,(cnt+1):end);
-    end
-    % Find the average during the specified time epoch on each trial
-    jv{cc} = mean(jv{cc}(e1:e2,:),1);
+    jv{cc} = kin.dat_std(:,condtrix,kinix);
 
-    maxmin(cc) = max(jv{cc})-min(jv{cc});  % Find the range of kin measure values in the current condition
-    stdeviation(cc) = std(jv{cc});         % Find the stdev of kin measure values in the current condition
-    avg(cc) = mean(jv{cc});                % Find the average of kin measure values in the current condition
+    % Find the average during the specified time epoch on each trial
+    jv_avg{cc} = mean(jv{cc}(e1:e2,:),1);
+
+    maxmin(cc) = max(jv_avg{cc})-min(jv_avg{cc});  % Find the range of kin measure values in the current condition
+    stdeviation(cc) = std(jv_avg{cc});         % Find the stdev of kin measure values in the current condition
+    avg(cc) = mean(jv_avg{cc});                % Find the average of kin measure values in the current condition
 end
 touse = NaN(1,3);
 % Find the condition with the largest range, stdev, and average kinematic
@@ -40,4 +39,5 @@ elseif sum(touse)==6                        % If condition 2 has the larger dist
 else                                        % If there are discrepancies between which condition has the widest distribution...
     modecond = touse(3);                    % Just choose the condition with the largest average kinematic measure   
 end
+modekin = jv{modecond};
 end

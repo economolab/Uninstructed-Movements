@@ -92,7 +92,6 @@ selectNorm = NaN(length(obj(1).time),length(maxSelect));
 for c = 1:length(maxSelect)                                 % For every cell... 
     selectNorm(:,c) = selectivity(:,c)./maxSelect(c);       % Normalize all selectivity values to the max selectivity val
 end                                                         % Each cell will have selectivity values -1 to 1
-
 %% Sort by pre-sample selectivity
 % Find the times corresponding to trial start and the sample period
 trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
@@ -189,22 +188,26 @@ disp([num2str(pctSelective) ' % of cells show context-selectivity in the presamp
 %% Sort according to how we want to plot it for figure
 clearvars -except obj meta params includedCells modulatedCells selectNorm psth_all start stop 
 
+% Get the indices of all cells which are included and context-modulated
 tempix = find(includedCells&modulatedCells);
-selectivityMod = selectNorm(:,tempix);
-psthMod = psth_all(:,tempix,:);
+selectivityMod = selectNorm(:,tempix);                                  % Selectivity values for these cells
+psthMod = psth_all(:,tempix,:);                                         % PSTHs for these cells                
 clear tempix 
 
+% Get the presample average selectivity for all modulated cells
 preAvg = mean(selectivityMod(start:stop,:),1,'omitnan');
 
-afcix = find(preAvg>0);
+% Find cells which are selective for 2AFC
+afcix = find(preAvg>0);                                                 % Cells with a positive selectivity value
 included.selectivity.AFC = selectivityMod(:,afcix);
 included.psth.AFC = psthMod(:,afcix,:);
-temp = mean(included.selectivity.AFC(start:stop,:),1,'omitnan');
-[~,sortix] = sort(temp,'descend');  
+temp = mean(included.selectivity.AFC(start:stop,:),1,'omitnan');        % Get the average pre-sample selectivity for 2AFC selective cells
+[~,sortix] = sort(temp,'descend');                                      % Sort 2AFC-selective cells in order of pre-sample selectivity
 included.selectivity.AFC = included.selectivity.AFC(:,sortix);
-included.psth.AFC = included.psth.AFC(:,sortix,:);
+included.psth.AFC = included.psth.AFC(:,sortix,:);                      % Sort PSTHs in same order
 
-awix = find(preAvg<0);
+% Do the same thing for AW-preferring cells
+awix = find(preAvg<0);                                                  % Cells with a negative selectivity value are AW-selective
 included.selectivity.AW = selectivityMod(:,awix);
 included.psth.AW = psthMod(:,awix,:);
 temp = mean(included.selectivity.AW(start:stop,:),1,'omitnan');
@@ -212,12 +215,15 @@ temp = mean(included.selectivity.AW(start:stop,:),1,'omitnan');
 included.selectivity.AW = included.selectivity.AW(:,sortix);
 included.psth.AW = included.psth.AW(:,sortix,:);
 
+% Concatenate the sorted selectivity and PSTH values for 2AFC and AW preferring cells (preserving the sorted order)
 selectivityMod = [included.selectivity.AFC,included.selectivity.AW];
 psthMod = cat(2,included.psth.AFC,included.psth.AW);
 
+% Number of cells in each type
 nums.AFC = size(included.selectivity.AFC,2);
 nums.AW = size(included.selectivity.AW,2);
 
+% Get the cells which are not modulated by context and sort them according to presample selectivity
 tempix = find(includedCells&~modulatedCells);
 selectivityNonMod = selectNorm(:,tempix);
 psthNonMod = psth_all(:,tempix,:);
@@ -226,7 +232,7 @@ temp = mean(selectivityNonMod(start:stop,:),1,'omitnan');
 selectivityNonMod = selectivityNonMod(:,sortix);
 psthNonMod = psthNonMod(:,sortix,:);
 
-
+% Concatenate such that cells are ordered with: 2AFC-selective first (sorted), AW-selective, then non-selective
 toplot_all = [selectivityMod,selectivityNonMod];
 psthplot_all = cat(2,psthMod, psthNonMod);
 %%
@@ -248,10 +254,10 @@ subplot(1,3,1)
 imagesc(obj(1).time,1:nCells,psthplot_all(:,:,1)'); hold on
 colorbar
 ax = gca;
-colormap(ax,linspecer)
+colormap(ax,flipud(ContextColormap))
 clim([0 70])
 line([tLim.start,tLim.stop],[nums.AFC,nums.AFC],'Color','black','LineWidth',1.25)
-line([tLim.start,tLim.stop],[nums.AW,nums.AW],'Color','black','LineWidth',1.25)
+line([tLim.start,tLim.stop],[nums.AFC+nums.AW,nums.AFC+nums.AW],'Color','black','LineWidth',1.25)
 line([samp,samp],[1,nCells],'Color','black','LineStyle','--','LineWidth',1.5)
 xlim([tLim.start tLim.stop])
 title('2AFC Trials')
@@ -261,10 +267,10 @@ subplot(1,3,2)
 imagesc(obj(1).time,1:nCells,psthplot_all(:,:,2)'); hold on
 colorbar
 ax = gca;
-colormap(ax,linspecer)
+colormap(ax,flipud(ContextColormap))
 clim([0 70])
 line([tLim.start,tLim.stop],[nums.AFC,nums.AFC],'Color','black','LineWidth',1.25)
-line([tLim.start,tLim.stop],[nums.AW,nums.AW],'Color','black','LineWidth',1.25)
+line([tLim.start,tLim.stop],[nums.AFC+nums.AW,nums.AFC+nums.AW],'Color','black','LineWidth',1.25)
 line([samp,samp],[1,nCells],'Color','black','LineStyle','--','LineWidth',1.5)
 xlim([tLim.start tLim.stop])
 xlabel('Time from go cue/water drop (s)')
@@ -274,9 +280,9 @@ subplot(1,3,3)
 imagesc(obj(1).time,1:nCells,toplot_all'); hold on
 colorbar
 ax = gca;
-colormap(ax,ContextColormap)
+colormap(ax,flipud(ContextColormap))
 line([tLim.start,tLim.stop],[nums.AFC,nums.AFC],'Color','black','LineWidth',1.25)
-line([tLim.start,tLim.stop],[nums.AW,nums.AW],'Color','black','LineWidth',1.25)
+line([tLim.start,tLim.stop],[nums.AFC+nums.AW,nums.AFC+nums.AW],'Color','black','LineWidth',1.25)
 line([samp,samp],[1,nCells],'Color','black','LineStyle','--','LineWidth',1.5)
 xlim([tLim.start tLim.stop])
 title('Selectivity')

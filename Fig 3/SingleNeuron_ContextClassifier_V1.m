@@ -89,7 +89,7 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 for sessix = 1:numel(meta)
     me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
 end
-%% context decoding from dlc features
+%% context decoding from population of single neurons
 
 clearvars -except datapth kin me meta obj params acc acc_shuf
 
@@ -185,22 +185,21 @@ ax = gca;
 hold on;
 smooth = 21;
 toplot = mySmooth(mean(acc,2),smooth);
-err = mySmooth((std(acc,[],2)./sqrt(numel(obj))),smooth);
+err = 1.96*mySmooth((std(acc,[],2)./sqrt(numel(obj))),smooth);
 shadedErrorBar(rez.tm(1:end-1),toplot,err,{'Color',cols{1},'LineWidth',2},alph,ax)
 
 toplot = mySmooth(mean(acc_shuf_,2),smooth);
-err = mySmooth((std(acc_shuf_,[],2)./sqrt(numel(obj))),smooth);
+err = 1.96*mySmooth((std(acc_shuf_,[],2)./sqrt(numel(obj))),smooth);
 shadedErrorBar(rez.tm(1:end-1),toplot,err,{'Color',cols{2},'LineWidth',2},alph,ax)
 % shadedErrorBar(rez.tm(1:end-1),mean(acc,2),getCI(acc),{'Color',cols{1},'LineWidth',2},alph,ax)
 % shadedErrorBar(rez.tm(1:end-1),mean(acc_shuf_,2),getCI(acc_shuf_),{'Color',cols{2},'LineWidth',2},alph,ax)
-xline(0,'k:','LineWidth',2)
-xline(sample,'k:','LineWidth',2)
-xline(delay,'k:','LineWidth',2)
-xline(trialStart,'k:','LineWidth',2)
+xline(0,'k--','LineWidth',1)
+xline(sample,'k--','LineWidth',1)
+xline(delay,'k--','LineWidth',1)
 xlim([trialStart, params(1).tmax-0.2])
 ylim([ax.YLim(1) 1])
 
-xlabel('Time (s) from go cue')
+xlabel('Time from go cue (s)')
 ylabel([num2str(rez.nFolds) '-Fold CV Accuracy'])
 title('Context Decoding from Population Activity')
 
