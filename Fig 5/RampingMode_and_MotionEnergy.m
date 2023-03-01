@@ -246,8 +246,6 @@ for sessix = 1:length(meta)
     legend(ax1,{'Motion Energy','Ramping mode'},'Location','best') 
     sgtitle([meta(sessix).anm,' ',meta(sessix).date])
 end
-
-
 %%
 cd_null_all = concatRezAcrossSessions(cd_null);
 cd_potent_all = concatRezAcrossSessions(cd_potent);
