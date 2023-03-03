@@ -145,9 +145,106 @@ stopix = find(obj(1).time<samp,1,'last');
 
 trials2cutoff = 40;                 % Trials to discount at the end of the session (for motion energy)
 cond2use = [6,7];                   % 2AFC trials and AW trials
-ngroups = 3;
 
-grouped = groupCDbyME(meta, obj, trials2cutoff, cond2use, startix, stopix,cd_context,cd_null,cd_potent,ngroups,me);
+for sessix = 1:length(meta)
+nTrials = obj(sessix).bp.Ntrials;
+cutoff = nTrials-trials2cutoff;
+for c = 1:length(cond2use)
+    if c==1
+        trialContext = 'afc';
+    else
+        trialContext = 'aw';
+    end
+    cond = cond2use(c);
+    % Get trials for current cond
+    condtrix = params(sessix).trialid{cond};
+    condtrix = condtrix(condtrix<cutoff);           % Only use trials that come before the 'end of session cutoff'
+
+    % Get ME and projections onto Ramping Mode for these trials
+    MEtrix = me(sessix).data(:,condtrix);
+    % Find avg ME during presamp on each trial
+    avgME = mean(MEtrix(startix:stopix,:),1,'omitnan');
+    % Find trials within this context where ME is less than move threshold (animal is not moving during presample)
+    noMoveTrix = find(avgME<me(sessix).moveThresh);
+    MoveTrix = find(avgME>me(sessix).moveThresh);
+
+    % For each of the fullpop, null, potent CDContexts...
+    for ii = 1:3
+        switch ii
+            % Get the CDContext single-trial projections from these condition's trials
+            case 1
+                context = cd_context(sessix).singleProj(:,condtrix);
+                cont = 'fullpop';
+            case 2
+                context = cd_null(sessix).singleProj.context(:,condtrix);
+                cont = 'null';
+            case 3
+                context = cd_potent(sessix).singleProj.context(:,condtrix);
+                cont = 'potent';
+        end
+
+        for g = 1:2
+            if g ==1
+                % Take the trials where the animal is not moving in presample period
+                trix2use = MoveTrix;
+            else
+                % Take the trials where the animal is moving in presample period
+                trix2use = noMoveTrix;
+            end
+            tempME{g} = mean(MEtrix(:,trix2use),2,'omitnan');
+            tempCont{g} = mean(context(:,trix2use),2,'omitnan');
+        end
+        % For each session, will have ME values for each context on trials
+        % where animal is not moving and where animal is moving
+        grouped(sessix).ME.(trialContext) = tempME;
+        % For each session, will have CDCont values for each context on trials
+        % where animal is not moving and where animal is moving
+        grouped(sessix).(cont).(trialContext) = tempCont;
+    end
+end
+end
+%% Get sliding average of non-move trials throughout the session
+nSlides = 15;
+NoMovePct = cell(length(meta),1);
+for sessix = 1:length(meta)
+nTrials = obj(sessix).bp.Ntrials;
+cutoff = nTrials-trials2cutoff;
+for c = 1:length(cond2use)
+    if c==1
+        trialContext = 'afc';
+    else
+        trialContext = 'aw';
+    end
+    cond = cond2use(c);
+    % Get trials for current cond
+%     condtrix = params(sessix).trialid{cond};
+%     condtrix = condtrix(condtrix<cutoff);                   % Only use trials that come before the 'end of session cutoff'
+    condtrix = 1:cutoff;
+    avgME = mean(me(sessix).data(startix:stopix,condtrix)); % Get the average presample ME on all trials of this condition
+    noMoveTrix = avgME<me(sessix).moveThresh;
+    pctNoMove = NaN(2,length(cutoff-nSlides));
+    for tt = 1:(cutoff-nSlides)
+        window = tt:(tt+nSlides);
+        numNoMove = sum(noMoveTrix(window));
+        pctNoMove(1,tt) = numNoMove/length(window);
+        if obj(sessix).bp.autowater(tt)
+            pctNoMove(2,tt) = 2;
+        else
+            pctNoMove(2,tt) = 1.2;
+        end
+    end
+    
+end
+NoMovePct{sessix} = pctNoMove;
+end
+%%
+figure()
+for sessix = 1:length(meta)
+    nexttile
+    plot(NoMovePct{sessix}(1,:),'LineWidth',2); hold on;
+    yline(1,'k--')
+    plot(NoMovePct{sessix}(2,:),'LineWidth',1.5); hold off;
+end
 %% Plot for each session
 colors = getColors_Updated();
 % for sessix = 1:length(meta)
@@ -160,7 +257,14 @@ colors = getColors_Updated();
 %         elseif ii==3
 %             cont = 'potent';
 %         end
-%         for gg = 1:ngroups
+%         for gg = 1:2            % Moving or non-moving
+%             if gg ==1
+%                 movement = 'Non-move trix';
+%             else
+%                 movement = 'Move trix';
+%             end
+%             
+%             
 %             for cc = 1:2
 %                 if cc == 1
 %                     trialcont = 'afc';
@@ -169,11 +273,11 @@ colors = getColors_Updated();
 %                     trialcont = 'aw';
 %                     col = colors.aw;
 %                 end
-%                 subplot(3,ngroups,cnt)
+%                 subplot(3,2,cnt)
 %                 plot(obj(1).time,grouped(sessix).(cont).(trialcont){gg},'Color',col); hold on;
 %             end
 %             legend('2AFC','AW')
-%             title([cont '; Group ' num2str(gg)])
+%             title([cont '; ' movement])
 %             cnt = cnt+1;
 %         end
 %     end
@@ -233,7 +337,7 @@ for ii = 1:3
     end
     hyp.(cont) = ttest(presampavgnorm.(cont){1},presampavgnorm.(cont){2},'Alpha',sigcutoff);
 end
-%%
+%% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
 X = [1,2,4,5,7,8];
 row1 = []; row2 = []; row3 =[];
 for gg = 1:ngroups
@@ -278,9 +382,9 @@ for ii = 1:3
     end
     for gg = 1:ngroups
         if gg==1
-            movement = 'Non-Move trials';
-        else
             movement = 'Move trials';
+        else
+            movement = 'Non-Move trials';
         end
         for cc = 1:2
             if cc == 1
@@ -329,9 +433,9 @@ for ii = 1:3
     end
     for gg = 1:ngroups
         if gg==1
-            movement = 'Non-Move trials';
-        else
             movement = 'Move trials';
+        else
+            movement = 'Non-Move trials';
         end
 
         subplot(3,ngroups,cnt)

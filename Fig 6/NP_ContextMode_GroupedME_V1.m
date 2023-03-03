@@ -1,6 +1,4 @@
-% Finding CDContext from neural activity that resides within the Null and Potent spaces
-% Then finding selectivity between CDContext from full neural pop and
-% CDContext found from null/potent reconstructions
+
 clear,clc,close all
 
 % add paths
@@ -145,51 +143,114 @@ stopix = find(obj(1).time<samp,1,'last');
 
 trials2cutoff = 40;                 % Trials to discount at the end of the session (for motion energy)
 cond2use = [6,7];                   % 2AFC trials and AW trials
-ngroups = 3;
 
-grouped = groupCDbyME(meta, obj, trials2cutoff, cond2use, startix, stopix,cd_context,cd_null,cd_potent,ngroups,me);
+
+for sessix = 1:length(meta)
+nTrials = obj(sessix).bp.Ntrials;
+cutoff = nTrials-trials2cutoff;
+for c = 1:length(cond2use)
+    if c==1
+        trialContext = 'afc';
+    else
+        trialContext = 'aw';
+    end
+    cond = cond2use(c);
+    % Get trials for current cond
+    condtrix = params(sessix).trialid{cond};
+    condtrix = condtrix(condtrix<cutoff);           % Only use trials that come before the 'end of session cutoff'
+
+    % Get ME and projections onto Ramping Mode for these trials
+    MEtrix = me(sessix).data(:,condtrix);
+    % Find avg ME during presamp on each trial
+    avgME = mean(MEtrix(startix:stopix,:),1,'omitnan');
+    % Find trials within this context where ME is less than move threshold (animal is not moving during presample)
+    noMoveTrix = find(avgME<me(sessix).moveThresh);
+    MoveTrix = find(avgME>me(sessix).moveThresh);
+
+    % For each of the fullpop, null, potent CDContexts...
+    for ii = 1:3
+        switch ii
+            % Get the CDContext single-trial projections from these condition's trials
+            case 1
+                context = cd_context(sessix).singleProj(:,condtrix);
+                cont = 'fullpop';
+            case 2
+                context = cd_null(sessix).singleProj.context(:,condtrix);
+                cont = 'null';
+            case 3
+                context = cd_potent(sessix).singleProj.context(:,condtrix);
+                cont = 'potent';
+        end
+
+        for g = 1:2
+            if g ==1
+                % Take the trials where the animal is not moving in presample period
+                trix2use = noMoveTrix;
+            else
+                % Take the trials where the animal is moving in presample period
+                trix2use = MoveTrix;
+            end
+            tempME{g} = mean(MEtrix(:,trix2use),2,'omitnan');
+            tempCont{g} = mean(context(:,trix2use),2,'omitnan');
+        end
+        % For each session, will have ME values for each context on trials
+        % where animal is not moving and where animal is moving
+        grouped(sessix).ME.(trialContext) = tempME;
+        % For each session, will have CDCont values for each context on trials
+        % where animal is not moving and where animal is moving
+        grouped(sessix).(cont).(trialContext) = tempCont;
+    end
+end
+end
+
 %% Plot for each session
 colors = getColors_Updated();
-% for sessix = 1:length(meta)
-%     cnt = 1;
-%     for ii = 1:3
-%         if ii==1
-%             cont = 'fullpop';
-%         elseif ii==2
-%             cont = 'null';
-%         elseif ii==3
-%             cont = 'potent';
-%         end
-%         for gg = 1:ngroups
-%             for cc = 1:2
-%                 if cc == 1
-%                     trialcont = 'afc';
-%                     col = colors.afc;
-%                 else
-%                     trialcont = 'aw';
-%                     col = colors.aw;
-%                 end
-%                 subplot(3,ngroups,cnt)
-%                 plot(obj(1).time,grouped(sessix).(cont).(trialcont){gg},'Color',col); hold on;
-%             end
-%             legend('2AFC','AW')
-%             title([cont '; Group ' num2str(gg)])
-%             cnt = cnt+1;
-%         end
-%     end
-%     pause
-%     close all;
-% end
+for sessix = 1:length(meta)
+    cnt = 1;
+    for ii = 1:3
+        if ii==1
+            cont = 'fullpop';
+        elseif ii==2
+            cont = 'null';
+        elseif ii==3
+            cont = 'potent';
+        end
+        for gg = 1:2            % Moving or non-moving
+            if gg ==1
+                movement = 'Non-move trix';
+            else
+                movement = 'Move trix';
+            end
+            
+            
+            for cc = 1:2
+                if cc == 1
+                    trialcont = 'afc';
+                    col = colors.afc;
+                else
+                    trialcont = 'aw';
+                    col = colors.aw;
+                end
+                subplot(3,2,cnt)
+                plot(obj(1).time,grouped(sessix).(cont).(trialcont){gg},'Color',col); hold on;
+            end
+            legend('2AFC','AW')
+            title([cont '; ' movement])
+            cnt = cnt+1;
+        end
+    end
+    pause
+    close all;
+end
 %% Group across all sessions
 sm=31;
-ngroups = 2;            % Move vs non-move
 all_grouped = combineSessions_grouped(ngroups,meta,grouped,sm);
 %% Plot averages across all sessions
 alph = 0.2;
-LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+LinePlot_CDGrouped_byME(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 %%
-LinePlot_SelGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
-%% Get the average presample selectivity in CDCont for move and non-move trials
+LinePlot_SelGrouped_byME(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+%%
 for ii = 1:3
     if ii==1
         cont = 'fullpop';
@@ -202,7 +263,7 @@ for ii = 1:3
         presampavg.(cont){gg} = mean(all_grouped.(cont).selectivity{gg}(startix:stopix,:),1,'omitnan');
     end
 end
-%% Normalize the selectivity to the max presample selectivity in each "condition" i.e. fullpop, null, potent
+%%
 for ii = 1:3
     if ii==1
         cont = 'fullpop';
@@ -211,7 +272,7 @@ for ii = 1:3
     elseif ii==3
         cont = 'potent';
     end
-    temp = [presampavg.(cont){1}, presampavg.(cont){2}];
+    temp = [presampavg.(cont){1}, presampavg.(cont){2}, presampavg.(cont){3}];
     maxsel = max(abs(temp));
     for gg = 1:ngroups
         presampavgnorm.(cont){gg} = abs(presampavg.(cont){gg})./maxsel;
@@ -219,9 +280,11 @@ for ii = 1:3
 end
 
 %% Do all t-tests (paired)
-sigcutoff = 0.05;
-allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.  
-                        
+sigcutoff = 0.01;
+allhyp = [];            % (3 x ngroups).  First row = full pop.  Second row = null. Third row = potent.  
+                        % First column = comparing groups 1 and 2; Second
+                        % column = comparing groups 2 and 3; Third =
+                        % comparing roups 1 and 3
 for ii = 1:3
     switch ii
         case 1
@@ -231,10 +294,14 @@ for ii = 1:3
         case 3
             cont = 'potent';
     end
-    hyp.(cont) = ttest(presampavgnorm.(cont){1},presampavgnorm.(cont){2},'Alpha',sigcutoff);
+    hyp1 = ttest(presampavgnorm.(cont){1},presampavgnorm.(cont){2},'Alpha',sigcutoff);
+    hyp2 = ttest(presampavgnorm.(cont){2},presampavgnorm.(cont){3},'Alpha',sigcutoff);
+    hyp3 = ttest(presampavgnorm.(cont){1},presampavgnorm.(cont){3},'Alpha',sigcutoff);
+    temp = [hyp1,hyp2,hyp3];
+    allhyp = [allhyp;temp];
 end
 %%
-X = [1,2,4,5,7,8];
+X = [1,2,3,5,6,7,9,10,11];
 row1 = []; row2 = []; row3 =[];
 for gg = 1:ngroups
     row1 = [row1,mean(presampavgnorm.fullpop{gg})];
@@ -262,7 +329,7 @@ for ii  = 1:3
 end
 %% Plotting functions
 
-function LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+function LinePlot_CDGrouped_byME(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 nSessions = length(meta);
 cnt = 1;
 for ii = 1:3
@@ -271,17 +338,12 @@ for ii = 1:3
         yl = [-5 12];
     elseif ii==2
         cont = 'null';
-        yl = [-0.1 0.15];
+        yl = [-0.15 0.15];
     elseif ii==3
         cont = 'potent';
-        yl = [-0.4 0.1];
+        yl = [-0.45 0.1];
     end
     for gg = 1:ngroups
-        if gg==1
-            movement = 'Non-Move trials';
-        else
-            movement = 'Move trials';
-        end
         for cc = 1:2
             if cc == 1
                 trialcont = 'afc';
@@ -297,7 +359,7 @@ for ii = 1:3
             %err = 1.96*(std(all_grouped.(cont).(trialcont){gg},0,2,'omitnan')./sqrt(nSessions));
             shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
         end
-        title([cont ';  ' movement])
+        title([cont '; Group ' num2str(gg)])
         ylim(yl)
         if ii~=1
             set(ax, 'YDir','reverse')
@@ -310,7 +372,7 @@ for ii = 1:3
 end
 end
 
-function LinePlot_SelGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+function LinePlot_SelGrouped_byME(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 nSessions = length(meta);
 cnt = 1;
 for ii = 1:3
@@ -328,12 +390,6 @@ for ii = 1:3
         col = colors.potent;
     end
     for gg = 1:ngroups
-        if gg==1
-            movement = 'Non-Move trials';
-        else
-            movement = 'Move trials';
-        end
-
         subplot(3,ngroups,cnt)
         ax = gca;
         toplot = mean(all_grouped.(cont).selectivity{gg},2,'omitnan');
@@ -341,11 +397,11 @@ for ii = 1:3
         %err = 1.96*(std(all_grouped.(cont).(trialcont){gg},0,2,'omitnan')./sqrt(nSessions));
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
 
-        title([cont '; ' movement])
-%         ylim(yl)
-        if ii~=1
-            set(ax, 'YDir','reverse')
-        end
+        title([cont '; Group ' num2str(gg)])
+        %ylim(yl)
+%         if ii~=1
+%             set(ax, 'YDir','reverse')
+%         end
         xlim([trialstart 2.5])
         xline(0,'k--','LineWidth',1)
         xline(samp,'k--','LineWidth',1)
