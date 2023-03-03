@@ -11,7 +11,9 @@ cd_labels = {'early','late','go','ramping'};
 cd_epochs = {'delay','goCue','goCue'};
 cd_times = {[-0.42 -0.02], [-0.42 -0.02], [0.02 0.42]}; % in seconds, relative to respective epochs
 ramp_epochs = {'delay','goCue'};
-ramp_times = {[-0.4 -0.02], [-0.5 -0.02]}; % in seconds, relative to respective epochs
+%ramp_times = {[-0.4 -0.02], [-0.5 -0.02]}; % in seconds, relative to respective epochs
+ramp_times = {[-0.6 -0.02], [-0.5 -0.02]}; % in seconds, relative to respective epochs
+
 
 
 

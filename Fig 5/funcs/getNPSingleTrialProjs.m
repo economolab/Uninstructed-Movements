@@ -9,7 +9,8 @@ for sessix = 1:length(obj)                               % For every session...
     TrixProj = NaN(length(cd_null(sessix).time),nTrials);   % time x nTrials
     mode = cd_null(sessix).cd_mode_orth(:,cd2use); 
     for trix = 1:nTrials 
-        temp = squeeze(rez(sessix).N_null(:,trix,:));          % Get the PSTH for all Null or Potent dims on that trial
+        %temp = squeeze(rez(sessix).N_null(:,trix,:));          % Get the PSTH for all Null or Potent dims on that trial
+        temp = squeeze(rez(sessix).recon.null(:,trix,:));
         TrixProj(:,trix) = mySmooth((temp*mode),31);           % Project the trial PSTH onto the mode that you specified
     end
     cd_null(sessix).singleProj.(cd) = TrixProj;              % Assign this back to the rez structure
@@ -18,7 +19,8 @@ for sessix = 1:length(obj)                               % For every session...
     TrixProj = NaN(length(cd_potent(sessix).time),nTrials);   % time x nTrials
     mode = cd_potent(sessix).cd_mode_orth(:,cd2use); 
     for trix = 1:nTrials 
-        temp = squeeze(rez(sessix).N_potent(:,trix,:));          % Get the PSTH for all Null or Potent dims on that trial
+        %temp = squeeze(rez(sessix).N_potent(:,trix,:));          % Get the PSTH for all Null or Potent dims on that trial
+        temp = squeeze(rez(sessix).recon.potent(:,trix,:));
         TrixProj(:,trix) = mySmooth((temp*mode),31);    % Project the trial PSTH onto the mode that you specified
     end
     cd_potent(sessix).singleProj.(cd) = TrixProj;              % Assign this back to the rez structure
