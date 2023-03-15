@@ -17,7 +17,7 @@ utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-addpath(genpath(fullfile(utilspth,'fig3')));
+addpath(genpath(fullfile(utilspth,'figNP')));
 figpth = [basepth  '\Uninstructed-Movements\Fig 3'];
 addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context switching')));
@@ -119,7 +119,7 @@ clearvars -except obj meta params me sav
 
 for sessix = 1:numel(meta)
     % -- input data
-    trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat, obj(sessix));
+    trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix));
 
     % -- Calculate the null and potent spaces for each session
     cond2use = [2 3 4 5];   % All 2AFC hit/miss trials, all AW hit/miss trials (NUMBERING ACCORDING TO PARAMS.CONDITION)
@@ -259,7 +259,7 @@ for sessix = 1:length(meta)
     plot(NoMovePct{sessix}(2,:),'LineWidth',1.5); hold off;
 end
 %% Plot for each session
-colors = getColors_Updated();
+colors = getColors();
 % for sessix = 1:length(meta)
 %     cnt = 1;
 %     for ii = 1:3
@@ -366,14 +366,20 @@ for ii  = 1:3
     switch ii
         case 1
             cont = 'fullpop';
+            xx = [1,2];
         case 2
             cont = 'null';
+            xx = [4,5];
         case 3
             cont = 'potent';
+            xx= [7,8];
     end
     for gg = 1:ngroups
         scatter(X(cnt),presampavgnorm.(cont){gg},25,[0 0 0],'filled','MarkerEdgeColor','black')
         cnt = cnt+1;
+    end
+    for sessix = 1:length(meta)
+        plot(xx,[presampavgnorm.(cont){1}(sessix),presampavgnorm.(cont){2}(sessix)],'Color','black')
     end
 
 end
@@ -415,7 +421,7 @@ for ii = 1:3
             shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
         end
         title([cont ';  ' movement])
-        ylim(yl)
+        %ylim(yl)
         if ii~=1
             set(ax, 'YDir','reverse')
         end
