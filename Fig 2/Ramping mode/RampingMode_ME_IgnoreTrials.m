@@ -7,7 +7,9 @@ addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 6';
+figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 5';
+addpath(genpath(fullfile(figpth,'funcs')));
+figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 2';
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
@@ -93,9 +95,9 @@ nSessions = numel(meta);
 for sessix = 1:nSessions
     % -- input data
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix).trialdat,obj(sessix));
-    cond2use = [2 3]; % right hits, left hits (corresponding to PARAMS.CONDITION)
+    cond2use = [2 3 6 7]; % right hits, left hits (corresponding to PARAMS.CONDITION)
     rampcond = 8;
-    cond2proj = 2:5;  % right hits, left hits, right miss, left miss (corresponding to null/potent psths in rez)
+    cond2proj = 2:7;  % right hits, left hits, right miss, left miss, right no, left no (corresponding to null/potent psths in rez)
     cond2use_trialdat = [2 3]; % for calculating selectivity explained in full neural pop
     cd_ramping(sessix) = getCDs_wRamping(obj(sessix).psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj,rampcond);
 end
@@ -106,6 +108,48 @@ orthogonalize = 'non-orthog';                                       % Set to ort
 disp('----Projecting single trials onto Ramping----')
 cd = 'ramping';
 cd_ramping = getSingleTrialProjs(cd_ramping,obj,cd,orthogonalize);
+%%
+colors = getColors_Updated();
+cond2proj = [1 2 5 6];
+mecond2proj = [2 3 6 7];
+for sessix = 1:length(meta)
+    for c = 1:length(cond2proj)
+        switch c
+            case 1
+                col = colors.rhit;
+                linestyl = '--';
+                lw = 1.5;
+            case 2
+                col = colors.lhit;
+                linestyl = '--';
+                lw = 1.5;
+            case 3
+                col = colors.rhit;
+                linestyl = '-';
+                lw = 2;
+            case 4
+                col = colors.lhit;
+                linestyl = '-';
+                lw = 2;
+        end
+        ax1 = subplot(1,2,1);
+        toplot = cd_ramping(sessix).cd_proj(:,cond2proj(c),4);
+        plot(obj(sessix).time,mySmooth(toplot,31),'Color',col,'LineStyle',linestyl,'LineWidth',lw)
+        hold(ax1,'on');
+
+        ax2 = subplot(1,2,2);
+        condME = me(sessix).data(:,params(sessix).trialid{mecond2proj(c)});
+        condME = mean(condME,2,'omitnan');
+        plot(obj(sessix).time,mySmooth(condME,31),'Color',col,'LineStyle',linestyl,'LineWidth',lw)
+        hold(ax2, 'on');
+    end
+    legend(ax1,'R hit', 'L hit','R ignore','L ignore')
+    title(ax1,'Ramping')
+    title(ax2,'ME')
+    hold (ax1, 'off'); hold (ax2, 'off');
+    pause
+end
+
 %%
 % Specify time epoch by which you want to sort ME and ramping
 delay = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -129,28 +173,6 @@ avgME = mean(MEtrix(startix:stopix,:),1,'omitnan');
 sortedME = MEtrix(:,sortix);
 sortedramp = rampingtrix(:,sortix);
 
-% Sess 1 or 8
-% figure();
-% subplot(1,2,1)
-% imagesc(obj(1).time,1:size(sortedME,2),sortedME')
-% colorbar()
-% %clim([0 100])
-% colormap('linspecer')
-% title('Motion Energy')
-% xlabel('Time from go cue (s)')
-% ylabel('Trials')
-% xlim([-2.5 0])
-% 
-% subplot(1,2,2)
-% imagesc(obj(1).time,1:size(sortedramp,2),sortedramp')
-% colorbar()
-% colormap('linspecer')
-% %clim([5 40])
-% title('Projection onto ramp mode')
-% xlim([-2.5 0])
-% xlabel('Time from go cue (s)')
-% sgtitle([meta(sessix).anm ' ' meta(sessix).date])
-
 delayME = [];
 delayramp = [];
 for trix = 1:size(MEtrix,2)
@@ -160,4 +182,27 @@ end
 R2 = corrcoef(delayME,delayramp);
 R2 = R2(2);
 obj(sessix).R2 = R2;
+
+if sessix == 1
+figure();
+subplot(1,2,1)
+imagesc(obj(1).time,1:size(sortedME,2),sortedME')
+colorbar()
+clim([0 80])
+colormap('linspecer')
+title('Motion Energy')
+xlabel('Time from go cue (s)')
+ylabel('Trials')
+xlim([-2.5 0])
+
+subplot(1,2,2)
+imagesc(obj(1).time,1:size(sortedramp,2),sortedramp')
+colorbar()
+colormap('linspecer')
+clim([0 40])
+title('Projection onto ramp mode')
+xlim([-2.5 0])
+xlabel('Time from go cue (s)')
+sgtitle([meta(sessix).anm ' ' meta(sessix).date '  ; R2 = ' num2str(R2)])
+end
 end
