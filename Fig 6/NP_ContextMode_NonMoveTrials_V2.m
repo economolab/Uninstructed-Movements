@@ -3,7 +3,7 @@
 % CDContext found from null/potent reconstructions
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -104,7 +104,7 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 for sessix = 1:numel(meta)
     me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
 end
-%% Null and Potent Space
+%% Find Null and Potent Spaces using all trials (no train/test split yet)
 clearvars -except obj meta params me sav
 
 % -----------------------------------------------------------------------
@@ -119,8 +119,8 @@ clearvars -except obj meta params me sav
 
 for sessix = 1:numel(meta)
     % -- input data
-    rez(sessix).zscoredtrialdat = zscore_singleTrialNeuralData(obj(sessix));
-    trialdat_zscored = rez(sessix).zscoredtrialdat;
+    trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix));
+    zscored(sessix).trialdat =  trialdat_zscored;
 
     % -- Calculate the null and potent spaces for each session
     cond2use = [2 3 4 5];   % All 2AFC hit/miss trials, all AW hit/miss trials (NUMBERING ACCORDING TO PARAMS.CONDITION)
@@ -130,51 +130,66 @@ for sessix = 1:numel(meta)
     cond2proj = [6 7];      % (NUMBERING ACCORDING TO PARAMS.CONDITION)
     rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime,AWonly,delayOnly); 
 end
-%% Do train/test split on data 
+%% Get train/test split for data
+clearvars -except obj meta params rez zscored me
+
+% Store ix for all test trials for each split in variable called 'testsplit'
 nSplits = 4;
 cond2use = [6 7];   % (Numbering according to PARAMS.CONDITION)
-afccond = 1;
-awcond = 2;
-for sessix = 1:length(meta)
-    % Get testing group for each iteration
-    % Get number of test trials that should be in each split
-    % Separate for 2AFC and AW
 
-    % Sample nTest trials to be testing data on first split
-    % Sample another nTest trials from remaining trials to be testing on second split
-    %%%% until 'n' number of splits is reached 
-
-    % Save test trial numbers for each split in a variable called ttsplit
-
-end
-
-%%
+testsplit = getTestTrials(params,cond2use,nSplits);
+%% Find CDContext using training data for each Split; projections are only for test data for each split
+cond2use = [6 7];
+condfns = {'afc','aw'};
+popfns = {'null','potent','fullpop'};
 for sessix = 1:numel(meta)
-    % --input data
-    trialdat_zscored = rez(sessix).zscoredtrialdat;
+    for ss = 1:nSplits
+        fn = ['Split' num2str(ss)];
+        
+        % Get condition averaged PSTHs for only the training data (this PSTH is what is used for calculating CD)
+        for p = 1:length(popfns)
+            temp1 = []; temp2 = [];
+            switch p
+                case 1
+                    temppsth = rez(sessix).recon.null;
+                case 2
+                    temppsth = rez(sessix).recon.potent;
+                case 3
+                    temppsth = obj(sessix).trialdat;
+                    temppsth = permute(temppsth,[1 3 2]);
+            end
+            for c = 1:length(cond2use)
+                alltrix = params(sessix).trialid{cond2use(c)};
+                testtrix = testsplit(sessix).(fn).(condfns{c});
+                ix2use = find(~ismember(alltrix,testtrix));
+                traintrials = alltrix(ix2use);
 
-     % -- Find coding dimensions from RECONSTRUCTED full neural activity which is reconstructed from the null and potent spaces
-    cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
-    cond2proj = [1 2];           % 2AFC hits/misses, AW hits/misses(corresponding to null/potent psths in rez)
-    cond2use_trialdat = [6 7];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    cd_null(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.null,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
-    cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.potent,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+                avgpsth1 = mean(temppsth(:,traintrials,:),2,'omitnan');
+              temp1 = cat(2,temp1,avgpsth1);
 
-    % Calc CDContext from full neural pop
-    cd_context(sessix) = getCodingDimensions_Context(obj(sessix).psth,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+                psth2 = temppsth(:,testtrix,:);
+                psth2use.(popfns{p}).test.(condfns{c}) = permute(psth2,[1 3 2]);
+
+            end
+            psth2use.(popfns{p}).train = permute(temp1,[1 3 2]);
+            
+        end
+        trialdat_zscored = zscored(sessix).trialdat;
+
+        % -- Find coding dimensions from RECONSTRUCTED full neural activity which is reconstructed from the null and potent spaces
+        cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
+        cond2proj = [1 2];           % 2AFC hits/misses, AW hits/misses(corresponding to null/potent psths in rez)
+        cond2use_trialdat = [6 7];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
+        cd_null(sessix).(fn) = getCDContext_TTSplit(psth2use.null,obj(sessix),params(sessix),cond2use,cond2proj);
+        cd_potent(sessix).(fn) = getCDContext_TTSplit(psth2use.potent,obj(sessix),params(sessix),cond2use,cond2proj);
+
+        % Calc CDContext from full neural pop
+        cd_context(sessix).(fn) = getCDContext_TTSplit(psth2use.fullpop,obj(sessix),params(sessix),cond2use,cond2proj);
+    end
 end
+clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits
 
-%% Get single trial projections onto CDContext
-orthogonalize = 'non-orthog';                                       % Set to orthogonalize if you want the projections to be onto the orthogonalized CDs
-disp('----Projecting single trials onto CDContext----')
-cd = 'context';
-cd_context = getSingleTrialProjs(cd_context,obj,cd,orthogonalize);
-%% Get single trial NP projections onto CDContext
-cd = 'context';
-[cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez);
 %% Get trials with a lot of presample motion energy and little presample motion energy
-clearvars -except obj meta params me sav rez cd_null cd_potent cd_context
-
 % Find the times corresponding to trial start and the sample period
 trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
 startix = find(obj(1).time>trialstart,1,'first');
@@ -198,7 +213,7 @@ for c = 1:length(cond2use)
     condtrix = params(sessix).trialid{cond};
     condtrix = condtrix(condtrix<cutoff);           % Only use trials that come before the 'end of session cutoff'
 
-    % Get ME and projections onto Ramping Mode for these trials
+    % Get ME
     MEtrix = me(sessix).data(:,condtrix);
     % Find avg ME during presamp on each trial
     avgME = mean(MEtrix(startix:stopix,:),1,'omitnan');
@@ -206,12 +221,13 @@ for c = 1:length(cond2use)
     noMoveTrix = find(avgME<me(sessix).moveThresh);
     MoveTrix = find(avgME>me(sessix).moveThresh);
 
+
     % For each of the fullpop, null, potent CDContexts...
     for ii = 1:3
         switch ii
             % Get the CDContext single-trial projections from these condition's trials
             case 1
-                context = cd_context(sessix).singleProj(:,condtrix);
+                context = cd_context(sessix).(fn).testsingleproj(:,condtrix);
                 cont = 'fullpop';
             case 2
                 context = cd_null(sessix).singleProj.context(:,condtrix);
@@ -240,48 +256,6 @@ for c = 1:length(cond2use)
         grouped(sessix).(cont).(trialContext) = tempCont;
     end
 end
-end
-%% Get sliding average of non-move trials throughout the session
-nSlides = 15;
-NoMovePct = cell(length(meta),1);
-for sessix = 1:length(meta)
-nTrials = obj(sessix).bp.Ntrials;
-cutoff = nTrials-trials2cutoff;
-for c = 1:length(cond2use)
-    if c==1
-        trialContext = 'afc';
-    else
-        trialContext = 'aw';
-    end
-    cond = cond2use(c);
-    % Get trials for current cond
-%     condtrix = params(sessix).trialid{cond};
-%     condtrix = condtrix(condtrix<cutoff);                   % Only use trials that come before the 'end of session cutoff'
-    condtrix = 1:cutoff;
-    avgME = mean(me(sessix).data(startix:stopix,condtrix)); % Get the average presample ME on all trials of this condition
-    noMoveTrix = avgME<me(sessix).moveThresh;
-    pctNoMove = NaN(2,length(cutoff-nSlides));
-    for tt = 1:(cutoff-nSlides)
-        window = tt:(tt+nSlides);
-        numNoMove = sum(noMoveTrix(window));
-        pctNoMove(1,tt) = numNoMove/length(window);
-        if obj(sessix).bp.autowater(tt)
-            pctNoMove(2,tt) = 2;
-        else
-            pctNoMove(2,tt) = 1.2;
-        end
-    end
-    
-end
-NoMovePct{sessix} = pctNoMove;
-end
-%%
-figure()
-for sessix = 1:length(meta)
-    nexttile
-    plot(NoMovePct{sessix}(1,:),'LineWidth',2); hold on;
-    yline(1,'k--')
-    plot(NoMovePct{sessix}(2,:),'LineWidth',1.5); hold off;
 end
 %% Plot for each session
 colors = getColors();
