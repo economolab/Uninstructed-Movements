@@ -133,20 +133,16 @@ end
 %% Get train/test split for data
 clearvars -except obj meta params rez zscored me
 
-% Store ix for all test trials for each split in variable called 'testsplit'
-nSplits = 4;
+% Store indices for train and test trials in variable called 'testsplit'
+trainPct = 0.7;     % 70 pct train, 30 pct test
 cond2use = [6 7];   % (Numbering according to PARAMS.CONDITION)
 
-testsplit = getTestTrials(params,cond2use,nSplits);
+testsplit = getTestTrials(params,cond2use,trainPct);
 %% Find CDContext using training data for each Split; projections are only for test data for each split
 cond2use = [6 7];
 condfns = {'afc','aw'};
 popfns = {'null','potent','fullpop'};
 for sessix = 1:numel(meta)
-    for ss = 1:nSplits
-        fn = ['Split' num2str(ss)];
-        
-        % Get condition averaged PSTHs for only the training data (this PSTH is what is used for calculating CD)
         for p = 1:length(popfns)
             temp1 = []; temp2 = [];
             switch p
@@ -158,14 +154,10 @@ for sessix = 1:numel(meta)
                     temppsth = obj(sessix).trialdat;
                     temppsth = permute(temppsth,[1 3 2]);
             end
-            for c = 1:length(cond2use)
-                alltrix = params(sessix).trialid{cond2use(c)};
-                testtrix = testsplit(sessix).(fn).(condfns{c});
-                ix2use = find(~ismember(alltrix,testtrix));
-                traintrials = alltrix(ix2use);
-
-                avgpsth1 = mean(temppsth(:,traintrials,:),2,'omitnan');
-              temp1 = cat(2,temp1,avgpsth1);
+            for c = 1:length(cond2use)                                      % For each condition...
+                traintrials = testsplit(sessix).trainix.(condfns{c});       % Get the training trials
+                avgpsth1 = mean(temppsth(:,traintrials,:),2,'omitnan');     % Get the condition-averaged PSTH for only training trials 
+                temp1 = cat(2,temp1,avgpsth1);
 
                 psth2 = temppsth(:,testtrix,:);
                 psth2use.(popfns{p}).test.(condfns{c}) = permute(psth2,[1 3 2]);
@@ -185,7 +177,6 @@ for sessix = 1:numel(meta)
 
         % Calc CDContext from full neural pop
         cd_context(sessix).(fn) = getCDContext_TTSplit(psth2use.fullpop,obj(sessix),params(sessix),cond2use,cond2proj);
-    end
 end
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits
 
