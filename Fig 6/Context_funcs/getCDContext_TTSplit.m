@@ -1,4 +1,4 @@
-function rez = getCDContext_TTSplit(psth2use,obj,params,cond2use,cond2proj,testsplit)
+function rez = getCDContext_TTSplit(psth2use,obj,params,cond2use,cond2proj)
 cd_labels = {'context'};
 cd_epochs = {'sample'};
 cd_times = {[-0.42 -0.1]}; % in seconds, relative to respective epochs
@@ -8,7 +8,7 @@ cd_times = {[-0.42 -0.1]}; % in seconds, relative to respective epochs
 % --setup results struct--
 % ------------------------------------------
 rez.time = obj.time;
-rez.psth = psth2use.train;
+rez.psth = psth2use.train;                                                      % Used to calculate the mode 
 rez.condition = params.condition;
 rez.trialid = params.trialid;
 rez.alignEvent = params.alignEvent;
@@ -27,7 +27,7 @@ for ix = 1:numel(cd_labels)
     e1 = mode(rez.ev.(cd_epochs{ix})) + cd_times{ix}(1) - rez.align;
     e2 = mode(rez.ev.(cd_epochs{ix})) + cd_times{ix}(2) - rez.align;
     times.(cd_labels{ix}) = rez.time>e1 & rez.time<e2;
-    % calculate coding direction
+    % calculate coding direction from training data
     rez.cd_mode(:,ix) = calcCD(rez.psth,times.(cd_labels{ix}),cond2use);
 end
 
