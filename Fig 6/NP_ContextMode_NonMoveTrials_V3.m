@@ -3,7 +3,7 @@
 % CDContext found from null/potent reconstructions
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -113,10 +113,7 @@ clearvars -except obj meta params me sav
 % -- Calculate null and potent spaces --
 % null space from quiet time points
 % potent space from moving time points
-% -- Calculate coding directions from null and potent spaces --
-% -- Calculate coding directions from full neural population --
 % -----------------------------------------------------------------------
-
 for sessix = 1:numel(meta)
     % -- input data
     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix));
@@ -139,123 +136,32 @@ cond2use = [6 7];   % (Numbering according to PARAMS.CONDITION)
 
 testsplit = getTestTrials(params,cond2use,trainPct);
 %% Find CDContext using training data for each Split; projections are only for test data for each split
-cond2use = [6 7];
 condfns = {'afc','aw'};
 popfns = {'null','potent','fullpop'};
-for sessix = 1:numel(meta)                                                  % For each session...
-        for p = 1:length(popfns)                                            % For null, potent, and full population
-            temp1 = []; temp2 = [];
-            switch p                                                        % Get the appropriate single trial PSTHs 
-                case 1
-                    temppsth = rez(sessix).recon.null;                      % Single-trial PSTHs reconstructed from the null space (time x trials x cells)                   
-                case 2
-                    temppsth = rez(sessix).recon.potent;                    % Single-trial PSTHs reconstructed from the potent space (time x trials x cells)
-                case 3
-                    temppsth = obj(sessix).trialdat;                        % Single-trial PSTHs from full neural data (time x cells x trials)
-                    temppsth = permute(temppsth,[1 3 2]);                   % Switch to format (time x trials x cells)
-            end
-            for c = 1:length(cond2use)                                      % For each condition...
-                traintrials = testsplit(sessix).trainix.(condfns{c});       % Get the training trials
-                avgpsth1 = mean(temppsth(:,traintrials,:),2,'omitnan');     % Get the condition-averaged PSTH for only training trials 
-                temp1 = cat(2,temp1,avgpsth1);                              % Concatenate both conditions (time x condition x cells)
 
-                testtrix = testsplit(sessix).testix.(condfns{c});           % Get the test trials
-                psth2 = temppsth(:,testtrix,:);                             % Get the single trial PSTHs, separated by condition (time x trials x cells)
-                psth2use.(popfns{p}).test.(condfns{c}) = permute(psth2,[1 3 2]);    % Test PSTHs: (time x cells x trials); store separately for each condition   
+% New field added to 'cd_null' = 'testsingleproj'
+% testsingleproj = (1 x 2) cell array.  First cell contains single test trial projections from the 2AFC context. 
+% Second cell contains projections from AW context
+[cd_null, cd_potent, cd_context] = CDContext_AllSpaces(obj,meta,rez,popfns,condfns);
 
-            end
-            psth2use.(popfns{p}).train = permute(temp1,[1 3 2]);            % Train PSTH: (time x condition x trials); condition-averaged PSTHs for training data 
-        end
-        
-
-        % -- Find coding dimensions from RECONSTRUCTED full neural activity which is reconstructed from the null and potent spaces
-        % Use train data to calculate the CD; Project test data onto CD %
-        cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
-        cond2proj = [1 2];           % 2AFC hits/misses, AW hits/misses(corresponding to null/potent psths in rez)
-        cd_null(sessix) = getCDContext_TTSplit(psth2use.null,obj(sessix),params(sessix),cond2use,cond2proj);
-        cd_potent(sessix) = getCDContext_TTSplit(psth2use.potent,obj(sessix),params(sessix),cond2use,cond2proj);
-
-        % Calc CDContext from full neural pop
-        cd_context(sessix) = getCDContext_TTSplit(psth2use.fullpop,obj(sessix),params(sessix),cond2use,cond2proj);
-end
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits
-
-%% Get trials with a lot of presample motion energy and little presample motion energy
+%% Split trials into Move trials and Non-Move trials (based on ME in presample period)
 trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
 startix = find(obj(1).time>trialstart,1,'first');
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 stopix = find(obj(1).time<samp,1,'last');
 
-
 trials2cutoff = 40;                 % Trials to discount at the end of the session (for motion energy)
 
-for sessix = 1:length(meta)
-    nTrials = obj(sessix).bp.Ntrials;
-    cutoff = nTrials-trials2cutoff;
-    for cond = 1:2
-        if cond==1
-            trialContext = 'afc';
-        else
-            trialContext = 'aw';
-        end
-        % Get test trials for current cond
-        condtrix = testsplit(sessix).testix.(trialContext);
-        condtrix = condtrix(condtrix<cutoff);           % Only use trials that come before the 'end of session cutoff'
+% Grouped = (1 x nSessions) struct with fields 'ME', 'fullpop', 'null', 'potent'
+% Each field has subfields 'afc' and 'aw'
+% 'afc' and 'aw' are (1 x 3) where each column is average ME or CDContext for Move trials, Non-Move trials, or all trials
+grouped = groupCDbyMoveNonMove(obj,meta,trials2cutoff, testsplit,me,cd_context,cd_null,cd_potent);
 
-        % Get ME
-        MEtrix = me(sessix).data(:,condtrix);
-        % Find avg ME during presamp on each trial
-        avgME = mean(MEtrix(startix:stopix,:),1,'omitnan');
-        % Find trials within this context where ME is less than move threshold (animal is not moving during presample)
-        noMoveTrix = find(avgME<me(sessix).moveThresh);
-        MoveTrix = find(avgME>me(sessix).moveThresh);
-
-        % Error check
-        if isempty(noMoveTrix)
-            disp(['Session ' num2str(sessix) ' does not have any NonMove trials'])
-        elseif isempty(MoveTrix)
-            disp(['Session ' num2str(sessix) ' does not have any Move trials'])
-        end
-
-        % For each of the fullpop, null, potent CDContexts...
-        for ii = 1:3
-            switch ii
-                % Get the CDContext single-trial projections from these condition's test trials
-                case 1
-                    context = cd_context(sessix).testsingleproj{cond};
-                    cont = 'fullpop';
-                case 2
-                    context = cd_null(sessix).testsingleproj{cond};
-                    cont = 'null';
-                case 3
-                    context = cd_potent(sessix).testsingleproj{cond};
-                    cont = 'potent';
-            end
-
-            for g = 1:2
-                if g ==1
-                    % Take the trials where the animal is not moving in presample period
-                    trix2use = MoveTrix;
-                else
-                    % Take the trials where the animal is moving in presample period
-                    trix2use = noMoveTrix;
-                end
-                tempME{g} = mean(MEtrix(:,trix2use),2,'omitnan');
-                tempCont{g} = mean(context(:,trix2use),2,'omitnan');
-            end
-            % For each session, will have ME values for each context on trials
-            % where animal is not moving and where animal is moving
-            grouped(sessix).ME.(trialContext) = tempME;
-            % For each session, will have CDCont values for each context on trials
-            % where animal is not moving and where animal is moving
-            grouped(sessix).(cont).(trialContext) = tempCont;
-        end
-    end
-end
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits grouped
 %% Group across all sessions
-sm=31;
-ngroups = 2;            % Move vs non-move
+sm=50;
+ngroups = 3;            % Move; non-move; all trials
 all_grouped = combineSessions_grouped(ngroups,meta,grouped,sm);
 %% Plot average CDContext across all sessions for each context
 % Find the times corresponding to trial start and the sample period
@@ -266,7 +172,8 @@ stopix = find(obj(1).time<samp,1,'last');
 
 colors = getColors();
 alph = 0.2;             % Shading opacity for error bars
-LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+%%% OLD VERSION OF FIGURE %%%
+% LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 %% Plot average selectivity in CDContext across all sessions for each context
 % figure();
 % LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
@@ -320,12 +227,13 @@ end
 %% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
 X = [1,2,4,5,7,8];
 row1 = []; row2 = []; row3 =[];
-for gg = 1:ngroups
+for gg = 1:2
     row1 = [row1,mean(presampavgnorm.fullpop{gg})];
     row2 = [row2,mean(presampavgnorm.null{gg})];
     row3 = [row3,mean(presampavgnorm.potent{gg})];
 end
 y = [row1, row2, row3];
+figure();
 bar(X,y);
 hold on;
 cnt = 1;
@@ -341,7 +249,7 @@ for ii  = 1:3
             cont = 'potent';
             xx= [7,8];
     end
-    for gg = 1:ngroups
+    for gg = 1:2
         scatter(X(cnt),presampavgnorm.(cont){gg},25,[0 0 0],'filled','MarkerEdgeColor','black')
         cnt = cnt+1;
     end
@@ -446,6 +354,7 @@ end
 
 function LinePlot_SelGrouped_MoveNonMove_V2(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 nSessions = length(meta);
+cnt = 1;
 for ii = 1:3
     if ii==1
         cont = 'fullpop';
@@ -460,7 +369,21 @@ for ii = 1:3
         yl = [0 0.45];
         col = colors.potent;
     end
-    for gg = 1:ngroups
+    subplot(3,2,cnt)
+    ax = gca;
+    toplot = mean(all_grouped.(cont).selectivity{3},2,'omitnan');
+    err = std(all_grouped.(cont).selectivity{3},0,2,'omitnan')./sqrt(nSessions);
+    %err = 1.96*(std(all_grouped.(cont).selectivity{3},0,2,'omitnan')./sqrt(nSessions));
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
+
+    ylim(yl)
+    xline(samp,'k--','LineWidth',1)
+    xlim([trialstart 0])
+    ylabel(cont)
+    title('All trials')
+    cnt = cnt+1;
+
+    for gg = 1:2
         if gg==1                            % Move trials
             style = '-';
             alp = alph;
@@ -469,11 +392,11 @@ for ii = 1:3
             alp = alph-0.1;
         end
 
-        subplot(3,1,ii)
+        subplot(3,2,cnt)
         ax = gca;
         toplot = mean(all_grouped.(cont).selectivity{gg},2,'omitnan');
         err = std(all_grouped.(cont).selectivity{gg},0,2,'omitnan')./sqrt(nSessions);
-        %err = 1.96*(std(all_grouped.(cont).(trialcont){gg},0,2,'omitnan')./sqrt(nSessions));
+        %err = 1.96*(std(all_grouped.(cont).selectivity{gg},0,2,'omitnan')./sqrt(nSessions));
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
 
@@ -481,13 +404,13 @@ for ii = 1:3
 %         if ii~=1
 %             set(ax, 'YDir','reverse')
 %         end
-        xlim([trialstart 2.5])
 %        xline(0,'k--','LineWidth',1)
         xline(samp,'k--','LineWidth',1)
         xlim([trialstart 0])
         ylabel('Selectivity (a.u.)')
         legend('Move','Non-Move')
     end
+    cnt = cnt+1;
 end
 end
 %%

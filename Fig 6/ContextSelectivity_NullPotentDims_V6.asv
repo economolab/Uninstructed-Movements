@@ -302,8 +302,9 @@ end
 % response = mean(selectNorm.null(start:stop,:),1);
 % [~,sortix] = sort(response,'descend');
 full = mean(selectNorm,1);
-[~,sortix] = sort(full,'descend');
+%[~,sortix] = sort(full,'descend');
 selectNorm = selectNorm(:,sortix);
+selectNorm = selectNorm;
 end
 
 

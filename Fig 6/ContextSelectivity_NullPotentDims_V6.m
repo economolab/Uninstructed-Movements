@@ -204,6 +204,7 @@ tLim.stop = 1;
 samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 
 nDims = size(toplot.Null,2);
+disp(num2str(nDims))
 nums = NullNums;
 subplot(1,2,1)
 imagesc(obj(1).time,1:nDims,toplot.Null'); hold on
@@ -217,6 +218,7 @@ xlim([tLim.start tLim.stop])
 title('Null Selectivity')
 
 nDims = size(toplot.Potent,2);
+disp(num2str(nDims))
 nums = PotentNums;
 subplot(1,2,2)
 imagesc(obj(1).time,1:nDims,toplot.Potent'); hold on
@@ -302,8 +304,9 @@ end
 % response = mean(selectNorm.null(start:stop,:),1);
 % [~,sortix] = sort(response,'descend');
 full = mean(selectNorm,1);
-[~,sortix] = sort(full,'descend');
-selectNorm = selectNorm(:,sortix);
+%[~,sortix] = sort(full,'descend');
+%selectNorm = selectNorm(:,sortix);
+selectNorm = selectNorm;
 end
 
 
