@@ -149,42 +149,59 @@ trainPct = 0.5;     % Percentage of trials being used for train vs test
 condfns = {'afc','aw'};
 movefns = {'noMove','Move','all'};
 
+testsplit = getTestTrials_MnM(condfns,movefns,trainPct,MoveNonMove);
 
-testsplit = getTestTrials(params,cond2use,trainPct);
-%% Find CDContext using training data for each Split; projections are only for test data for each split
+%testsplit = getTestTrials(params,cond2use,trainPct);
+%% Find CDContext using training data (all trials, not separated by move/non-move)
+% Projections are only for test data (all trials and also separated by Move/NonMove)
 condfns = {'afc','aw'};
 popfns = {'null','potent','fullpop'};
+movefns = {'noMove','Move','all'};
 
 % New field added to 'cd_null' = 'testsingleproj'
-% testsingleproj = (1 x 2) cell array.  First cell contains single test trial projections from the 2AFC context. 
+% testsingleproj has fields 'noMove', 'Move', 'all' indicating whether these single trial projections are from noMove trials, move trials, or all trials
+% Each field then has a (1 x 2) cell array.  First cell contains single test trial projections from the 2AFC context. 
 % Second cell contains projections from AW context
-[cd_null, cd_potent, cd_context] = CDContext_AllSpaces(obj,meta,rez,popfns,condfns);
+[cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params);
 
-clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits
-%% Split trials into Move trials and Non-Move trials (based on ME in presample period)
-trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-startix = find(obj(1).time>trialstart,1,'first');
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-stopix = find(obj(1).time<samp,1,'last');
+clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits times
+%% Reorganize into a simpler structure
+% Grouped = (1 x nSessions) struct with fields 'fullpop', 'null', 'potent'
+% Each field has subfields 'noMove','Move','all'
+% 'noMove','Move', and 'all' are (1 x 2) cell. Where first cell contains single trial projections onto CDContext for 2AFC trials (of that move condition)
+% and second cell contains for AW trials
 
-trials2cutoff = 40;                 % Trials to discount at the end of the session (for motion energy)
+popfns = {'fullpop','null','potent'};
+movefns = {'noMove','Move','all'};
+for sessix = 1:length(meta)
+    for po = 1:length(popfns)
+        fn = popfns{po};
+        switch fn
+            case 'fullpop'
+                cd = cd_context(sessix).testsingleproj;
+            case 'null'
+                cd = cd_null(sessix).testsingleproj;
+            case 'potent'
+                cd = cd_potent(sessix).testsingleproj;
+        end
+        for mo = 1:length(movefns)
+            grouped(sessix).(fn).(movefns{mo}) = cd.(movefns{mo});
+        end
+    end
+end
 
-% Grouped = (1 x nSessions) struct with fields 'ME', 'fullpop', 'null', 'potent'
-% Each field has subfields 'afc' and 'aw'
-% 'afc' and 'aw' are (1 x 3) where each column is average ME or CDContext for Move trials, Non-Move trials, or all trials
-grouped = groupCDbyMoveNonMove(obj,meta,trials2cutoff, testsplit,me,cd_context,cd_null,cd_potent);
-
-clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits grouped
+clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit times grouped popfns movefns
 %% Group across all sessions
+% Find average CDContext in all move conditions and task conditions
+% Find selectivity (btw 2AFC and AW)
+
+% all_grouped = (1 x nSessions) struct with fields 'fullpop', 'null', 'potent'
+% Each field has subfields 'noMove','Move','all'
+% 'noMove','Move', and 'all' are (1 x 2) cell. Where first cell contains single trial projections onto CDContext for 2AFC trials (of that move condition)
+% and second cell contains for AW trials
 sm=50;
-ngroups = 3;            % Move; non-move; all trials
-all_grouped = combineSessions_grouped(ngroups,meta,grouped,sm);
+all_grouped = combineSessions_grouped(meta,grouped,sm, popfns, movefns);
 %% Plot average CDContext across all sessions for each context
-% Find the times corresponding to trial start and the sample period
-trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-startix = find(obj(1).time>trialstart,1,'first');
-samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-stopix = find(obj(1).time<samp,1,'last');
 
 colors = getColors();
 alph = 0.2;             % Shading opacity for error bars
@@ -195,7 +212,7 @@ alph = 0.2;             % Shading opacity for error bars
 % LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 
 figure();
-LinePlot_SelGrouped_MoveNonMove_V2(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+LinePlot_SelGrouped_MoveNonMove_V2(meta,all_grouped,times,alph,colors,obj,movefns,popfns)
 %% Get the average presample selectivity in CDCont for move and non-move trials
 for ii = 1:3
     if ii==1
@@ -205,8 +222,8 @@ for ii = 1:3
     elseif ii==3
         cont = 'potent';
     end
-    for gg = 1:ngroups
-        presampavg.(cont){gg} = mean(all_grouped.(cont).selectivity{gg}(startix:stopix,:),1,'omitnan');
+    for gg = 1:length(movefns)
+        presampavg.(cont).(movefns{gg}) = mean(all_grouped.(cont).(movefns{gg}).selectivity(times.startix:times.stopix,:),1,'omitnan');
     end
 end
 %% Normalize the selectivity to the max presample selectivity in each "condition" i.e. fullpop, null, potent
@@ -218,15 +235,15 @@ for ii = 1:3
     elseif ii==3
         cont = 'potent';
     end
-    temp = [presampavg.(cont){1}, presampavg.(cont){2}];
+    temp = [presampavg.(cont).noMove, presampavg.(cont).Move];
     maxsel = max(abs(temp));
-    for gg = 1:ngroups
-        presampavgnorm.(cont){gg} = abs(presampavg.(cont){gg})./maxsel;
-    end
+   
+    presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;
+    presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;
 end
 
 %% Do all t-tests (paired)
-sigcutoff = 0.05;
+sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.  
                         
 for ii = 1:3
@@ -238,15 +255,16 @@ for ii = 1:3
         case 3
             cont = 'potent';
     end
-    hyp.(cont) = ttest(presampavgnorm.(cont){1},presampavgnorm.(cont){2},'Alpha',sigcutoff);
+    hyp.(cont) = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 %% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
 X = [1,2,4,5,7,8];
 row1 = []; row2 = []; row3 =[];
-for gg = 1:2
-    row1 = [row1,mean(presampavgnorm.fullpop{gg})];
-    row2 = [row2,mean(presampavgnorm.null{gg})];
-    row3 = [row3,mean(presampavgnorm.potent{gg})];
+movefns = {'Move','noMove'};
+for gg = 1:length(movefns)
+    row1 = [row1,mean(presampavgnorm.fullpop.(movefns{gg}))];
+    row2 = [row2,mean(presampavgnorm.null.(movefns{gg}))];
+    row3 = [row3,mean(presampavgnorm.potent.(movefns{gg}))];
 end
 y = [row1, row2, row3];
 figure();
@@ -265,12 +283,12 @@ for ii  = 1:3
             cont = 'potent';
             xx= [7,8];
     end
-    for gg = 1:2
-        scatter(X(cnt),presampavgnorm.(cont){gg},25,[0 0 0],'filled','MarkerEdgeColor','black')
+    for gg = 1:length(movefns)
+        scatter(X(cnt),presampavgnorm.(cont).(movefns{gg}),25,[0 0 0],'filled','MarkerEdgeColor','black')
         cnt = cnt+1;
     end
     for sessix = 1:length(meta)
-        plot(xx,[presampavgnorm.(cont){1}(sessix),presampavgnorm.(cont){2}(sessix)],'Color','black')
+        plot(xx,[presampavgnorm.(cont).Move(sessix),presampavgnorm.(cont).noMove(sessix)],'Color','black')
     end
 
 end
@@ -368,50 +386,49 @@ for ii = 1:3
 end
 end
 
-function LinePlot_SelGrouped_MoveNonMove_V2(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+function LinePlot_SelGrouped_MoveNonMove_V2(meta,all_grouped,times,alph,colors,obj,movefns,popfns)
 nSessions = length(meta);
 cnt = 1;
-for ii = 1:3
-    if ii==1
-        cont = 'fullpop';
-        yl = [0 9];
+for po = 1:length(popfns)
+    cont = popfns{po};
+    switch cont
+        case 'fullpop'
+        yl = [0 8.5];
         col = [0.25 0.25 0.25];
-    elseif ii==2
-        cont = 'null';
-        yl = [0 0.45];
+        case 'null'
+        yl = [0 0.35];
         col = colors.null;
-    elseif ii==3
-        cont = 'potent';
-        yl = [0 0.45];
+        case 'potent'
+        yl = [0 0.35];
         col = colors.potent;
     end
     subplot(3,2,cnt)
     ax = gca;
-    toplot = mean(all_grouped.(cont).selectivity{3},2,'omitnan');
-    err = std(all_grouped.(cont).selectivity{3},0,2,'omitnan')./sqrt(nSessions);
-    %err = 1.96*(std(all_grouped.(cont).selectivity{3},0,2,'omitnan')./sqrt(nSessions));
+    toplot = mean(all_grouped.(cont).all.selectivity,2,'omitnan');
+    err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
+    %err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
 
     ylim(yl)
-    xline(samp,'k--','LineWidth',1)
-    xlim([trialstart 0])
+    xline(times.samp,'k--','LineWidth',1)
+    xlim([times.trialstart 0])
     ylabel(cont)
     title('All trials')
     cnt = cnt+1;
 
     for gg = 1:2
-        if gg==1                            % Move trials
+        if gg==2                            % Move trials
             style = '-';
             alp = alph;
-        else                                % Non-Move trials
+        elseif gg==1                        % Non-Move trials
             style = '--';
             alp = alph-0.1;
         end
 
         subplot(3,2,cnt)
         ax = gca;
-        toplot = mean(all_grouped.(cont).selectivity{gg},2,'omitnan');
-        err = std(all_grouped.(cont).selectivity{gg},0,2,'omitnan')./sqrt(nSessions);
+        toplot = mean(all_grouped.(cont).(movefns{gg}).selectivity,2,'omitnan');
+        err = std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions);
         %err = 1.96*(std(all_grouped.(cont).selectivity{gg},0,2,'omitnan')./sqrt(nSessions));
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
@@ -421,33 +438,27 @@ for ii = 1:3
 %             set(ax, 'YDir','reverse')
 %         end
 %        xline(0,'k--','LineWidth',1)
-        xline(samp,'k--','LineWidth',1)
-        xlim([trialstart 0])
+        xline(times.samp,'k--','LineWidth',1)
+        xlim([times.trialstart 0])
         ylabel('Selectivity (a.u.)')
-        legend('Move','Non-Move')
+        legend({movefns{1} movefns{2}})
     end
     cnt = cnt+1;
 end
 end
 %%
-function all_grouped = combineSessions_grouped(ngroups,meta,grouped,sm)
-for ii = 1:3
-    if ii==1
-        cont = 'fullpop';
-    elseif ii==2
-        cont = 'null';
-    elseif ii==3
-        cont = 'potent';
-    end
-    for gg = 1:ngroups
+function all_grouped = combineSessions_grouped(meta,grouped,sm, popfns, movefns)
+for ii = 1:length(popfns)
+    cont = popfns{ii};
+    for mo = 1:length(movefns)
         temp = [];
         for sessix = 1:length(meta)
-            tempafc = mySmooth(grouped(sessix).(cont).afc{gg},sm);
-            tempaw = mySmooth(grouped(sessix).(cont).aw{gg},sm);
+            tempafc = mySmooth(mean(grouped(sessix).(cont).(movefns{mo}){1},2,'omitnan'),sm);
+            tempaw = mySmooth(mean(grouped(sessix).(cont).(movefns{mo}){2},2,'omitnan'),sm);
             sel = tempafc-tempaw;
             temp = [temp,sel];
         end
-        all_grouped.(cont).selectivity{gg} = temp;
+        all_grouped.(cont).(movefns{mo}).selectivity = temp;
             
         for cc = 1:2
             if cc == 1
@@ -457,9 +468,9 @@ for ii = 1:3
             end
             temp = [];
             for sessix = 1:length(meta)
-                temp = [temp,grouped(sessix).(cont).(trialcont){gg}];
+                temp = [temp,mean(grouped(sessix).(cont).(movefns{mo}){cc},2,'omitnan')];
             end
-            all_grouped.(cont).(trialcont){gg} = temp;
+            all_grouped.(cont).(movefns{mo}).(trialcont) = temp;
         end
     end
 end
