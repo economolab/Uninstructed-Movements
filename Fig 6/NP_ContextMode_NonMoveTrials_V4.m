@@ -173,22 +173,8 @@ clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored te
 
 popfns = {'fullpop','null','potent'};
 movefns = {'noMove','Move','all'};
-for sessix = 1:length(meta)
-    for po = 1:length(popfns)
-        fn = popfns{po};
-        switch fn
-            case 'fullpop'
-                cd = cd_context(sessix).testsingleproj;
-            case 'null'
-                cd = cd_null(sessix).testsingleproj;
-            case 'potent'
-                cd = cd_potent(sessix).testsingleproj;
-        end
-        for mo = 1:length(movefns)
-            grouped(sessix).(fn).(movefns{mo}) = cd.(movefns{mo});
-        end
-    end
-end
+
+grouped = reorganizeMnM(meta, popfns, movefns, cd_context, cd_null, cd_potent);
 
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit times grouped popfns movefns
 %% Group across all sessions
@@ -214,84 +200,32 @@ alph = 0.2;             % Shading opacity for error bars
 figure();
 LinePlot_SelGrouped_MoveNonMove_V2(meta,all_grouped,times,alph,colors,obj,movefns,popfns)
 %% Get the average presample selectivity in CDCont for move and non-move trials
-for ii = 1:3
-    if ii==1
-        cont = 'fullpop';
-    elseif ii==2
-        cont = 'null';
-    elseif ii==3
-        cont = 'potent';
-    end
+for ii = 1:length(popfns)
+    cont = popfns{ii};
     for gg = 1:length(movefns)
         presampavg.(cont).(movefns{gg}) = mean(all_grouped.(cont).(movefns{gg}).selectivity(times.startix:times.stopix,:),1,'omitnan');
     end
 end
 %% Normalize the selectivity to the max presample selectivity in each "condition" i.e. fullpop, null, potent
-for ii = 1:3
-    if ii==1
-        cont = 'fullpop';
-    elseif ii==2
-        cont = 'null';
-    elseif ii==3
-        cont = 'potent';
-    end
-    temp = [presampavg.(cont).noMove, presampavg.(cont).Move];
-    maxsel = max(abs(temp));
+for ii = 1:length(popfns)
+    cont = popfns{ii};
+    temp = [presampavg.(cont).noMove, presampavg.(cont).Move];              % Take all presamp average values for CDCont, in move vs non-move
+    maxsel = max(abs(temp));                                                % Take the maximum of the absolute value of these
    
-    presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;
-    presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;
+    presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;   % Normalize all presamp avgs from this condition to this value 
+    presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
 
 %% Do all t-tests (paired)
 sigcutoff = 0.01;
-allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.  
-                        
-for ii = 1:3
-    switch ii
-        case 1
-            cont = 'fullpop';
-        case 2
-            cont = 'null';
-        case 3
-            cont = 'potent';
-    end
+allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
+for ii = 1:length(popfns)
+    cont = popfns{ii};
     hyp.(cont) = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 %% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
-X = [1,2,4,5,7,8];
-row1 = []; row2 = []; row3 =[];
-movefns = {'Move','noMove'};
-for gg = 1:length(movefns)
-    row1 = [row1,mean(presampavgnorm.fullpop.(movefns{gg}))];
-    row2 = [row2,mean(presampavgnorm.null.(movefns{gg}))];
-    row3 = [row3,mean(presampavgnorm.potent.(movefns{gg}))];
-end
-y = [row1, row2, row3];
 figure();
-bar(X,y);
-hold on;
-cnt = 1;
-for ii  = 1:3
-    switch ii
-        case 1
-            cont = 'fullpop';
-            xx = [1,2];
-        case 2
-            cont = 'null';
-            xx = [4,5];
-        case 3
-            cont = 'potent';
-            xx= [7,8];
-    end
-    for gg = 1:length(movefns)
-        scatter(X(cnt),presampavgnorm.(cont).(movefns{gg}),25,[0 0 0],'filled','MarkerEdgeColor','black')
-        cnt = cnt+1;
-    end
-    for sessix = 1:length(meta)
-        plot(xx,[presampavgnorm.(cont).Move(sessix),presampavgnorm.(cont).noMove(sessix)],'Color','black')
-    end
-
-end
+plotBarPlot_Scatter_WLines(presampavgnorm)
 %% Plotting functions
 
 function LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
@@ -446,7 +380,63 @@ for po = 1:length(popfns)
     cnt = cnt+1;
 end
 end
+
+function plotBarPlot_Scatter_WLines(presampavgnorm)
+X = [1,2,4,5,7,8];
+row1 = []; row2 = []; row3 =[];
+movefns = {'Move','noMove'};
+for gg = 1:length(movefns)
+    row1 = [row1,mean(presampavgnorm.fullpop.(movefns{gg}))];
+    row2 = [row2,mean(presampavgnorm.null.(movefns{gg}))];
+    row3 = [row3,mean(presampavgnorm.potent.(movefns{gg}))];
+end
+y = [row1, row2, row3];
+figure();
+bar(X,y);
+hold on;
+cnt = 1;
+for ii  = 1:3
+    switch ii
+        case 1
+            cont = 'fullpop';
+            xx = [1,2];
+        case 2
+            cont = 'null';
+            xx = [4,5];
+        case 3
+            cont = 'potent';
+            xx= [7,8];
+    end
+    for gg = 1:length(movefns)
+        scatter(X(cnt),presampavgnorm.(cont).(movefns{gg}),25,[0 0 0],'filled','MarkerEdgeColor','black')
+        cnt = cnt+1;
+    end
+    for sessix = 1:length(meta)
+        plot(xx,[presampavgnorm.(cont).Move(sessix),presampavgnorm.(cont).noMove(sessix)],'Color','black')
+    end
+end
+end
 %%
+function grouped = reorganizeMnM(meta, popfns, movefns, cd_context, cd_null, cd_potent)
+for sessix = 1:length(meta)
+    for po = 1:length(popfns)
+        fn = popfns{po};
+        switch fn
+            case 'fullpop'
+                cd = cd_context(sessix).testsingleproj;
+            case 'null'
+                cd = cd_null(sessix).testsingleproj;
+            case 'potent'
+                cd = cd_potent(sessix).testsingleproj;
+        end
+        for mo = 1:length(movefns)
+            grouped(sessix).(fn).(movefns{mo}) = cd.(movefns{mo});
+        end
+    end
+end
+end
+
+
 function all_grouped = combineSessions_grouped(meta,grouped,sm, popfns, movefns)
 for ii = 1:length(popfns)
     cont = popfns{ii};
