@@ -74,16 +74,16 @@ for sessix = 1:length(meta)
     if size(sideme(sessix).data,2)==size(bottomme(sessix).data,2)
         nTrials = size(sideme(sessix).data,2);
         tempR2 = NaN(1,nTrials);
-        for trix = 1:nTrials
-            side = mySmooth(sideme(sessix).data(:,trix),sm);
-            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);
-            R2 = corrcoef(side,bottom);
-            tempR2(trix) = R2(2);
+        for trix = 1:nTrials                                                % For each trial...
+            side = mySmooth(sideme(sessix).data(:,trix),sm);                % Get side cam ME
+            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);            % Bottom cam ME
+            R2 = corrcoef(side,bottom);                                     % Get correlation between the two
+            tempR2(trix) = R2(2);                                           % Store this R2 value for the trial
 %             plot(side); hold on; plot(bottom); hold off;
 %             title(num2str(tempR2(trix)))
 %             pause
         end
-        M1_R2(sessix) = mean(tempR2,'omitnan');
+        M1_R2(sessix) = mean(tempR2,'omitnan');                             % Average all R2 values across trial --> one R2 val for the session
     end
 end
 %% Method 2: Concatenate the side cam ME from all trials together into one long time series
@@ -95,13 +95,13 @@ for sessix = 1:length(meta)
         nTrials = size(sideme(sessix).data,2);
         side_alltrix = [];
         bottom_alltrix = [];
-        for trix = 1:nTrials
-            side = mySmooth(sideme(sessix).data(:,trix),sm);
-            side_alltrix = [side; side_alltrix];
-            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);
+        for trix = 1:nTrials                                            % For each trial...
+            side = mySmooth(sideme(sessix).data(:,trix),sm);            % Get smoothed sidecam ME
+            side_alltrix = [side; side_alltrix];                        % Append this to the array of sidecam ME from all other trials
+            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);        % Do the same for bottom cam ME
             bottom_alltrix = [bottom; bottom_alltrix];  
         end
-        R2 = corrcoef(side_alltrix,bottom_alltrix);
+        R2 = corrcoef(side_alltrix,bottom_alltrix);                     % Find the correlation between bottom and side cam ME (one R2 val for the session)
 %         plot(side_alltrix); hold on; plot(bottom_alltrix); hold off;
 %         pause
         M2_R2(sessix) = R2(2);
@@ -131,12 +131,15 @@ for sessix = sess
         nTimepts = size(sideme(sessix).data,1);
         sidepct = NaN(nTrials, 1);
         bottompct = NaN(nTrials, 1);
-        for trix = 1:nTrials
+        for trix = 1:nTrials                                                         % For each trial...
             side = sum(sideme(sessix).data(:,trix)>sideme(sessix).moveThresh);       % Get number of time points where sidecam ME is above movethreshold
             sidepct(trix) = side/nTimepts;                                           % Divide by total number of time points to get percentage
             bottom = sum(bottomme(sessix).data(:,trix)>bottomme(sessix).moveThresh); % Get number of time points where bottomcam ME is above movethreshold
             bottompct(trix) = bottom/nTimepts;
         end
+        %%% TO-DO: fit each scatter plot to the unity line; get a 'fit' value for each session  %%%
+
+        % Plot for each session a scatter plot of pct time moving on each trial as calculated according to side cam or bottom cam
         nexttile
         scatter(sidepct,bottompct,10,'filled'); hold on;
         plot(x,y,'k--')
