@@ -55,12 +55,21 @@ end
 taxis = obj.time + params.advance_movement;
 alignTimes = obj.bp.ev.(params.alignEvent);
 me.newdata = zeros(numel(obj.time),numel(me.data));
+
+if strcmp(camview,'sidecam')
+    camnum = 1;
+else 
+    camnum = 2;
+end
+
 for trix = 1:numel(me.data)
     try
-        me.newdata(:,trix) = interp1(obj.traj{1}(trix).frameTimes-0.5-alignTimes(trix),me.data{trix},taxis); % interp1(old_time,me,new_time);
+        me.newdata(:,trix) = interp1(obj.traj{camnum}(trix).frameTimes-0.5-alignTimes(trix),me.data{trix},taxis); % interp1(old_time,me,new_time);
     catch % if frameTimes doesn't exist or is full of NaNs - shouldn't be dummy data as we aren't using those sessions
-        frameTimes = (1:size(obj.traj{1}(trix).ts,1)) ./ 400;
-        me.newdata(:,trix) = interp1(frameTimes-0.5-alignTimes(trix),me.data{trix},taxis);
+        frameTimes = (1:size(obj.traj{camnum}(trix).ts,1)) ./ 400;
+        if length(frameTimes)==length(me.data{trix})
+            me.newdata(:,trix) = interp1(frameTimes-0.5-alignTimes(trix),me.data{trix},taxis);
+        end
     end
 end
 

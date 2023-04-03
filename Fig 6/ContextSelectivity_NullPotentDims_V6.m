@@ -16,18 +16,18 @@ elseif strcmp(whichcomp,'Laptop')
 end
 
 % add paths
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 4';
+figpth = [basepth '\Uninstructed-Movements\Fig 4'];
 addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context switching')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 7';
+figpth = [basepth '\Uninstructed-Movements\Fig 7'];
 addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context_funcs')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 6';
+figpth = [basepth '\Uninstructed-Movements\Fig 6'];
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
