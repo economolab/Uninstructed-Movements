@@ -215,7 +215,6 @@ for ii = 1:length(popfns)
     presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;   % Normalize all presamp avgs from this condition to this value 
     presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
-
 %% Do all t-tests (paired)
 sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             

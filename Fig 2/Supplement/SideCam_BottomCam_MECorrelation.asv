@@ -1,7 +1,7 @@
 % Compare motion energy found via the side cam vs bottom cam
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -22,9 +22,9 @@ addpath(genpath(fullfile(figpth,'Hazarded Delay')));
 %% LOAD Hazarded Delay data
 % Everything aligned to the delay period; tmin = -2.5, tmax = 3; dt = 1/200
 % HAVE TO ACCOUNT FOR 0.5 SECOND DELAY WITHOUT SPIKEGLX
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_objs.mat');
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_meta.mat');
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_params.mat');
+load([basepth '\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_objs.mat']);
+load([basepth '\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_meta.mat']);
+load([basepth '\Uninstructed-Movements\Fig 2\Hazarded Delay\BehavData\JEB11_JEB12_params.mat']);
 
 % Set params for hazarded delay data
 params.tmin = meta(1).tmin; params.tmax = meta(1).tmax;
@@ -44,6 +44,7 @@ elseif strcmp(whichcomp,'Laptop')
     datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
 end
 
+% Side cam
 camview = 'sidecam';
 for sessix = 1:numel(meta)
     disp(['Loading side cam ME for session ' num2str(sessix)])
@@ -53,7 +54,8 @@ for sessix = 1:numel(meta)
         sideme(sessix) = loadMotionEnergy_Behav(obj(sessix), meta(sessix), params(sessix), datapth,camview);
     end
 end
-%%
+
+% Bottom cam
 camview = 'bottomcam';
 for sessix = 1:numel(meta)
     disp(['Loading bottom cam ME for session ' num2str(sessix)])
@@ -65,7 +67,7 @@ for sessix = 1:numel(meta)
 end
 %% Method 1: On each trial, find the R^2 between the side cam ME and the bottom cam ME
 % Then take the average across all trials to find one R^2 value for each session
-
+sm = 51;
 M1_R2 = NaN(1,length(meta));
 for sessix = 1:length(meta)
     % Check to make sure side cam and bottom cam have same number of trials
@@ -73,16 +75,72 @@ for sessix = 1:length(meta)
         nTrials = size(sideme(sessix).data,2);
         tempR2 = NaN(1,nTrials);
         for trix = 1:nTrials
-            side = sideme(sessix).data(:,trix);
-            bottom = bottomme(sessix).data(:,trix);
+            side = mySmooth(sideme(sessix).data(:,trix),sm);
+            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);
             R2 = corrcoef(side,bottom);
             tempR2(trix) = R2(2);
+%             plot(side); hold on; plot(bottom); hold off;
+%             title(num2str(tempR2(trix)))
+%             pause
         end
         M1_R2(sessix) = mean(tempR2,'omitnan');
     end
 end
 %% Method 2: Concatenate the side cam ME from all trials together into one long time series
 % Do the same for bottom cam ME.  Find the correlation between those two long time series 
+M2_R2 = NaN(1,length(meta));
+for sessix = 1:length(meta)
+    % Check to make sure side cam and bottom cam have same number of trials
+    if size(sideme(sessix).data,2)==size(bottomme(sessix).data,2)
+        nTrials = size(sideme(sessix).data,2);
+        side_alltrix = [];
+        bottom_alltrix = [];
+        for trix = 1:nTrials
+            side = mySmooth(sideme(sessix).data(:,trix),sm);
+            side_alltrix = [side; side_alltrix];
+            bottom = mySmooth(bottomme(sessix).data(:,trix),sm);
+            bottom_alltrix = [bottom; bottom_alltrix];  
+        end
+        R2 = corrcoef(side_alltrix,bottom_alltrix);
+%         plot(side_alltrix); hold on; plot(bottom_alltrix); hold off;
+%         pause
+        M2_R2(sessix) = R2(2);
+    end
+end
+%% Plot histograms of R2 values found using either method
+nBins = 5;
+subplot(1,2,1)
+histogram(M1_R2,nBins)
+title('Method 1: R2 on each trial, avg all')
+xlabel('R2 val')
+ylabel('Num sessions')
+
+subplot(1,2,2)
+histogram(M2_R2,nBins)
+title('Method 2: Concatenate all trials, R2 once')
+xlabel('R2 val')
+ylabel('Num sessions')
+%% Compare percentage of time spent moving found via each camera
+for sessix = 1:length(meta)
+    % Check to make sure side cam and bottom cam have same number of trials
+    if size(sideme(sessix).data,2)==size(bottomme(sessix).data,2)
+        nTrials = size(sideme(sessix).data,2);
+        nTimepts = size(sideme(sessix).data,1);
+        sidepct = NaN(nTrials, 1);
+        bottompct = NaN(nTrials, 1);
+        for trix = 1:nTrials
+            side = sum(sideme(sessix).data(:,trix)>sideme(sessix).moveThresh);       % Get number of time points where sidecam ME is above movethreshold
+            sidepct(trix) = side/nTimepts;                                           % Divide by total number of time points to get percentage
+            bottom = sum(bottomme(sessix).data(:,trix)>bottomme(sessix).moveThresh); % Get number of time points where bottomcam ME is above movethreshold
+            bottompct(trix) = bottom/nTimepts;
+        end
+        scatter(sidepct,bottompct)
+        xlim([0 1])
+        xlabel('Pct of time moving: side cam')
+        ylim([0 1])
+
+    end
+end
 
 %% FUNCTIONS
 function [params,obj] = cleanUpData(params, meta,objs)
