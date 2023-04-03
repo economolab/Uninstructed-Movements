@@ -1,4 +1,4 @@
-function rez = getCDContext_TTSplit(psth2use,obj,params,cond2use,cond2proj)
+function rez = getCDContext_TTSplit(psth2use,obj,params,cond2use,cond2proj,movefns)
 cd_labels = {'context'};
 cd_epochs = {'sample'};
 cd_times = {[-0.42 -0.1]}; % in seconds, relative to respective epochs
@@ -48,7 +48,7 @@ rez.cd_proj = tensorprod(temp,rez.cd_mode_orth,3,1); % (time,cond,cd), cond is i
 % --test projections (single trial proj)--
 % ------------------------------------------
 touse = psth2use.test;
-rez.testsingleproj = getSingleTrialProjs_TTSplit(rez.cd_mode,touse);
+rez.testsingleproj = getSingleTrialProjs_TTSplit(rez.cd_mode,touse,movefns);
 
 % ------------------------------------------
 % --variance explained--
