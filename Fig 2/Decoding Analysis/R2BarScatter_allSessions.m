@@ -5,7 +5,7 @@ whichcomp = 'Laptop';                                                % LabPC or 
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
-    basepth = 'C:\Users\Jackie Birnbaum\Documents\Code';
+    basepth = 'C:\Code';
 elseif strcmp(whichcomp,'Laptop')
     basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
 end
