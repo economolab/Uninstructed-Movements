@@ -1,15 +1,23 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-% add paths for data loading scripts, all fig funcs, and utils
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+whichcomp = 'Laptop';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Users\Jackie Birnbaum\Documents\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig1')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3';
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'funcs')));
-
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -88,12 +96,11 @@ clearvars -except obj meta params me sav kin
 disp('----Calculating coding dimensions----')
 cond2use = [2,3];
 cond2proj = [2,3];
-orthogonalize = 'non-orthog';                                       % Set to orthogonalize if you want the projections to be onto the orthogonalized CDs
-regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj,orthogonalize);
+regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
 
 disp('----Projecting single trials onto CDlate----')
 cd = 'late';
-regr = getSingleTrialProjs(regr,obj,cd,orthogonalize);
+regr = getSingleTrialProjs(regr,obj,cd);
 %% Load kinematic data
 nSessions = numel(meta);
 for sessix = 1:numel(meta)
@@ -117,7 +124,6 @@ end
 %     pause
 % end
 %% Predict CDLate from DLC features
-
 clearvars -except datapth kin me meta obj params regr nSessions
 clc;
 
@@ -192,12 +198,13 @@ for sessix = 1:numel(obj)
         modelpred.Lhit{sessix} = pred(:,trials.LHit.TestIX);
     end
 end
+ disp('---FINISHED DECODING FOR ALL SESSIONS---')
 %% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
 delR2 = [];
 % Each dot = an average value of CDlate during the delay period 
 start = find(obj(1).time>-0.9,1,'first');
 stop = find(obj(1).time<-0.05,1,'last');
-for sessix = 6%1:length(meta)
+for sessix = 1:length(meta)
     tempR = mean(trueVals.Rhit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
     tempL = mean(trueVals.Lhit{sessix}((start+1):(stop+1),:),1,'omitnan');
     truedat = [tempR, tempL];
@@ -221,6 +228,67 @@ for sessix = 6%1:length(meta)
     legend('data',['R^2 = ' R2],'Location','Best')
     title(sesstitle)
     %pause
+
+% Plot an example session of CDlate prediction vs true value
+% Calculate averages and standard deviation for true CD and predicted CD
+% for this session
+[avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
+colors = getColors();
+alph  = 0.2;
+
+figure();
+for i = 1:4
+    switch i
+        case 1
+            dir = 'Rhit';
+            data = 'true';
+            col = colors.rhit;
+            linestyle = '-';
+            time = obj(1).time;
+        case 2
+            dir = 'Lhit';
+            data = 'true';
+            col = colors.lhit;
+            linestyle = '-';
+            time = obj(1).time;
+        case 3
+            dir = 'Rhit';
+            data = 'pred';
+            col = colors.rhit;
+            linestyle = '--';
+            time = rez.tm(1:end-1);
+        case 4
+            dir = 'Lhit';
+            data = 'pred';
+            col = colors.lhit;
+            linestyle = '--';
+            time = rez.tm(1:end-1);
+    end
+    toplot = avgCD.(dir).(data);
+    nTrials = size(trueVals.(dir){sessix},2);
+    err = 1.96*(stdCD.(dir).(data)./sqrt(nTrials));
+    ax = gca;
+    shadedErrorBar(time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',linestyle},alph,ax); hold on;
+end
+sample = mode(obj(1).bp.ev.sample) - mode(obj(1).bp.ev.goCue);      % Timing of sample, delay and trialstart for plotting
+delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.goCue);
+go = mode(obj(1).bp.ev.goCue) - mode(obj(1).bp.ev.goCue);
+
+xline(go,'black','LineStyle','--','LineWidth',1.1)
+xline(delay,'black','LineStyle','-.','LineWidth',1.1)
+xline(sample,'black','LineStyle','-.','LineWidth',1.1)
+%R2 = JEB13_delR2(sessix);
+legend('R hit, data','R hit, video','L hit, data','L hit, video','Location','best')
+ylabel('a.u.')
+xlabel('Time from go cue (s)')
+sesstit = [sesstitle, 'R^2 = ', R2];
+title(sesstit)
+set(gca, 'YDir','reverse')
+xlim([-2.5 2.5])
+hold off;
+
+pause 
+close all
 end
 %% Plot bar plot to show average R2 values across sessions
 figure();
@@ -239,78 +307,9 @@ R2 = correlateTrue_PredictedCD(trueVals, modelpred,meta,timeTrue,timePred);
 %% Plot histogram of R2 values
 nBins = 5;
 figure();
-histogram(R2,nBins,'FaceColor',[0.25 0.25 0.25])
+histogram(delR2,nBins,'FaceColor',[0.25 0.25 0.25])
 xlabel('R^2 value')
 ylabel('Num sessions')
-%% Plot an example session of CDlate prediction vs true value
-for sessix = 1:length(meta)
-sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
-
-% Calculate averages and standard deviation for true CD and predicted CD
-% for this session
-[avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
-colors = getColorsUpdated();
-alph  = 0.2;
-
-for i = 1:4
-    if i==1
-        dir = 'Rhit';
-        data = 'true';
-        col = colors.rhit;
-        linestyle = '-';
-        time = obj(1).time;
-    elseif i==2
-        dir = 'Lhit';
-        data = 'true';
-        col = colors.lhit;
-        linestyle = '-';
-        time = obj(1).time;
-    elseif i==3
-        dir = 'Rhit';
-        data = 'pred';
-        col = colors.rhit;
-        linestyle = '--';
-        time = rez.tm(1:end-1);
-    elseif i==4
-        dir = 'Lhit';
-        data = 'pred';
-        col = colors.lhit;
-        linestyle = '--';
-        time = rez.tm(1:end-1);
-    end
-    toplot = avgCD.(dir).(data);
-    nTrials = size(trueVals.(dir){sessix},2);
-    err = 1.96*(stdCD.(dir).(data)./sqrt(nTrials));
-    ax = gca;
-    shadedErrorBar(time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',linestyle},alph,ax); hold on;
-    %
-    % % Get confidence intervals
-    % [upperci, lowerci] = getConfInt(meta, avgCD, stdCD);
-    %
-    % % Plot average CDlate projections and predictions for the session
-    % plotExampleCDLatePrediction(obj,rez,avgCD,upperci,lowerci,sesstitle,delR2(sessix))
-end
-
-sample = mode(obj(1).bp.ev.sample) - mode(obj(1).bp.ev.goCue);      % Timing of sample, delay and trialstart for plotting
-delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.goCue);
-go = mode(obj(1).bp.ev.goCue) - mode(obj(1).bp.ev.goCue);
-
-xline(go,'black','LineStyle','--','LineWidth',1.1)
-xline(delay,'black','LineStyle','-.','LineWidth',1.1)
-xline(sample,'black','LineStyle','-.','LineWidth',1.1)
-R2 = JEB13_delR2(sessix);
-legend('R hit true','R hit predicted','L hit true','L hit predicted','Location','best')
-ylabel('a.u.')
-xlabel('Time since go-cue (s)')
-sesstit = [sesstitle, 'R^2 = ', num2str(R2)];
-title(sesstit)
-set(gca, 'YDir','reverse')
-xlim([-2.5 2.5])
-hold off;
-pause
-end
-%%
-
 %% FUNCTIONS
 function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
 

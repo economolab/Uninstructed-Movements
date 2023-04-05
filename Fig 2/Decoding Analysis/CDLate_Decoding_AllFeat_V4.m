@@ -35,7 +35,7 @@ params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             
 params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % R error 2AFC, no stim, aw off
 params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % L error 2AFC, no stim
 
-params.tmin = -2.5;
+params.tmin = -3;
 params.tmax = 2.5;
 params.dt = (1/100)*3;
 
@@ -54,6 +54,7 @@ params.feat_varToExplain = 80; % num factors for dim reduction of video features
 params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 
 params.advance_movement = 0;
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
 if strcmp(whichcomp,'LabPC')
@@ -65,13 +66,13 @@ end
 meta = [];
 
 % --- ALM ---
+%meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB6_ALMVideo(meta,datapth);
-% meta = loadJEB7_ALMVideo(meta,datapth);
-% meta = loadEKH1_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth);
+meta = loadEKH1_ALMVideo(meta,datapth);
 % meta = loadEKH3_ALMVideo(meta,datapth);
 % meta = loadJGR2_ALMVideo(meta,datapth);
 % meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth);
 % meta = loadJEB15_ALMVideo(meta,datapth);
 
@@ -134,69 +135,49 @@ misscond = [3 4];                                   % Which conditions out of co
 %%% trueVals = (1x1) struct with fields 'Rhit' and 'Lhit'.  Each of these fields is an (nSessions x 1) cell array.  
 %%% Each cell contains (time x trials) array of the true CDTrialType values 
 %%% modelpred is structured in the same way but this reflects the prediction of the multiple linear regression model
-[trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez,params);
+[trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez, params);
 
  disp('---FINISHED DECODING FOR ALL SESSIONS---')
-%% Get R2 value for all sessions during delay
-JEB13_delR2 = [];
+%% Example plots by session for relating predicted and true CDTrialType
+delR2 = [];
 
 start = find(obj(1).time>-0.9,1,'first');
 stop = find(obj(1).time<-0.05,1,'last');
-for sessix = 1:length(meta)
-    tempR = mean(trueVals.Rhit{sessix}((start+1):(stop+1),:),1,'omitnan');        % For each trial, get the average CDlate during the delay period
-    tempL = mean(trueVals.Lhit{sessix}((start+1):(stop+1),:),1,'omitnan');
-    truedat = [tempR, tempL];
+for sessix = [2,3]%1:length(meta)
+    %%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
+    %%% Each dot = an average value of CDlate during the delay period 
+    figure();
+    tempR2 = Scatter_ModelPred_TrueCDTrialType(trueVals, modelpred, sessix, start, stop,meta);
+    % Save R2 value for that session
+    delR2 = [delR2, tempR2];
 
-    tempR = mean(modelpred.Rhit{sessix}(start:stop,:),1,'omitnan');        % For each trial, get the average predicted CDlate during the delay period
-    tempL = mean(modelpred.Lhit{sessix}(start:stop,:),1,'omitnan');
-    modeldat = [tempR, tempL];
+    % Calculate averages and standard deviation for true CD and predicted CD  this session
+    [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
+    
+    colors = getColors();
+    alph  = 0.2;
+    
+    %%% Plot an example session of CDlate prediction vs true value
+    figure();
+    plotExampleCDTrialType_Pred(colors, obj, rez, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2);
 
-    R2 = corrcoef(truedat,modeldat);
-    R2 = R2(2);
-    JEB13_delR2 = [JEB13_delR2, R2];
+    %pause
+    %close all
 end
-%% Plot bar plot to show average R2 values across sessions
-colors = getColors();
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 2\Decoding Analysis\delR2Vals_NoJEB13.mat')
-delR2_ALL = [delR2, JEB13_delR2];                              % Group the R2 values for JEB13 and all other animals
-anmNames = {'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3',};
-JEB13_anmNames = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13','JEB14','JEB14','JEB14','JEB14','JEB15','JEB15','JEB15','JEB15'};
-anmNames_all = [anmNames,JEB13_anmNames];                               % Animal names for each session
-nSessions = numel(anmNames_all);
+%% FUNCTIONS
+function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
 
-uniqueAnm = unique(anmNames_all);
+avgCD.Rhit.true = mean(mySmooth(trueVals.Rhit{sessix},31),2,'omitnan');      % Get average true CDlate for R and L hits for this session
+avgCD.Lhit.true = mean(mySmooth(trueVals.Lhit{sessix},31),2,'omitnan');
+stdCD.Rhit.true = std(mySmooth(trueVals.Rhit{sessix},31),0,2,'omitnan');     % Get standard deviation of true CDlate for R and L hits
+stdCD.Lhit.true = std(mySmooth(trueVals.Lhit{sessix},31),0,2,'omitnan');
 
-exsess = 3;                                                            % The index of the session that you want to be highlighted
-markerSize = 60;
-figure();
-bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;         % Plot the average R2 value across all sessions
-for sessix = 1:nSessions
-    curranm = anmNames_all{sessix};                 % Get the name of the animal for this session
-    switch curranm                                  % Switch the marker shape depending on which animal is being plotted
-        case uniqueAnm{1}
-            shape = 'o';
-        case uniqueAnm{2}
-            shape = '<';
-        case uniqueAnm{3}
-            shape = '^';
-        case uniqueAnm{4}
-            shape = 'v';
-        case uniqueAnm{5}
-            shape = '>';
-        case uniqueAnm{6}
-            shape = 'square';
-        case uniqueAnm{7}
-            shape = 'diamond';
-        case uniqueAnm{8}
-            shape = 'hexagram';
-        case uniqueAnm{9}
-            shape = 'pentagram';
-    end
-    scatter(1,delR2_ALL(sessix),markerSize,'filled',shape,'MarkerFaceColor',[0.65 0.65 0.65]); hold on;
+modelpred.Rhit{sessix} = fillmissing(modelpred.Rhit{sessix},"nearest");
+modelpred.Lhit{sessix} = fillmissing(modelpred.Lhit{sessix},"nearest");
+infix = find(isinf(modelpred.Rhit{sessix})); modelpred.Rhit{sessix}(infix) = 0;
+infix = find(isinf(modelpred.Lhit{sessix})); modelpred.Lhit{sessix}(infix) = 0;
+avgCD.Rhit.pred = mean(mySmooth(modelpred.Rhit{sessix},31),2,'omitnan');     % Get average predicted CDlate for R and L hits for this session
+avgCD.Lhit.pred = mean(mySmooth(modelpred.Lhit{sessix},31),2,'omitnan');
+stdCD.Rhit.pred = std(mySmooth(modelpred.Rhit{sessix},31),0,2,'omitnan');    % Get stdev of predicted CDlate for R and L hits for this session
+stdCD.Lhit.pred = std(mySmooth(modelpred.Lhit{sessix},31),0,2,'omitnan');
 end
-scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','black','MarkerEdgeColor','black')
-legend([' ',anmNames_all])
-ylim([0.4 1])
-ax = gca;
-ax.FontSize = 16;
-title(['Ex session = Sesh ' num2str(exsess) '; Animal ' anmNames_all{exsess} ])

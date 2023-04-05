@@ -1,13 +1,22 @@
 % Example of session with selectivity in CDLate and Motion Energy
 clear,clc,close all
 
+whichcomp = 'Laptop';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Users\Jackie Birnbaum\Documents\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
 % add paths
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3';
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'funcs')));
 
 %% PARAMETERS
@@ -47,19 +56,22 @@ params.N_varToExplain = 80; % keep num dims that explains this much variance in 
 
 params.advance_movement = 0;
 %% SPECIFY DATA TO LOAD
-
-datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 meta = [];
 
 % --- ALM ---
-meta = loadJEB6_ALMVideo(meta,datapth);
-meta = loadJEB7_ALMVideo(meta,datapth);
-meta = loadEKH1_ALMVideo(meta,datapth);
-meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);
-meta = loadJGR3_ALMVideo(meta,datapth);
-%meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB6_ALMVideo(meta,datapth);
+% meta = loadJEB7_ALMVideo(meta,datapth);
+% meta = loadEKH1_ALMVideo(meta,datapth);
+% meta = loadEKH3_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth);
 % meta = loadJEB15_ALMVideo(meta,datapth);
 
@@ -88,12 +100,11 @@ clearvars -except obj meta params me sav kin
 disp('----Calculating coding dimensions----')
 cond2use = [2,3];
 cond2proj = [2,3];
-orthogonalize = 'non-orthog';                                   % 'Orthogonalize' if you want to orthogonalize CDs to each other
-regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj,orthogonalize);
+regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
 
 disp('----Projecting single trials onto CDlate----')
 cd = 'late';
-regr = getSingleTrialProjs(regr,obj,cd,orthogonalize);
+regr = getSingleTrialProjs(regr,obj,cd);
 %% Load kinematic data
 nSessions = numel(meta);
 for sessix = 1:numel(meta)
@@ -102,19 +113,24 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 %% Plot average ME and average CD-late for specified conditions (example session)
-cond2use = [2,3];                                                   % Conditions you want to use
-sessix = 6;                                                         % Session to use
-
-feature = 'motion_energy';
-featix = find(strcmp(kin(sessix).featLeg,feature));
-ME = squeeze(kin(sessix).dat(:,:,featix));                          % Load single-trial ME values for this session
-CDlate = regr(sessix).singleProj;                                   % Single-trial CDlate projections
-
 sample = mode(obj(1).bp.ev.sample) - mode(obj(1).bp.ev.goCue);      % Timing of sample, delay and trialstart for plotting
 delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.goCue);
 trialStart = mode(obj(1).bp.ev.bitStart) - mode(obj(1).bp.ev.goCue);
+startix = find(obj(1).time>trialStart,1,'first');
+stopix = find(obj(1).time<sample,1,'last');
 
-colors = getColorsUpdated();
+cond2use = [2,3];                                                   % Conditions you want to use
+
+sessix = 6;                                                         % Session to use
+for sessix = 1:length(meta)
+feature = 'motion_energy';
+featix = find(strcmp(kin(sessix).featLeg,feature));
+ME = squeeze(kin(sessix).dat(:,:,featix));                          % Load single-trial ME values for this session
+ME_baselinesub = baselineSubtractME(ME,startix, stopix);            % Get the baseline (presample) subtracted ME
+
+CDlate = regr(sessix).singleProj;                                   % Single-trial CDlate projections
+
+colors = getColors();
 alph = 0.2;                                                                 % For opacity of confidence intervals
 smooth = 21;                                                                % Smoothing average CDlate projections and ME
 figure()    
@@ -127,7 +143,7 @@ for c = 1:length(cond2use)                                                  % Fo
     cond = cond2use(c);                                                     
     condtrix = params(sessix).trialid{cond};                                % Trials from this condition
     ntrix = length(condtrix);                                               % nTrials in condition
-    condME = ME(:,condtrix);                                                % ME values for the trials in this condition
+    condME = ME_baselinesub(:,condtrix);                                                % ME values for the trials in this condition
     toplotME = mySmooth(mean(condME,2,'omitnan'),smooth);                   % Take the average ME value for this condition
     errME = 1.96*(mySmooth(std(condME,0,2),21)/sqrt(ntrix));                % 95% confidence intervals 
     
@@ -154,4 +170,39 @@ for c = 1:length(cond2use)                                                  % Fo
     xline(delay,'k--','LineWidth',1)
     xlim([-2.3 0])
     xlabel('Time from go cue (s)')
+end
+%%
+delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.(params(1).alignEvent));
+goCue = mode(obj(1).bp.ev.goCue) - mode(obj(1).bp.ev.(params(1).alignEvent));
+startix = find(obj(1).time>delay,1,'first');
+stopix = find(obj(1).time<goCue,1,'last');
+
+num2plot = 30;
+sm = 10;
+figure();
+for c = 1:length(cond2use)                                                  % For each condition
+if c==1
+    subplot(1,2,2)
+    plottitle = 'Right trials';
+else
+    subplot(1,2,1)
+    plottitle = 'Left trials';
+end
+    cond = cond2use(c);                                                     
+    condtrix = params(sessix).trialid{cond};                                % Trials from this condition                                               % nTrials in condition
+    randtrix = randsample(condtrix,num2plot);
+    condME = ME_baselinesub(:,randtrix);                                    % ME values for the trials in this condition
+    delME = mean(condME(startix:stopix,:),1,'omitnan');                   
+    [~,sortix] = sort(delME,'descend');
+    condME = condME(:,sortix);
+    condME = mySmooth(condME,sm);
+    imagesc(obj(1).time,1:num2plot,condME')
+    colormap('linspecer');
+    clim([0 40])
+    colorbar
+
+    xline(sample,'k--','LineWidth',1)
+    xline(delay,'k--','LineWidth',1)
+    xline(trialStart,'k--','LineWidth',1)
+    xlim([-2.3 0])
 end
