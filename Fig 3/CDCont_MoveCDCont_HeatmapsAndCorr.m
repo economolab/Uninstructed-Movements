@@ -20,6 +20,8 @@ figpth = [basepth  '\Uninstructed-Movements\Fig 3'];
 addpath(genpath(fullfile(figpth,'Utils')));
 figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'Utils')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 6'];
+addpath(genpath(fullfile(figpth,'Utils')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -44,7 +46,6 @@ params.smooth = 15;
 
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
-
 
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
     {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
@@ -99,6 +100,15 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+  %% Get train/test split for data
+clearvars -except obj meta params rez zscored me times
+
+% Store indices for train and test trials in variable called 'testsplit'
+trainPct = 0.5;     % Percentage of trials being used for train vs test
+condfns = {'afc','aw'};
+cond2use = [2,3];
+
+testsplit = getTestTrials(params,cond2use,trainPct);
 %% Calculate MOVE-CDCont and find single trial projections
 clearvars -except obj meta params me sav kin
 
