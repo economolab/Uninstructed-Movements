@@ -213,10 +213,8 @@ for c = 1:length(cond2proj)
         hold(ax2, 'on');
 end
 legend(ax1,'R hit', 'L hit','R ignore','L ignore')
-xlim(ax1,[-2.4 2.5]); xlim(ax2,[-2.4 2.5])
+xlim(ax1,[-2.4 2.5]); xlim(ax2,[-2.5 2.5])
 title(ax1,'Ramping')
-xlabel(ax1,'Time from go cue (s)')
-xlabel(ax2,'Time from go cue (s)')
 title(ax2,'ME')
 hold (ax1, 'off'); hold (ax2, 'off');
 
