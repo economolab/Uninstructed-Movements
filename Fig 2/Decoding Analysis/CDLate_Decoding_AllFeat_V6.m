@@ -135,45 +135,13 @@ times.stopix = find(obj(1).time<times.samp,1,'last');
 
 cols = {colors.rhit,colors.lhit};
 alph = 0.2;
-sm = 21;
-for sessix = exsess %1:numel(meta)
-    for c = 1:length(cond2plot)
-        cond = cond2plot(c);
-        condtrix = params(sessix).trialid{cond};
-        condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
-        presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
-        presampME = mean(presampME);
-        condME = condME-presampME;    
-        nTrials = size(condME,2);
+numtrix2plot = 30;
+for sessix =  exsess %1:numel(meta)
+    figure();
+    plotCondAvgMEandCD(cond2plot, sessix, params, obj, meta, kin, regr, alph, cols, MEix,times)
 
-        ax1 = subplot(2,1,1);
-        toplot = mean(condME,2,'omitnan');
-        err = 1.96*(std(condME,0,2,'omitnan')./sqrt(nTrials));
-        ax = gca;
-        shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
-
-        ax2 = subplot(2,1,2);
-        condRamp = regr(sessix).singleProj(:,condtrix);
-        toplot = mean(condRamp,2,'omitnan');
-        err = 1.96*(std(condRamp,0,2,'omitnan')./sqrt(nTrials));
-        ax = gca;
-        shadedErrorBar(obj(sessix).time,toplot,err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
-    end
-    xlabel(ax1,'Time from go cue (s)')
-    ylabel(ax1,'Motion energy (a.u.)')
-    xline(ax1,0,'k--','LineWidth',1)
-    xline(ax1,-0.9,'k--','LineWidth',1)
-    xline(ax1,-2.2,'k--','LineWidth',1)
-    xlim(ax1,[-2.3 0])
-    
-    xlabel(ax2,'Time from go cue (s)')
-    ylabel(ax2,'CDRamping (a.u.)')
-    xline(ax2,0,'k--','LineWidth',1)
-    xline(ax2,-0.9,'k--','LineWidth',1)
-    xline(ax2,-2.2,'k--','LineWidth',1)
-    xlim(ax2,[-2.3 0])
-    legend({'Right','Left'},'Location','best')
-
+    figure();
+    plotExampleChoiceSelME(numtrix2plot, cond2plot, sessix, params, obj, meta, kin, MEix,times)
 end
 %% Predict CDRamping from DLC features
 clearvars -except datapth kin me meta obj params regr nSessions exsess
@@ -201,66 +169,79 @@ misscond = [3 4];                                   % Which conditions out of co
 
  disp('---FINISHED DECODING FOR ALL SESSIONS---')
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
+plotheatmap = 'yes';
 
-% Times that you want to use to sort CDTrialType
-start = find(obj(1).time>-0.9,1,'first');
-stop = find(obj(1).time<-0.05,1,'last');
+if strcmp(plotheatmap,'yes')
+    % Times that you want to use to sort CDTrialType
+    start = find(obj(1).time>-0.9,1,'first');
+    stop = find(obj(1).time<-0.05,1,'last');
 
-goodsess = [4,6,19,21];
+    goodsess = [4,6,19,21];
 
-cond2plot = {'Lhit','Rhit'};
-for sessix = exsess                                                                  % For each session...
-    figure();
-    cnt = 0;
-    tempTrue = [];
-    tempPred = [];
-    % Combine the true values for CDTrialType and the model predicted
-    % values across conditions
-    % tempTrue = (time x [num left trials + num right trials])
-    for c = 1:length(cond2plot)                                                 % For left and right trials...
-        cond = cond2plot{c};
-        currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDTrialType projections for that condition and session
-        tempTrue = [tempTrue,currTrue];
-        currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDTrialType projections
-        tempPred = [tempPred,currPred];                                        
-    end
-
-    [~,sortix] = sort(mean(tempTrue(start:stop,:),1,'omitnan'),'descend');      % Sort the true projections by average magnitude during the delay period
-    True2plot = tempTrue(:,sortix);
-    Pred2plot = tempPred(:,sortix);                                             % Sort the model predictions in the same order
-
-    nTrials = size(True2plot,2);                                                 % Total number of trials that are being plotted                                               
+    cond2plot = {'Lhit','Rhit'};
+    for sessix = exsess                                                                  % For each session...
+        figure();
+        cnt = 0;
+        tempTrue = [];
+        tempPred = [];
+        l1 = size(trueVals.(cond2plot{1}){sessix},2)+0.5;
+        % Combine the true values for CDTrialType and the model predicted
+        % values across conditions
+        % tempTrue = (time x [num left trials + num right trials])
+        for c = 1:length(cond2plot)                                                 % For left and right trials...
+            cond = cond2plot{c};
+            currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDTrialType projections for that condition and session
+            [~,sortix] = sort(mean(currTrue(start:stop,:),1,'omitnan'),'descend');  % Sort the true projections by average magnitude during the delay period
+            tempTrue = [tempTrue,currTrue(:,sortix)];
+            currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDTrialType projections
+            tempPred = [tempPred,currPred(:,sortix)];
+        end
+nTrials = size(tempTrue,2);                                                 % Total number of trials that are being plotted                                               
     ax1 = subplot(1,2,1);                                                       % Plot true CDTrialType data on left subplot
-    imagesc(obj(sessix).time,1:nTrials,True2plot'); hold on                      % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
+    imagesc(obj(sessix).time,1:nTrials,tempTrue'); hold on                      % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
+    line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','white','LineStyle','--')
     
     ax2 = subplot(1,2,2);
-    imagesc(obj(sessix).time,1:nTrials,Pred2plot'); hold on
-    title(ax1,'CDRamping - data')
+    imagesc(obj(sessix).time,1:nTrials,tempPred'); hold on
+    line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','white','LineStyle','--')
+    title(ax1,'CDTrialType - data')
     colorbar(ax1)
-    colormap(linspecer)
+    colormap(flipud(linspecer))
     xlabel(ax1,'Time from go cue (s)')
     xline(ax1,0,'k--','LineWidth',1)
     xline(ax1,-0.9,'k--','LineWidth',1)
     xline(ax1,-2.2,'k--','LineWidth',1)
-    xlim(ax1,[-2.5 0])
-    
     title(ax2,'Model prediction')
+
     xlabel(ax2,'Time from go cue (s)')
     xline(ax2,0,'k--','LineWidth',1)
     xline(ax2,-0.9,'k--','LineWidth',1)
     xline(ax2,-2.2,'k--','LineWidth',1)
-    xlim(ax2,[-2.5 0])
     colorbar(ax2)
-    colormap(linspecer)
+    colormap(flipud(linspecer))
 
     sgtitle(['Example session:  ' meta(sessix).anm ' ' meta(sessix).date])
+    end
 end
 %% Example plots by session for relating predicted and true CDTrialType
+start = find(obj(1).time>-0.9,1,'first');
+stop = find(obj(1).time<-0.05,1,'last');
+
 delR2_ALL = [];
-for sessix = exsess %1:length(meta)
+
+plotexample = 'no';
+
+if strcmp(plotexample,'yes')
+    plotrange = exsess;
+else
+    plotrange = 1:length(meta);
+end
+
+for sessix = plotrange
     %%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
     %%% Each dot = an average value of CDlate during the delay period 
     figure();
+    subplot(1,2,2)
     tempR2 = Scatter_ModelPred_TrueCDTrialType(trueVals, modelpred, sessix, start, stop,meta);
     % Save R2 value for that session
     delR2_ALL = [delR2_ALL, tempR2];
@@ -272,10 +253,12 @@ for sessix = exsess %1:length(meta)
     alph  = 0.2;
     
     %%% Plot an example session of CDlate prediction vs true value
-    figure();
+    subplot(1,2,1)
     plotExampleCDTrialType_Pred(colors, obj, rez, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2);
     
-    %close all
+%     if strcmp(plotexample,'no')
+%         close all
+%     end
 end
 %% Plot bar plot to show average R2 values across sessions
 colors = getColors();
@@ -316,7 +299,7 @@ for sessix = 1:nSessions
 end
 scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','black','MarkerEdgeColor','black')
 legend([' ',anmNames_all])
-ylim([0.4 1])
+ylim([0 1])
 ax = gca;
 ax.FontSize = 16;
 title(['Ex session = Sesh ' num2str(exsess) '; Animal ' anmNames_all{exsess} ])

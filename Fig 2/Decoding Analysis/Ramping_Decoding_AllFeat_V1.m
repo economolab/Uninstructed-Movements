@@ -142,7 +142,7 @@ for sessix = 21 %1:numel(meta)
         condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
         presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
         presampME = mean(presampME);
-        condME = condME-presampME;    
+        condME = condME-presampME;
         nTrials = size(condME,2);
 
         ax1 = subplot(2,1,1);
@@ -164,7 +164,7 @@ for sessix = 21 %1:numel(meta)
     xline(ax1,-0.9,'k--','LineWidth',1)
     xline(ax1,-2.2,'k--','LineWidth',1)
     xlim(ax1,[-2.3 0])
-    
+
     xlabel(ax2,'Time from go cue (s)')
     ylabel(ax2,'CDRamping (a.u.)')
     xline(ax2,0,'k--','LineWidth',1)
@@ -193,12 +193,12 @@ hitcond = [1 2];                                    % Which conditions out of co
 misscond = [3 4];                                   % Which conditions out of cond2use are miss
 
 % Do the decoding of CDTrialType from all DLC features
-%%% trueVals = (1x1) struct with fields 'Rhit' and 'Lhit'.  Each of these fields is an (nSessions x 1) cell array.  
-%%% Each cell contains (time x trials) array of the true CDTrialType values 
+%%% trueVals = (1x1) struct with fields 'Rhit' and 'Lhit'.  Each of these fields is an (nSessions x 1) cell array.
+%%% Each cell contains (time x trials) array of the true CDTrialType values
 %%% modelpred is structured in the same way but this reflects the prediction of the multiple linear regression model
 [trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez, params);
 
- disp('---FINISHED DECODING FOR ALL SESSIONS---')
+disp('---FINISHED DECODING FOR ALL SESSIONS---')
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 
 % Times that you want to use to sort CDTrialType
@@ -221,17 +221,17 @@ for sessix = 21                                                                 
         currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDTrialType projections for that condition and session
         tempTrue = [tempTrue,currTrue];
         currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDTrialType projections
-        tempPred = [tempPred,currPred];                                        
+        tempPred = [tempPred,currPred];
     end
 
     [~,sortix] = sort(mean(tempTrue(start:stop,:),1,'omitnan'),'descend');      % Sort the true projections by average magnitude during the delay period
     True2plot = tempTrue(:,sortix);
     Pred2plot = tempPred(:,sortix);                                             % Sort the model predictions in the same order
 
-    nTrials = size(True2plot,2);                                                 % Total number of trials that are being plotted                                               
+    nTrials = size(True2plot,2);                                                 % Total number of trials that are being plotted
     ax1 = subplot(1,2,1);                                                       % Plot true CDTrialType data on left subplot
     imagesc(obj(sessix).time,1:nTrials,True2plot'); hold on                      % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
-    
+
     ax2 = subplot(1,2,2);
     imagesc(obj(sessix).time,1:nTrials,Pred2plot'); hold on
     title(ax1,'CDRamping - data')
@@ -242,7 +242,7 @@ for sessix = 21                                                                 
     xline(ax1,-0.9,'k--','LineWidth',1)
     xline(ax1,-2.2,'k--','LineWidth',1)
     xlim(ax1,[-2.5 0])
-    
+
     title(ax2,'Model prediction')
     xlabel(ax2,'Time from go cue (s)')
     xline(ax2,0,'k--','LineWidth',1)
@@ -256,10 +256,18 @@ for sessix = 21                                                                 
 end
 %% Example plots by session for relating predicted and true CDTrialType
 delR2_ALL = [];
+plotexample = 'no';
 exsess = 21;
-for sessix = exsess %1:length(meta)
+
+if strcmp(plotexample,'yes')
+    plotrange = exsess;
+else
+    plotrange = 1:length(meta);
+end
+
+for sessix = plotrange
     %%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
-    %%% Each dot = an average value of CDlate during the delay period 
+    %%% Each dot = an average value of CDlate during the delay period
     figure();
     tempR2 = Scatter_ModelPred_TrueCDTrialType(trueVals, modelpred, sessix, start, stop,meta);
     % Save R2 value for that session
@@ -267,19 +275,21 @@ for sessix = exsess %1:length(meta)
 
     % Calculate averages and standard deviation for true CD and predicted CD  this session
     [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
-    
+
     colors = getColors();
     alph  = 0.2;
-    
+
     %%% Plot an example session of CDlate prediction vs true value
     figure();
     plotExampleCDTrialType_Pred(colors, obj, rez, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2);
-    
-    %close all
+
+    if strcmp(plotexample,'no')
+        close all
+    end
 end
 %% Plot bar plot to show average R2 values across sessions
 colors = getColors();
-                              
+
 anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
     'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
     'JEB15','JEB15','JEB15','JEB15'};
@@ -296,8 +306,8 @@ for sessix = 1:nSessions
     switch curranm                                  % Switch the marker shape depending on which animal is being plotted
         case uniqueAnm{1}
             shape = 'o';
-%         case uniqueAnm{5}
-%             shape = '<';
+            %         case uniqueAnm{5}
+            %             shape = '<';
         case uniqueAnm{2}
             shape = '^';
         case uniqueAnm{3}
@@ -317,7 +327,7 @@ for sessix = 1:nSessions
 end
 scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','black','MarkerEdgeColor','black')
 legend([' ',anmNames_all])
-ylim([0.4 1])
+ylim([0 1])
 ax = gca;
 ax.FontSize = 16;
 title(['Ex session = Sesh ' num2str(exsess) '; Animal ' anmNames_all{exsess} ])
