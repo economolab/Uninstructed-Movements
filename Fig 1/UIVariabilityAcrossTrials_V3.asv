@@ -127,7 +127,7 @@ goix = find(obj(1).time<go,1,'last');
 resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
 respix = find(obj(1).time<resp,1,'last');
 
-sm = 31;
+sm = 61;
 ptiles = [95 99, 90];
 
 for sessix = 1:length(meta)
@@ -175,14 +175,13 @@ for sessix = 1:length(meta)
     title(['RGB = ' feat2use '; ' meta(sessix).anm meta(sessix).date])
 end
 %%
-% sess2use = [1 5];
-sess2use = 1;
+sess2use = [1 5];
 
 % Plot all features for the same trial in one subplot
 
 colors = {[1 0 0],[0 1 0],[0 0 1]};
-nTrixPlot = 16;
-offset = 3;
+nTrixPlot = 4;
+offset = 5;
 sm = 31;
 for sessix = sess2use
     figure();
@@ -190,7 +189,7 @@ for sessix = sess2use
         condtrix = params(sessix).trialid{cond2use(c)};
         trix = randsample(condtrix,nTrixPlot);
         for tt = 1:nTrixPlot
-            subplot(4,4,tt)
+            subplot(2,2,tt)
             condkin = kin(sessix).dat_std(:,tt,:);
             for feat = 1:length(featix)
                 toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
@@ -198,11 +197,13 @@ for sessix = sess2use
             end
             title(feat2use(feat))
             xlabel('Time from go cue (s)')
-            ylim([2 14])
+            ylim([4 20])
             xlim([-3 0])
             xline(-0.9,'k--','LineWidth',1)
             xline(-2.2,'k--','LineWidth',1)
+  
         end
     end
+    set(gca, 'YDir','reverse')
     sgtitle([meta(sessix).anm, meta(sessix).date])
 end
