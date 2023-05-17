@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -101,74 +101,41 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%%
-sessix = 12;
+%% data object and video file
 figure();
-cnt = 1;
-% 70:76
-% 107:113
-for t = 107:113
-    trialnum = t;
-    view = 1;
-    frameTimes = obj(sessix).traj{view}(trialnum).frameTimes;
-    Frames2use = find(frameTimes<(obj(sessix).bp.ev.goCue(trialnum)+2));            % Use all frames from trial start to 1s after go-cue
-    allfeats = obj(sessix).traj{view}(trialnum).ts(Frames2use,2,:);
-    featnames = obj(sessix).traj{view}(trialnum).featNames;
-    feats2plot = [4,1];                         % Side view: 4 = jaw, 1 = tongue
-    taxis = obj(sessix).traj{view}(trialnum).frameTimes(Frames2use)-obj(sessix).bp.ev.goCue(trialnum)-0.5;
-    
-    % Get times when a lickport contact is made
-    licks = sort([obj(sessix).bp.ev.lickL{trialnum},obj(sessix).bp.ev.lickR{trialnum}],'ascend');
-    licks2use = licks(find(licks<(obj(sessix).bp.ev.goCue(trialnum)+2)));
-    licks2use = licks2use-obj(sessix).bp.ev.goCue(trialnum);
-
-    % Get the times when the tongue is visible.  Plot the jaw in red when
-    % the tongue is visible 
-    TongueTs = allfeats(:,:,2);
-    TongueVisIx = find(isnan(TongueTs));
-    Jaw = allfeats(:,:,4);
-    Jaw(TongueVisIx) = NaN;
-
-    offset = 50;
-    if ~obj(sessix).bp.early(trialnum)&&~obj(sessix).bp.autowater(trialnum)
-        col = [0.55 0.55 0.55];
-        plot(taxis,offset*cnt+(allfeats(:,:,4)),'Color',col,'LineWidth',2);
-        hold on;
-
-        col = [1 0.1 0.1];
-        plot(taxis,offset*cnt+Jaw,'Color',col,'LineWidth',2);
-        for l = 1:length(licks2use)
-            scatter(licks2use(l),max(offset*cnt+Jaw)+5,10,'MarkerEdgeColor','black','MarkerFaceColor','black','Marker','|','LineWidth',1.75); hold on;
-        end
+sessix = 3;
+trialrange = 50:100;
+for view = 1:2                                                                         % For side cam and bottom cam...
+    if view==1
+        datapth = 'C:\Users\Jackie Birnbaum\Documents\Data\DataObjects\JEB13';         % Directory where data obj is stored
+        objfn = 'data_structure_JEB13_2022-09-25';                                     % File name of data object
+        vidfn = 'JEB13_2022-09-25_cam_0_date_2022_09_25_time_09_52_35_v001.avi';       % Filename of video
+        v = VideoReader(fullfile(datapth, vidfn));
+    else
+        datapth = 'C:\Users\Jackie Birnbaum\Documents\Data\DataObjects\JEB13';         % Directory where data obj is stored
+        objfn = 'data_structure_JEB13_2022-09-25';                                     % File name of data object
+        vidfn = 'JEB13_2022-09-25_cam_1_date_2022_09_25_time_09_52_35_v001.avi';       % Filename of video
+        v = VideoReader(fullfile(datapth, vidfn));
     end
-    cnt=cnt+1;
-end
-xline(0,'LineWidth',1.2,'LineStyle','--','Color','black')
-xlim([-1 1])
-sgtitle([meta(sessix).anm ' ' meta(sessix).date])
-%% Plot side and bottom views of feature trajectories for pre-goCue frames
-% sessix 12; trials 50:100 JEB15 07-27
-sessix = 12;
+    % Plot side and bottom views of feature trajectories for pre-goCue frames
+    subplot(1,2,view)
+    imagesc(readFrame(v)); hold on;                                                    % Plot camera image
 
-figure();
-for t = 50:100
-    trialnum = t;
-    for v = 1:2
-        view = v;
-
-        frameTimes = obj(sessix).traj{view}(trialnum).frameTimes;
-        preGoFrames = find(frameTimes<obj(sessix).bp.ev.goCue(trialnum));
-        allfeats = obj(sessix).traj{view}(trialnum).ts(preGoFrames,1:2,:);
-        featnames = obj(sessix).traj{view}(trialnum).featNames;
+    probThresh = 0.9999;                                                               % Remove trajectory points that have a DLC confidence level lower than this threshold 
+    for t = trialrange                                                                 % Trial range
+        trialnum = t;
+        frameTimes = obj(sessix).traj{view}(trialnum).frameTimes;                      % Get the frame times for this trial
+        preGoFrames = find(frameTimes<obj(sessix).bp.ev.goCue(trialnum));              % Take frames that come before the goCue
+        allfeats = obj(sessix).traj{view}(trialnum).ts(preGoFrames,:,:);               % Get all of the feature trajectories for pre-goCue frames
+        featnames = obj(sessix).traj{view}(trialnum).featNames;                        % Feature names
         if view ==1
-            feats2plot = [4,6];             % Side view: 4 = jaw, 7 = nose; Bottom view
+            feats2plot = [4,6];             % Side view: 4 = jaw, 6 = nose             % Which features you want to plot from appropriate camera
         else
-            feats2plot = [6,9,10];      % Bottom view: 5 and 6 = paws, 8 = jaw, 9 and 10 = nostrils
+            feats2plot = [5,6,8,9,10];          % Bottom view: 5 and 6 = paws, 8 = jaw, 9 and 10 = nostrils
         end
 
-        if ~obj(sessix).bp.early(trialnum)&&~obj(sessix).bp.autowater(trialnum)
-            subplot(1,2,v)
-            for f = 1:length(feats2plot)
+        if ~obj(sessix).bp.early(trialnum)&&~obj(sessix).bp.autowater(trialnum)        % If this trial is not an autowater and not an early lick trial  
+            for f = 1:length(feats2plot)                                               % For each feature
                 feat = feats2plot(f);
                 if view==1
                     col = [0 0 1];
@@ -176,7 +143,11 @@ for t = 50:100
                     colors = {[0 0 1], [1 0 0],[0 1 0],[1 0 1],[0 1 1]};
                     col = colors{f};
                 end
-                plot(allfeats(:,1,feat),allfeats(:,2,feat),'Color',col,'LineWidth',1); hold on;
+                outlierFrames = find(allfeats(:,3,feat)<probThresh);                   % Get the indices of frames where the current feature has a confidence level below the threshold
+                if ~isempty(outlierFrames)                                             % If there are any outlier frames...
+                    allfeats(outlierFrames,:,feat) = NaN;                              % Get rid of them
+                end
+                plot(allfeats(:,1,feat),allfeats(:,2,feat),'Color',col,'LineWidth',1); hold on;     % Plot feature trajectories overlaid onto a still frame from video
             end
             set(gca, 'YDir','reverse')
             %set(gca, 'XDir','reverse')
