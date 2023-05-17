@@ -66,12 +66,12 @@ end
 meta = [];
 
 % --- ALM ---
-meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB6_ALMVideo(meta,datapth);
-% meta = loadJEB7_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth);
 % meta = loadEKH1_ALMVideo(meta,datapth);
 % meta = loadEKH3_ALMVideo(meta,datapth);
-% meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);clc
 % meta = loadJGR3_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth);
 % meta = loadJEB15_ALMVideo(meta,datapth);
@@ -102,11 +102,93 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%%
+%% Example session of tongue trajectories for bottom cam (across contexts)
 sess2use = 1;
 cond2use = 2:5;
-feat2use = {'tongue_angle','tongue_length'};
+feat2use = {'left_tongue'};
+featix = find(strcmp(obj(1).traj{1}(1).featNames,feat2use));
 
+go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+goix = find(obj(1).time<go,1,'last');
+resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+respix = find(obj(1).time<resp,1,'last');
+
+colors = getColors();
+nTrixPlot = 14;
+for sessix = sess2use
+    figure();
+    for feat = 1:length(feat2use)
+        for c = 1:length(cond2use)
+            switch c
+                case 1
+                    col = colors.rhit;
+                case 2
+                    col = colors.lhit;
+                case 3
+                    col = colors.rhit_aw;
+                case 4
+                    col = colors.lhit_aw;
+            end
+            cond = cond2use(c);
+            condtrix = params(sessix).trialid{cond};
+            randtrix = randsample(condtrix,nTrixPlot);
+            for trix = 1:nTrixPlot
+                currtrix = randtrix(trix);
+                condfeat = squeeze(obj(sessix).traj{1}(currtrix).ts(:,1:2,featix));
+                plot(condfeat(:,1),condfeat(:,2),'Color',col); hold on
+            end
+        end
+    end
+    title(['Tongue traj, side view; ' meta(sessix).anm meta(sessix).date])
+end
+%% Example session of tongue trajectories for bottom cam (across contexts)
+sess2use = 1;
+cond2use = 2:5;
+feat2use = {'top_tongue'};
+featix = find(strcmp(obj(1).traj{2}(1).featNames,feat2use));
+
+go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+goix = find(obj(1).time<go,1,'last');
+resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+respix = find(obj(1).time<resp,1,'last');
+
+colors = getColors();
+nTrixPlot = 14;
+for sessix = sess2use
+    figure();
+    for feat = 1:length(feat2use)
+        for c = 1:length(cond2use)
+            switch c
+                case 1
+                    col = colors.rhit;
+                case 2
+                    col = colors.lhit;
+                case 3
+                    col = colors.rhit_aw;
+                case 4
+                    col = colors.lhit_aw;
+            end
+            cond = cond2use(c);
+            condtrix = params(sessix).trialid{cond};
+            randtrix = randsample(condtrix,nTrixPlot);
+            for trix = 1:nTrixPlot
+                currtrix = randtrix(trix);
+                condfeat = squeeze(obj(sessix).traj{2}(currtrix).ts(:,1:2,featix));
+                plot(condfeat(:,1),condfeat(:,2),'Color',col); hold on
+            end
+        end
+    end
+    title(['Tongue traj, bottom view; ' meta(sessix).anm meta(sessix).date])
+end
+%% Get tongue length and angle for individual licks for all animals and sessions
+% Stored in variable 'tonguefeat': (1 x nSessions)
+% Each session will have fields 'tongue_length' and 'tongue_angle'
+% Each field will have subfields 'RAFC', 'LAFC','RAW','LAW'
+
+nLicks = 5;
+cond2use = 2:5;
+condfns = {'RAFC','LAFC','RAW','LAW'};
+feat2use = {'tongue_angle','tongue_length'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
     currfeat = feat2use{f};
@@ -114,19 +196,76 @@ for f = 1:length(feat2use)
     featix(f) = currix;
 end
 
+% Get times for which you want to look at the tongue
 go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
 goix = find(obj(1).time<go,1,'last');
 resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
 respix = find(obj(1).time<resp,1,'last');
 
-nTrixPlot = 15;
-for sessix = sess2use
+for sessix = 1:length(meta)                                                 % For every session...
+    for feat = 1:length(feat2use)                                           % For tongue length and angle...
+        metric = feat2use{feat};
+        for c = 1:length(cond2use)                                          % For each condition...
+            cond = cond2use(c);
+            condtrix = params(sessix).trialid{cond};                        % Get the trials for this condition
+            condfeat = squeeze(kin(sessix).dat(:,condtrix,featix(feat)));   % Get the kinematic data for these trials and current feature
+            respfeat = condfeat(goix:respix,:);                             % Take only desired post-goCue time points
+            
+            nTrials = size(respfeat,2);                                     % number of trials in this condition
+            nTimePts = size(respfeat,1);                                    % number of time-points
+            
+            lickDur = 10;
+            temp = NaN(lickDur,nLicks,nTrials);                                    % Pre-allocate (nLicks x nTrials) for this condition 
+            avgDur = NaN(nLicks, nTrials);
+            for trix = 1:nTrials                                            % For each trial in this condition...              
+                licks.start = [];
+                licks.stop = [];
+                % Find indices corresponding to lick start and lick end
+                for pt = 4:nTimePts-4                                       % For every time point...
+                    % If the tongue is not visible at the current time
+                    % point but is visible for the following three time
+                    % pts...
+                    if isnan(respfeat(pt,trix))&&~isnan(respfeat(pt+1,trix))&&~isnan(respfeat(pt+2,trix))...
+                            &&~isnan(respfeat(pt+3,trix))
+                        % Take the subsequent time-point to be the start of a lick
+                        licks.start = [licks.start,pt+1];
+                    % If the tongue is visible at the current and previous two time
+                    % points but is not visible for the next time point...
+                    elseif ~isnan(respfeat(pt,trix))&&~isnan(respfeat(pt-1,trix))&&...
+                            ~isnan(respfeat(pt-2,trix))&&isnan(respfeat(pt+1,trix))
+                        % Take this time point to be the end of a lick
+                        licks.stop = [licks.stop,pt];
+                    end
+                end
+
+
+                for lix = 1:nLicks                                                  % For each lick that you want to look at
+                    if lix<size(licks.start,2)&&lix<size(licks.stop,2)              % If there are this many licks in the current trial...
+                        currstart = licks.start(lix);
+                        currstop = licks.stop(lix);
+                        if currstart<currstop
+                            currtongue = respfeat(currstart:currstop,trix);             % Take the tongue length/angle for this current lick and store it
+                            currdur = size(currtongue,1);                               % Get the duration in frames of each individual lick
+                            avgDur(lix,trix) = currdur;
+                            tongueinterp = interp1(1:length(currtongue),currtongue, linspace(1,length(currtongue),lickDur));
+                            temp(:,lix,trix) = tongueinterp';
+                        end
+                    end
+                end
+            end
+            tonguefeat(sessix).(metric).(condfns{c}) = temp;
+            tonguefeat(sessix).lickDur.(condfns{c}) = avgDur;
+        end
+    end
+end
+clearvars -except tonguefeat obj params meta kin me cond2use condfns feat2use nLicks
+%%
+for sessix = 1:length(meta)
     for feat = 1:length(feat2use)
         for c = 1:length(cond2use)
-            cond = cond2use(c);
-            condtrix = params(sessix).trialid{cond};
-            randtrix = randsample(condtrix,nTrixPlot);
-            condfeat = kin(sessix).dat(:,randtrix,feat2use(feat));
+            currtongue = tonguefeat(sessix).(feat2use{feat}).(condfns{c});
+            
+            disp('hi')
         end
     end
 end
