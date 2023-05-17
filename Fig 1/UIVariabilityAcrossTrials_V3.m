@@ -65,12 +65,12 @@ end
 meta = [];
 
 % --- ALM ---
-meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB6_ALMVideo(meta,datapth);
 % meta = loadJEB7_ALMVideo(meta,datapth);
 % meta = loadEKH1_ALMVideo(meta,datapth);
 % meta = loadEKH3_ALMVideo(meta,datapth);
-% meta = loadJGR2_ALMVideo(meta,datapth);
+meta = loadJGR2_ALMVideo(meta,datapth);
 % meta = loadJGR3_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth);
 % meta = loadJEB15_ALMVideo(meta,datapth);
@@ -176,7 +176,7 @@ for sessix = 1:length(meta)
 end
 %%
 % sess2use = [1 5];
-sess2use = 1;
+sess2use = 1:length(meta);
 
 % Plot all features for the same trial in one subplot
 
@@ -199,7 +199,7 @@ for sessix = sess2use
             title(feat2use(feat))
             xlabel('Time from go cue (s)')
             ylim([2 14])
-            xlim([-3 0])
+            xlim([-2.5 0])
             xline(-0.9,'k--','LineWidth',1)
             xline(-2.2,'k--','LineWidth',1)
         end
