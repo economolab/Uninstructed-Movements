@@ -70,15 +70,16 @@ end
 meta = [];
 
 % --- ALM ---
-meta = loadJEB13_ALMVideo(meta,datapth);
-meta = loadJEB6_ALMVideo(meta,datapth);
-meta = loadJEB7_ALMVideo(meta,datapth);
-meta = loadEKH1_ALMVideo(meta,datapth);
-meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);
-meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB14_ALMVideo(meta,datapth);
+% meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB6_ALMVideo(meta,datapth);
+% meta = loadJEB7_ALMVideo(meta,datapth);
+% meta = loadEKH1_ALMVideo(meta,datapth);
+% meta = loadEKH3_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR3_ALMVideo(meta,datapth);
+% meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
+% meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -135,7 +136,7 @@ times.stopix = find(obj(1).time<times.samp,1,'last');
 cols = {colors.rhit,colors.lhit};
 alph = 0.2;
 sm = 21;
-for sessix = 21 %1:numel(meta)
+for sessix = 4 %1:numel(meta)
     for c = 1:length(cond2plot)
         cond = cond2plot(c);
         condtrix = params(sessix).trialid{cond};
@@ -192,44 +193,44 @@ cond2use = 2:5;                                     % Which conditions you want 
 hitcond = [1 2];                                    % Which conditions out of cond2use are hit
 misscond = [3 4];                                   % Which conditions out of cond2use are miss
 
-% Do the decoding of CDTrialType from all DLC features
+% Do the decoding of CDRamping from all DLC features
 %%% trueVals = (1x1) struct with fields 'Rhit' and 'Lhit'.  Each of these fields is an (nSessions x 1) cell array.
-%%% Each cell contains (time x trials) array of the true CDTrialType values
+%%% Each cell contains (time x trials) array of the true CDRamping values
 %%% modelpred is structured in the same way but this reflects the prediction of the multiple linear regression model
 [trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez, params);
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
-%% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
+%% Make heatmaps for a single session showing CDRamping across trials and predicted CDRamping
 
-% Times that you want to use to sort CDTrialType
+% Times that you want to use to sort CDRamping
 start = find(obj(1).time>-0.9,1,'first');
 stop = find(obj(1).time<-0.05,1,'last');
 
 goodsess = [4,6,19,21];
 
 cond2plot = {'Lhit','Rhit'};
-for sessix = 21                                                                  % For each session...
+for sessix = 4                                                                  % For each session...
     figure();
     cnt = 0;
     tempTrue = [];
     tempPred = [];
-    % Combine the true values for CDTrialType and the model predicted
+    % Combine the true values for CDRamping and the model predicted
     % values across conditions
     % tempTrue = (time x [num left trials + num right trials])
     for c = 1:length(cond2plot)                                                 % For left and right trials...
         cond = cond2plot{c};
-        currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDTrialType projections for that condition and session
+        currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDRamping projections for that condition and session
         tempTrue = [tempTrue,currTrue];
-        currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDTrialType projections
+        currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDRamping projections
         tempPred = [tempPred,currPred];
     end
 
     [~,sortix] = sort(mean(tempTrue(start:stop,:),1,'omitnan'),'descend');      % Sort the true projections by average magnitude during the delay period
-    True2plot = tempTrue(:,sortix);
+    True2plot = mySmooth(tempTrue(:,sortix),31);
     Pred2plot = tempPred(:,sortix);                                             % Sort the model predictions in the same order
 
     nTrials = size(True2plot,2);                                                 % Total number of trials that are being plotted
-    ax1 = subplot(1,2,1);                                                       % Plot true CDTrialType data on left subplot
+    ax1 = subplot(1,2,1);                                                       % Plot true CDRamping data on left subplot
     imagesc(obj(sessix).time,1:nTrials,True2plot'); hold on                      % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
 
     ax2 = subplot(1,2,2);
@@ -237,6 +238,7 @@ for sessix = 21                                                                 
     title(ax1,'CDRamping - data')
     colorbar(ax1)
     colormap(linspecer)
+    clim(ax1,[0 70])
     xlabel(ax1,'Time from go cue (s)')
     xline(ax1,0,'k--','LineWidth',1)
     xline(ax1,-0.9,'k--','LineWidth',1)
@@ -249,15 +251,17 @@ for sessix = 21                                                                 
     xline(ax2,-0.9,'k--','LineWidth',1)
     xline(ax2,-2.2,'k--','LineWidth',1)
     xlim(ax2,[-2.5 0])
+
     colorbar(ax2)
     colormap(linspecer)
+    clim(ax2,[5 60])
 
     sgtitle(['Example session:  ' meta(sessix).anm ' ' meta(sessix).date])
 end
-%% Example plots by session for relating predicted and true CDTrialType
+%% Example plots by session for relating predicted and true CDRamping
 delR2_ALL = [];
-plotexample = 'no';
-exsess = 21;
+plotexample = 'yes';
+exsess = 4;
 
 if strcmp(plotexample,'yes')
     plotrange = exsess;
@@ -292,7 +296,7 @@ colors = getColors();
 
 anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
     'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
-    'JEB15','JEB15','JEB15','JEB15'};
+    'JEB15','JEB15','JEB15','JEB15','JEB19','JEB19','JEB19','JEB19'};
 
 nSessions = numel(anmNames_all);
 uniqueAnm = unique(anmNames_all);
@@ -322,6 +326,8 @@ for sessix = 1:nSessions
             shape = 'hexagram';
         case uniqueAnm{8}
             shape = 'pentagram';
+        case uniqueAnm{9}
+            shape = '+';
     end
     scatter(1,delR2_ALL(sessix),markerSize,'filled',shape,'MarkerFaceColor',[0.65 0.65 0.65]); hold on;
 end

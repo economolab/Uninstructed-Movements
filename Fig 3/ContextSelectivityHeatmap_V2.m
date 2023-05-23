@@ -18,31 +18,16 @@ addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = [basepth '\Uninstructed-Movements\Fig 4'];
+figpth = [basepth '\Uninstructed-Movements\Fig 3'];
 addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context switching')));
-figpth = [basepth '\Uninstructed-Movements\Fig 7'];
-addpath(genpath(fullfile(figpth,'funcs')));
-addpath(genpath(fullfile(figpth,'Context_funcs')));
 figpth = [basepth '\Uninstructed-Movements\Fig 6'];
 addpath(genpath(fullfile(figpth,'funcs')));
-
-% add paths
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
-addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
-addpath(genpath(fullfile(utilspth,'funcs')));
-addpath(genpath(fullfile(utilspth,'utils')));
-addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 4';
-addpath(genpath(fullfile(figpth,'funcs')));
-addpath(genpath(fullfile(figpth,'Context switching')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 7';
-addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context_funcs')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 6';
+figpth = [basepth '\Uninstructed-Movements\Fig 5'];
 addpath(genpath(fullfile(figpth,'funcs')));
 
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ContextColormap.mat');
+load([basepth '\Uninstructed-Movements\ContextColormap.mat']);
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -79,7 +64,11 @@ params.advance_movement = 0;
 params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
-datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 meta = [];
 
@@ -90,6 +79,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA

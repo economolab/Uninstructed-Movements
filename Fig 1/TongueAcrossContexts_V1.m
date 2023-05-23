@@ -282,7 +282,7 @@ for feat = 1:length(feat2use)
         vartongue.(feat2use{feat}).(condfns{c}) = varAll;
     end
 end
-%% Plot average tongue length and angle for 1st, 2nd, 3rd, etc. licks across sessions
+%% Plot average tongue angle for 1st, 2nd, 3rd, etc. licks across sessions
 feat2use = {'tongue_angle'};
 lickDur = 10;
 alph = 0.2;
@@ -320,8 +320,7 @@ for feat = 1:length(feat2use)
     end
     sgtitle([feat2use{feat}])
 end
-%%
-%% Plot average tongue length and angle for 1st, 2nd, 3rd, etc. licks across sessions
+%% Plot average tongue length for 1st, 2nd, 3rd, etc. licks across sessions
 feat2use = {'tongue_length'};
 condfns = {'RAFC','RAW','LAFC','LAW'};
 lickDur = 10;

@@ -1,4 +1,4 @@
-function [trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez,params)
+function [trueVals, modelpred, avgloadings] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez,params)
 % True Values of CDlate for each session
 trueVals.Rhit = cell(nSessions,1);
 trueVals.Lhit = cell(nSessions,1);
@@ -25,7 +25,8 @@ for sessix = 1:numel(obj)
     [trials,in] = TrainTestSplit(trials,Y,X,rez);
 
     % Decoding
-    pred = DLC_CD_Decoder(in,rez);
+    % Avgloadings = (nPredictors x time pts); each column = the predictor loadings across CV folds for a particular time point
+    [pred,avgloadings{sessix}] = DLC_CD_Decoder(in,rez);
     pred = mySmooth((pred'),31);
 
     % Divide true data and model predictions into R and L hit trials

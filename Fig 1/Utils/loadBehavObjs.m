@@ -4,6 +4,7 @@ for i = 1:numel(meta)
     if ~isfield(dat.obj,'meta')
         dat.obj.meta = 'assigning to avoid dissimilar struct error';
     end
+    dat.obj.vidshift = findVideoOffset(dat.obj);
     obj(i) = dat.obj;
     clear dat
 end

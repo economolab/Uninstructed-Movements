@@ -181,8 +181,8 @@ ctrlmeta(~sess2incl) = [];
 ctrlparams(~sess2incl) = [];
 %% Get avg jaw velocity for all ctrl sessions
 cond2use = [2,3];
-feature = 'jaw_yvel_view1';
-sm = 61;
+feature = 'motion_energy';
+sm = 80;
 
 samp = mode(ctrlobj(1).bp.ev.sample)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
 delay = mode(ctrlobj(1).bp.ev.delay)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
@@ -196,7 +196,7 @@ for sessix = 1:length(ctrlmeta)
     for c = 1:length(cond2use)
         cond = cond2use(c);
         condtrix = ctrlparams(sessix).trialid{cond};
-        temp = squeeze(ctrlkin(sessix).dat_std(:,condtrix,featix));
+        temp = squeeze(ctrlkin(sessix).dat(:,condtrix,featix));
         temp = abs(temp);
         condtemp = mySmooth(mean(temp,2,'omitnan'),sm);
         tempjaw = [tempjaw, condtemp];
@@ -208,12 +208,12 @@ for sessix = 1:length(ctrlmeta)
     if delSelectivity<0
         sel = -1*sel;
     end
-    ctrlobj(sessix).jawSelectivity = sel;
+    ctrlobj(sessix).jawSelectivity = mySmooth(sel,sm);
 end
 %% Get avg jaw velocity for all haz delay sessions
-feature = 'jaw_yvel_view1';
+feature = 'motion_energy';
 del2use = 1.2;
-sm = 21;
+sm = 80;
 
 startix = find(ctrlobj(1).time>0,1,'first');
 stopix = find(ctrlobj(1).time<del2use,1,'last');
@@ -233,7 +233,7 @@ for sessix = 1:length(meta)
         condtrix = find(cond);
         touse = ismember(deltrix,condtrix);                     % Find which trials that are of the desired delay length are also in the desired condition
         ix = deltrix(touse);                                    % Get the trial numbers of trials which satisfy the condition above
-        temp = squeeze(kin(sessix).dat_std(:,ix,featix));
+        temp = squeeze(kin(sessix).dat(:,ix,featix));
         temp = abs(temp);
         condtemp = mySmooth(mean(temp,2,'omitnan'),41);
         tempjaw = [tempjaw, condtemp];
@@ -244,7 +244,7 @@ for sessix = 1:length(meta)
     if delSelectivity<0
         sel = -1*sel;
     end
-    obj(sessix).jawSelectivity = sel;
+    obj(sessix).jawSelectivity = mySmooth(sel,sm);
     obj(sessix).jawvel = tempjaw;
 end
 %% Concatenate avg jaw selectivities across all sessions

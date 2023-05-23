@@ -11,16 +11,21 @@ for c = 1:length(cond2plot)
     condtrix = params(sessix).trialid{cond};
     randtrix = randsample(condtrix, numtrix2plot);
     condME = squeeze(kin(sessix).dat(:,randtrix,MEix));
-    presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
-    presampME = mean(presampME);
-    condME = condME-presampME;
+    % Baseline subtract ME (where baseline is presample ME)
+%     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
+%     presampME = mean(presampME);
+%     condME = condME-presampME;
+    % Baseline subtract ME (where baseline is 1st percentile of ME)
+    pctME = prctile(condME,1);
+    condME = condME-pctME;
 
-    [~, sortix] = sort(mean(condME(delix:goix,:),2,'omitnan'), 'descend');
+    [~, sortix] = sort(mean(condME(delix:goix,:),1,'omitnan'), 'descend');
     condME = condME(:,sortix);
-    imagesc(obj(sessix).time, 1:numtrix2plot,condME')
+    imagesc(obj(sessix).time, 1:numtrix2plot,mySmooth(condME,11)')
     colorbar(ax)
-    colormap(ax,linspecer)
-    clim(ax,[-4 22])
+    colormap(ax,parula)
+    clim(ax,[0 30])
+    title(ax,params(sessix).condition{cond})
     xlabel(ax,'Time from go cue (s)')
     ylabel(ax,'Motion energy (a.u.)')
     xline(ax,0,'k--','LineWidth',1)

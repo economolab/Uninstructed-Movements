@@ -1,4 +1,4 @@
-function pred = DLC_CD_Decoder(in,rez)
+function [pred,avgloading_acrossfolds] = DLC_CD_Decoder(in,rez)
 
 % bootstrap, and sessions happen outside this function
 % This function is for a single session, single iteration
@@ -40,7 +40,15 @@ for i = tRange                          % For each time-point...
     % Fit the linear regression model
     %cv_mdl = fitrlinear(x_train,y_train);
     cv_mdl = fitrlinear(x_train,y_train,'KFold',rez.nFolds);    % Use cross-validation
-   
+    
+    % Save the predictor coefficients for this point in time (averaged
+    % across fold iterations)
+    nPredictors = size(x_train,2);                  % Number of kinematic predictors
+    loadings = NaN(nPredictors,rez.nFolds);         % (# predictors x folds for CV)
+    for fol = 1:rez.nFolds
+        loadings(:,fol) = cv_mdl.Trained{fol}.Beta;
+    end
+    avgloading_acrossfolds(:,ix) = mean(loadings,2,'omitnan');  % Average the coefficients for each predictor term across folds; save these for each time point
 
     % Test the model on test data 
     % Get the average test data for the given time-bin

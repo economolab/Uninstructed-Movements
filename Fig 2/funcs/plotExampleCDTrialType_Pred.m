@@ -1,4 +1,4 @@
-function plotExampleCDTrialType_Pred(colors, obj, rez, meta, avgCD, stdCD, sessix,trueVals,alph,tempR2)
+function plotExampleCDTrialType_Pred(colors, obj, par, meta, avgCD, stdCD, sessix,trueVals,alph,tempR2,invert)
 for i = 1:4
     switch i
         case 1
@@ -6,29 +6,35 @@ for i = 1:4
             data = 'true';
             col = colors.rhit;
             linestyle = '-';
-            time = obj(1).time;
+            time = obj(1).time(par.timerange);
         case 2
             dir = 'Lhit';
             data = 'true';
             col = colors.lhit;
             linestyle = '-';
-            time = obj(1).time;
+            time = obj(1).time(par.timerange);
         case 3
             dir = 'Rhit';
             data = 'pred';
             col = colors.rhit;
             linestyle = '--';
-            time = rez.tm(1:end-1);
+            time = obj(1).time(par.timerange);
         case 4
             dir = 'Lhit';
             data = 'pred';
             col = colors.lhit;
             linestyle = '--';
-            time = rez.tm(1:end-1);
+            time = obj(1).time(par.timerange);
     end
-    toplot = avgCD.(dir).(data);
-    nTrials = size(trueVals.(dir){sessix},2);
-    err = 1.96*(stdCD.(dir).(data)./sqrt(nTrials));
+    if strcmp(invert,'invert')
+        toplot = -1*(avgCD.(dir).(data));
+        nTrials = size(trueVals.(dir){sessix},2);
+        err = -1.96*(stdCD.(dir).(data)./sqrt(nTrials));
+    else
+        toplot = avgCD.(dir).(data);
+        nTrials = size(trueVals.(dir){sessix},2);
+        err = 1.96*(stdCD.(dir).(data)./sqrt(nTrials));
+    end
     ax = gca;
     shadedErrorBar(time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',linestyle},alph,ax); hold on;
 end
@@ -46,7 +52,7 @@ xlabel('Time from go cue (s)')
 sesstitle = [meta(sessix).anm ' ' meta(sessix).date ';'];
 sesstit = [sesstitle, 'R^2 = ', num2str(tempR2)];
 title(sesstit)
-set(gca, 'YDir','reverse')
-xlim([-2.4 2.4])
+%set(gca, 'YDir','reverse')
+xlim([-2.5 0])
 hold off;
 end

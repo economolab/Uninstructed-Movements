@@ -1,27 +1,40 @@
-function plotCondAvgMEandCD(cond2plot, sessix, params, obj, meta, kin, regr, alph, cols, MEix,times)
+function plotCondAvgMEandCD(cond2plot, sessix, params, obj, meta, kin, trueVals, alph, cols, MEix,times,par,invert)
 sm = 21;
 
 for c = 1:length(cond2plot)
     cond = cond2plot(c);
     condtrix = params(sessix).trialid{cond};
     condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
-    presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
-    presampME = mean(presampME);
-    condME = condME-presampME;
+    % Baseline subtract ME where baseline is presample
+%     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
+%     presampME = mean(presampME);
+%     condME = condME-presampME;
+    % Baseline subtract ME where baseline is 1st percentile    
+    pctME = prctile(condME,1);
+    condME = condME-pctME;
     nTrials = size(condME,2);
 
     ax1 = subplot(2,1,1);
-    toplot = mean(condME,2,'omitnan');
-    err = 1.96*(std(condME,0,2,'omitnan')./sqrt(nTrials));
+    toplot = mean(condME(par.timerange,:),2,'omitnan');
+    err = 1.96*(std(condME(par.timerange,:),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time(par.timerange),mySmooth(toplot,sm),err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
 
+    if cond==2
+        dir = 'Rhit';
+    else
+        dir = 'Lhit';
+    end
     ax2 = subplot(2,1,2);
-    condRamp = regr(sessix).singleProj(:,condtrix);
-    toplot = mean(condRamp,2,'omitnan');
-    err = 1.96*(std(condRamp,0,2,'omitnan')./sqrt(nTrials));
+    if strcmp(invert,'invert')
+        condRamp = -1*trueVals.(dir){sessix};
+    else
+        condRamp = trueVals.(dir){sessix};
+    end
+    toplot = mean(condRamp(par.timerange,:),2,'omitnan');
+    err = 1.96*(std(condRamp(par.timerange,:),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time,toplot,err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
 end
 xlabel(ax1,'Time from go cue (s)')
 ylabel(ax1,'Motion energy (a.u.)')
