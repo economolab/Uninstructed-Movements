@@ -43,3 +43,4 @@ sig = 0.05;
 
 obj(sessix).selectiveCells = find(includedCells&selectiveCells);
 obj(sessix).spkdif = spkdif;
+obj(sessix).includedCells = find(includedCells);

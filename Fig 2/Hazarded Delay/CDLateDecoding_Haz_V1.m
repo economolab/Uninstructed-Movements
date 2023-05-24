@@ -211,67 +211,7 @@ for sessix = 1:numel(meta)
 end
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
-%% Show how the movements of different body parts are driving the potent space
-del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);
-start = find(obj(1).time>del,1,'first');
-resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
-stop = find(obj(1).time<resp,1,'last');
-resp2 = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))+2;
-stop2 = find(obj(1).time<resp2,1,'last');
 
-epochfns = {'delay'};
-
-featgroups = {'tongue','nos','jaw','motion_energy','trident'};
-binWidth = par.pre+par.post;
-for group = 1:length(featgroups)
-    currgroup = featgroups{group};
-    temp = NaN(1,length(kin(1).featLeg));
-    for feat = 1:length(kin(1).featLeg)
-        currfeat = kin(1).featLeg{feat};
-        temp(feat) = contains(currfeat,currgroup);
-    end
-    groupixs = find(temp);
-    shiftedixs = NaN(1,length(groupixs*binWidth));
-    cnt = 1;
-    for ii = 1:length(groupixs)
-        currfeatix = groupixs(ii);
-        ixstart = (currfeatix*binWidth)-(binWidth-1);
-        ixstop = (currfeatix*binWidth);
-        ixrange = ixstart:ixstop;
-        shiftedixs(cnt:cnt+binWidth-1) = ixrange;
-        cnt = cnt+binWidth;
-    end
-    
-    for sessix = 1:length(meta)
-        featload = abs(avgloadings(shiftedixs,sessix));                             % (num ixs that belong to this feature group x time)
-        allloadings(sessix).(featgroups{group}) = featload;
-
-    end
-end
-%% Normalize all of the beta coefficients to be a fraction of 1
-featgroups = {'tongue','nos','jaw','motion_energy','trident'};
-epochfns = {'delay'};
-totalnormfeats = NaN(length(meta),length(featgroups));
-for sessix = 1:length(meta)
-    temp = [];
-    for feat = 1:length(featgroups)
-        temp = [temp,sum(allloadings(sessix).(featgroups{feat}))];
-    end
-    totalbeta = sum(temp);
-    normfeats = temp./totalbeta;
-    totalnormfeats(sessix,:) = normfeats;
-end
-
-% Get all ME vals
-MEix = find(strcmp(featgroups,'motion_energy'));
-MEvals = totalnormfeats(:,MEix);
-[~,sortix] = sort(MEvals,'descend');
-totalnormfeats = totalnormfeats(sortix,:);
-%% Make a stacked bar plot to show across sessions that it varies which feature group contributes most to predicting CDTrialType
-bar(totalnormfeats,'stacked')
-legend(featgroups,'Location','best')
-xlabel('Session #')
-ylabel('Relative contribution to CDTrialType pred')
 %% Baseline subtract CDTrialType
 % Times that you want to use to baseline normalize CDTrialType
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -297,7 +237,6 @@ for sessix = 1:length(meta)
     trueVals.Rhit{sessix} = trueVals.Rhit{sessix}-presampcurr;
     trueVals.Lhit{sessix} = trueVals.Lhit{sessix}-presampcurr;
 end
-
 %% Plot example of motion energy and ramping mode, averaged across right and left trials
 colors = getColors();
 
@@ -321,7 +260,6 @@ for sessix =  exsess %1:numel(meta)
     figure();
     plotExampleChoiceSelME(numtrix2plot, cond2plot, sessix, params, obj, meta, kin, MEix,times)
 end
-
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 plotheatmap = 'yes';
 sm = 30;
@@ -439,9 +377,6 @@ end
 colors = getColors();
 exsess = 2;
 delR2_ALL = abs(delR2_ALL);
-anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
-    'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
-    'JEB15','JEB15','JEB15','JEB15','JEB19','JEB19','JEB19','JEB19'};
 
 nSessions = numel(anmNames_all);
 uniqueAnm = unique(anmNames_all);

@@ -18,7 +18,7 @@ for c = 1:length(cond2plot)
     toplot = mean(condME(par.timerange,:),2,'omitnan');
     err = 1.96*(std(condME(par.timerange,:),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time(par.timerange),mySmooth(toplot,sm),err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time(par.timerange),mySmooth(toplot,sm),mySmooth(err,sm),{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
 
     if cond==2
         dir = 'Rhit';

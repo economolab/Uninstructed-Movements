@@ -182,7 +182,7 @@ ctrlparams(~sess2incl) = [];
 %% Get avg jaw velocity for all ctrl sessions
 cond2use = [2,3];
 feature = 'motion_energy';
-sm = 80;
+sm = 200;
 
 samp = mode(ctrlobj(1).bp.ev.sample)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
 delay = mode(ctrlobj(1).bp.ev.delay)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
@@ -213,7 +213,7 @@ end
 %% Get avg jaw velocity for all haz delay sessions
 feature = 'motion_energy';
 del2use = 1.2;
-sm = 80;
+sm = 200;
 
 startix = find(ctrlobj(1).time>0,1,'first');
 stopix = find(ctrlobj(1).time<del2use,1,'last');
@@ -311,22 +311,22 @@ hazcol = [0.5 0.5 0.5];
 go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
 ctrlstop = find(ctrlobj(1).time<go,1,'last');
 del2use = 1.2;
-smooth = 80;
+smooth = 10;
 alph = 0.2;
 
 figure();
 ax = gca;
-toplot = mySmooth(mean(jv.haz,2),smooth);
+toplot = mean(mySmooth(jv.haz,smooth),2);
 nSess = size(jv.haz,2);
 %err = 1.96*(mySmooth(std(jv.haz,0,2),smooth)./sqrt(nSess));
-err = mySmooth(std(jv.haz,0,2),smooth)./sqrt(nSess);
+err = std(mySmooth(jv.haz,smooth),0,2)./sqrt(nSess);
 shadedErrorBar(obj(1).time+0.5,toplot,err,{'Color',hazcol,'LineWidth',2},alph,ax);
 hold on;
 
-toplot = mySmooth(mean(jv.ctrl,2),smooth);
+toplot = mean(mySmooth(jv.ctrl,smooth),2);
 nSess = size(jv.ctrl,2);
 % err = 1.96*(mySmooth(std(jv.ctrl,0,2),smooth)./sqrt(nSess));
-err = mySmooth(std(jv.ctrl,0,2),smooth)./sqrt(nSess);
+err = std(mySmooth(jv.ctrl,smooth),0,2)./sqrt(nSess);
 shadedErrorBar(obj(1).time(1:ctrlstop),toplot(1:ctrlstop),err(1:ctrlstop),{'Color',ctrlcol,'LineWidth',2},alph,ax);
 xline(0,'LineStyle','--','Color','black','LineWidth',1.5)
 xline(go,'LineStyle','--','Color',ctrlcol,'LineWidth',1.5)

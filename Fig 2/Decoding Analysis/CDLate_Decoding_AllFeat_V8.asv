@@ -301,7 +301,7 @@ end
 %% Plot example of motion energy and ramping mode, averaged across right and left trials
 colors = getColors();
 
-exsess = 8;
+exsess = 9;
 nSessions = numel(meta);
 cond2plot = [2 3];
 MEix = find(strcmp(kin(1).featLeg,'motion_energy'));
@@ -324,11 +324,11 @@ end
 
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 plotheatmap = 'yes';
-sm = 30;
+sm = 15;
 invertCD = 'invert';                    % 'Invert' or 'no' for whether or not you want to flip the sign of the CD projection
 
 load('C:\Code\Uninstructed-Movements\LeftRightDiverging_Colormap.mat')
-exsess = 8;
+exsess = 9;
 if strcmp(plotheatmap,'yes')
     % Times that you want to use to sort CDTrialType
     del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -367,9 +367,9 @@ if strcmp(plotheatmap,'yes')
 
         ax2 = subplot(1,2,2);
         if strcmp(invertCD,'invert')
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm+20)'); hold on
+            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm)'); hold on
         else
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(tempPred,sm+20)'); hold on
+            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(tempPred,sm)'); hold on
         end
         line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','white','LineStyle','--')
         title(ax1,'CDTrialType - data')
@@ -437,7 +437,6 @@ for sessix = plotrange
 end
 %% Plot bar plot to show average R2 values across sessions
 colors = getColors();
-exsess = 2;
 delR2_ALL = abs(delR2_ALL);
 anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
     'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
@@ -450,9 +449,32 @@ markerSize = 60;
 figure();
 bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
 for sessix = 1:nSessions
-    scatter(1,delR2_ALL(sessix),markerSize,'filled','o','MarkerFaceColor',[0.65 0.65 0.65]); hold on;
+    curranm = anmNames_all{sessix};                 % Get the name of the animal for this session
+    switch curranm                                  % Switch the marker shape depending on which animal is being plotted
+        case uniqueAnm{1}
+            shape = 'o';
+            %         case uniqueAnm{5}
+            %             shape = '<';
+        case uniqueAnm{2}
+            shape = '^';
+        case uniqueAnm{3}
+            shape = 'v';
+        case uniqueAnm{4}
+            shape = '>';
+        case uniqueAnm{5}
+            shape = 'square';
+        case uniqueAnm{6}
+            shape = 'diamond';
+        case uniqueAnm{7}
+            shape = 'hexagram';
+        case uniqueAnm{8}
+            shape = 'pentagram';
+        case uniqueAnm{9}
+            shape = '+';
+    end
+    scatter(1,delR2_ALL(sessix),markerSize,'filled',shape,'MarkerFaceColor',[0.65 0.65 0.65]); hold on;
 end
-scatter(1,delR2_ALL(exsess),markerSize,'filled','o','cyan','MarkerEdgeColor','black')
+scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','black','MarkerEdgeColor','black')
 legend([' ',anmNames_all])
 ylim([0 1])
 ax = gca;

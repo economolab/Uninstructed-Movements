@@ -90,21 +90,52 @@ smooth = 50;
 modparams.quals2excl = {'Poor','Noisy'};
 modparams.sm = 30;                                                    % Amount that you want to smooth PSTHs by
 modparams.subTrials = 40;
+allsingleCells = [];
 for sessix = 1:length(meta)
     obj = findDelSelectiveCells(sessix, obj, meta, modparams, params); 
+    allsingleCells = [allsingleCells,length(obj(sessix).includedCells)];
 end
 %% Calculate selectivity (spike rate difference) for all selective cells (on a given delay duration)
 del2use = 1.2000;
 cond2use = [1,2];
 smooth = 200;
-selectivity_All = [];
-for sessix = 1:length(meta)
-    selectivity_All = calcNeuralSelectivity_Haz(sessix, obj, del2use, params, smooth, cond2use);
-end
+
+selectivity_All = calcNeuralSelectivity_Haz(obj, del2use, params, smooth, cond2use,meta);
 %%
-tempobj = obj(1); tempparams = params(1);
-clearvars -except selectivity_All tempobj tempparams
-obj = tempobj; params = tempparams;
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(meta)
+    disp(['Loading ME for session ' num2str(sessix)])
+    me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
+end
+%% Load kinematic data
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
+end
+
+clearvars -except del2use kin me meta modparams obj params selectivity_All
+%%
+totcells = sum(allsingleCells);
+selcells = size(selectivity_All,2);
+pctSelective = 100*selcells/totcells;
+disp('---Summary Statistics Haz Delay sessions: how many cells are delay period selective---')
+disp([num2str(pctSelective) ' % of cells (' num2str(selcells) ' out of ' num2str(totcells) ') are delay period selective'])
+disp([num2str(length(meta)) ' sessions'])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+
+
+
+
+
+
+
+
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------Static Delay-----------------------------------------

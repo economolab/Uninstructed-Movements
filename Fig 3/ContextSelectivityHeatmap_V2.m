@@ -120,7 +120,7 @@ sorted_select = selectNorm(:,sortix);
 % As in Inagaki et al., Cell, 2022 ('A midbrain-thalamus...')
 % modulatedCells = (1 x nCells) array where 1 means the cell is context-selective and 0 means it is not
 modulatedCells = [];
-modparams.quals2excl = {'Poor','Multi','Noisy'};
+modparams.quals2excl = {'Poor','Multi','Noisy','Garbage'};
 includedCells = [];
 modparams.sm = 30;                                                    % Amount that you want to smooth PSTHs by
 modparams.measure = 'FR';                                             % Whether you want to compare firing rate ('FR') or spike counts ('spkCnt') 
@@ -197,7 +197,10 @@ ctxtSelective = sum(includedCells&modulatedCells);
 nIncl = sum(includedCells);
 pctSelective = 100*(ctxtSelective/nIncl);
 
+disp('---Summary Statistics for number of context selective neurons---')
 disp([num2str(pctSelective) ' % of cells show context-selectivity in the presample period (' num2str(ctxtSelective) '/' num2str(nIncl) ' cells)'])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %% Sort according to how we want to plot it for figure
 clearvars -except obj meta params includedCells modulatedCells selectNorm psth_all start stop 
 
@@ -240,14 +243,25 @@ nums.AW = size(included.selectivity.AW,2);
 tempix = find(includedCells&~modulatedCells);
 selectivityNonMod = selectNorm(:,tempix);
 psthNonMod = psth_all(:,tempix,:);
-temp = mean(selectivityNonMod(start:stop,:),1,'omitnan');
-[~,sortix] = sort(temp,'descend');  
-selectivityNonMod = selectivityNonMod(:,sortix);
-psthNonMod = psthNonMod(:,sortix,:);
+% Sort non-modulated cells by presample selectivity
+% temp = mean(selectivityNonMod(start:stop,:),1,'omitnan');
+% [~,sortix] = sort(temp,'descend');  
+% selectivityNonMod = selectivityNonMod(:,sortix);
+% psthNonMod = psthNonMod(:,sortix,:);
+% Randomize order of non-modulated cells
+randix = randsample(1:size(selectivityNonMod,2),size(selectivityNonMod,2));
+selectivityNonMod = selectivityNonMod(:,randix);
+psthNonMod = psthNonMod(:,randix,:);
 
 % Concatenate such that cells are ordered with: 2AFC-selective first (sorted), AW-selective, then non-selective
 toplot_all = [selectivityMod,selectivityNonMod];
 psthplot_all = cat(2,psthMod, psthNonMod);
+%%
+disp('---Summary Statistics for types of context selective neurons---')
+disp([num2str(nums.AFC) ' cells out of ' num2str(sum([nums.AFC,nums.AW])) ' are 2AFC-preferring'])
+disp([num2str(nums.AW) ' cells out of ' num2str(sum([nums.AFC,nums.AW])) ' are AW-preferring'])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %%
 % for c = 1:size(psthplot_all,2)                                 % For every cell... 
 %     temp = squeeze(psthplot_all(:,c,:));                                % Get its max firing rate across both conditions
@@ -256,7 +270,8 @@ psthplot_all = cat(2,psthMod, psthNonMod);
 % end 
 %%
 clearvars -except obj meta params includedCells modulatedCells toplot_all psthplot_all nums selectNorm psth_all start stop
-load('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\ContextColormap.mat');
+
+load('C:\Code\Uninstructed-Movements\ContextColormap.mat');
 
 tLim.start = -3;
 tLim.stop = 1;

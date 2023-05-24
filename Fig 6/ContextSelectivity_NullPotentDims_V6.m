@@ -6,7 +6,7 @@
 % -------------------------------------------------------------------------------------
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -29,6 +29,8 @@ addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Context_funcs')));
 figpth = [basepth '\Uninstructed-Movements\Fig 6'];
 addpath(genpath(fullfile(figpth,'funcs')));
+
+load([basepth '\Uninstructed-Movements\ContextColormap.mat']);
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -92,6 +94,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -112,7 +115,7 @@ for sessix = 1:numel(meta)
 end
 %% Null and Potent Space
 
-clearvars -except obj meta params me sav
+clearvars -except obj meta params me sav ContextColormap
 
 % -----------------------------------------------------------------------
 % -- Curate Input Data --

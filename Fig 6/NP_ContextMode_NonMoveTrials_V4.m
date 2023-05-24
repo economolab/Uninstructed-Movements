@@ -86,6 +86,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -134,6 +135,8 @@ times.trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).
 times.startix = find(obj(1).time>times.trialstart,1,'first');
 times.samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 times.stopix = find(obj(1).time<times.samp,1,'last');
+times.go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+times.goix = find(obj(1).time<times.go,1,'last');
 
 cond2use = [6 7];                                                           % Conditions (in reference to params.trialid) that you want to find move and non-move trials for
 trials2cutoff = 40;                                                         % Trials to cut-off at the end of the session
@@ -185,20 +188,64 @@ clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored te
 % Each field has subfields 'noMove','Move','all'
 % 'noMove','Move', and 'all' are (1 x 2) cell. Where first cell contains single trial projections onto CDContext for 2AFC trials (of that move condition)
 % and second cell contains for AW trials
-sm=50;
+sm=60;
 all_grouped = combineSessions_grouped(meta,grouped,sm, popfns, movefns);
 %% Plot average CDContext across all sessions for each context
 
 colors = getColors();
 alph = 0.2;             % Shading opacity for error bars
-%%% OLD VERSION OF FIGURE %%%
-% LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
+
+condfns = {'afc','aw'};
+nSessions = length(meta);
+figure();
+subplot(1,2,1)
+for cond = 1:length(condfns)
+    if cond ==1
+        col = colors.afc;
+    else
+        col = colors.aw;
+    end
+    toplot = mean(mySmooth(all_grouped.null.all.(condfns{cond}),60),2,'omitnan');
+    err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    ax = gca;
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+end
+xline(-2.2,'k--')
+xline(-0.9,'k--')
+xline(-0,'k--')
+xlabel('Time from go cue / water drop (s)')
+ylabel('a.u.')
+title('Null')
+xlim([-2.5 2.5])
+
+subplot(1,2,2)
+for cond = 1:length(condfns)
+    if cond ==1
+        col = colors.afc;
+    else
+        col = colors.aw;
+    end
+    ax = gca;
+    toplot = mean(mySmooth(all_grouped.potent.all.(condfns{cond}),60),2,'omitnan');
+    err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+end
+xline(-2.2,'k--')
+xline(-0.9,'k--')
+xline(-0,'k--')
+xlabel('Time from go cue / water drop (s)')
+ylabel('a.u.')
+title('Potent')
+xlim([-2.5 2.5])
 %% Plot average selectivity in CDContext across all sessions for each context
 % figure();
 % LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 
-figure();
+% figure();
 LinePlot_SelGrouped_MoveNonMove_V2(meta,all_grouped,times,alph,colors,obj,movefns,popfns)
+
+figure();
+ all_grouped = LinePlot_SelGrouped_MnM_Normalized(meta,all_grouped,times,alph,colors,obj,movefns,popfns);
 %% Get the average presample selectivity in CDCont for move and non-move trials
 for ii = 1:length(popfns)
     cont = popfns{ii};
@@ -216,64 +263,22 @@ for ii = 1:length(popfns)
     presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
 %% Do all t-tests (paired)
-sigcutoff = 0.01;
+sigcutoff = 0.05;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
 for ii = 1:length(popfns)
-    cont = popfns{ii};
+    cont = popfns{ii};  
+    %hyp.(cont) = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
     hyp.(cont) = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
+disp('---Summary Statistics for average ITI context selectivity---')
+disp(['For significance cutoff ' num2str(sigcutoff) ' :'])
+hyp
+disp(['Nsessions = ' num2str(length(meta))])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
-figure();
-plotBarPlot_Scatter_WLines(presampavgnorm)
+plotBarPlot_Scatter_WLines(presampavgnorm,meta)
 %% Plotting functions
-
-function LinePlot_CDGrouped_MoveNonMove(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
-nSessions = length(meta);
-cnt = 1;
-for ii = 1:3
-    if ii==1
-        cont = 'fullpop';
-        yl = [-5 12];
-    elseif ii==2
-        cont = 'null';
-        yl = [-0.1 0.15];
-    elseif ii==3
-        cont = 'potent';
-        yl = [-0.4 0.1];
-    end
-    for gg = 1:ngroups
-        if gg==1
-            movement = 'Move trials';
-        else
-            movement = 'Non-Move trials';
-        end
-        for cc = 1:2
-            if cc == 1
-                trialcont = 'afc';
-                col = colors.afc;
-            else
-                trialcont = 'aw';
-                col = colors.aw;
-            end
-            subplot(3,ngroups,cnt)
-            ax = gca;
-            toplot = mean(all_grouped.(cont).(trialcont){gg},2,'omitnan');
-            err = std(all_grouped.(cont).(trialcont){gg},0,2,'omitnan')./sqrt(nSessions);
-            %err = 1.96*(std(all_grouped.(cont).(trialcont){gg},0,2,'omitnan')./sqrt(nSessions));
-            shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
-        end
-        title([cont ';  ' movement])
-        %ylim(yl)
-        if ii~=1
-            set(ax, 'YDir','reverse')
-        end
-        xlim([trialstart 2.5])
-        xline(0,'k--','LineWidth',1)
-        xline(samp,'k--','LineWidth',1)
-        cnt = cnt+1;
-    end
-end
-end
 
 function LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
 nSessions = length(meta);
@@ -341,7 +346,6 @@ for po = 1:length(popfns)
     err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
     %err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
-
     ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
     xlim([times.trialstart 0])
@@ -380,7 +384,7 @@ for po = 1:length(popfns)
 end
 end
 
-function plotBarPlot_Scatter_WLines(presampavgnorm)
+function plotBarPlot_Scatter_WLines(presampavgnorm,meta)
 X = [1,2,4,5,7,8];
 row1 = []; row2 = []; row3 =[];
 movefns = {'Move','noMove'};
@@ -414,6 +418,7 @@ for ii  = 1:3
         plot(xx,[presampavgnorm.(cont).Move(sessix),presampavgnorm.(cont).noMove(sessix)],'Color','black')
     end
 end
+% ylim([0 1])
 end
 %%
 function grouped = reorganizeMnM(meta, popfns, movefns, cd_context, cd_null, cd_potent)
