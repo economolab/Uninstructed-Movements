@@ -158,7 +158,7 @@ par.feats = cat(1, temp{:});
 % trials
 par.cond2use = [2 3];
 
-par.regularize = 0; % if 0, linear regression. if 1, ridge regression
+par.regularize = 1; % if 0, linear regression. if 1, ridge regression
 %% DECODING
 
 close all
@@ -472,7 +472,7 @@ delR2_ALL = abs(delR2_ALL);
 anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
     'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
     'JEB15','JEB15','JEB15','JEB15','JEB19','JEB19','JEB19','JEB19'};
-
+exsess = 21;
 nSessions = numel(anmNames_all);
 uniqueAnm = unique(anmNames_all);
 % The index of the session that you want to be highlighted
@@ -480,33 +480,10 @@ markerSize = 60;
 figure();
 bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
 for sessix = 1:nSessions
-    curranm = anmNames_all{sessix};                 % Get the name of the animal for this session
-    switch curranm                                  % Switch the marker shape depending on which animal is being plotted
-        case uniqueAnm{1}
-            shape = 'o';
-            %         case uniqueAnm{5}
-            %             shape = '<';
-        case uniqueAnm{2}
-            shape = '^';
-        case uniqueAnm{3}
-            shape = 'v';
-        case uniqueAnm{4}
-            shape = '>';
-        case uniqueAnm{5}
-            shape = 'square';
-        case uniqueAnm{6}
-            shape = 'diamond';
-        case uniqueAnm{7}
-            shape = 'hexagram';
-        case uniqueAnm{8}
-            shape = 'pentagram';
-        case uniqueAnm{9}
-            shape = '+';
-    end
-    scatter(1,delR2_ALL(sessix),markerSize,'filled',shape,'MarkerFaceColor',[0.65 0.65 0.65]); hold on;
+ 
+    scatter(1,delR2_ALL(sessix),markerSize,'filled','o','MarkerFaceColor',[0.65 0.65 0.65]); hold on;
 end
-scatter(1,delR2_ALL(exsess),markerSize,'filled','pentagram','black','MarkerEdgeColor','black')
-legend([' ',anmNames_all])
+scatter(1,delR2_ALL(exsess),markerSize,'filled','o','cyan','MarkerEdgeColor','black')
 ylim([0 1])
 ax = gca;
 ax.FontSize = 16;
@@ -515,6 +492,12 @@ title(['Ex session = Sesh ' num2str(exsess) '; Animal ' anmNames_all{exsess} ])
 disp('---Summary statistics for CDRamping prediction---')
 disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])
 disp(['Standard deviation across all sessions = ' num2str(std(delR2_ALL))])
+if par.regularize==1
+    regtype = 'Ridge';
+else
+    regtype = 'none';
+end
+disp(['Regularization type: ' regtype])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% FUNCTIONS

@@ -257,12 +257,17 @@ smooth = 70;
 alph = 0.2;
 figure();
 ax = gca;
+% Baseline subtract ME (where baseline is 1st percentile of ME)
+pctME = prctile(jv.haz,1);
+jv.haz = jv.haz-pctME;
 toplot = mySmooth(mean(jv.haz,2),smooth);
 nSess = size(jv.haz,2);
 err = 1.96*(mySmooth(std(jv.haz,0,2),smooth)./sqrt(nSess));
 shadedErrorBar(obj(1).time+0.5,toplot,err,{'Color',hazcol,'LineWidth',2},alph,ax);
 hold on;
 
+pctME = prctile(jv.ctrl,1);
+jv.ctrl = jv.ctrl-pctME;
 toplot = mySmooth(mean(jv.ctrl,2),smooth);
 nSess = size(jv.ctrl,2);
 err = 1.96*(mySmooth(std(jv.ctrl,0,2),smooth)./sqrt(nSess));

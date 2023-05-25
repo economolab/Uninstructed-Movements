@@ -1,4 +1,4 @@
-function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params) 
+function [X,Y,delLength,condassign] = preparePredictorsRegressors_Haz(par, sessix, kin, del,params) 
 % predict 'trialdat' from par.feats (kinematic features of interest)
 
 
@@ -6,6 +6,14 @@ function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params)
 
     % trials
     par.trials.all = cell2mat(params(sessix).trialid(par.cond2use)');                   % All trials from all conditions you are decoding for
+    temp = [];
+    for c = 1:length(par.cond2use)
+        cond = par.cond2use(c);
+        condix = params(sessix).trialid{cond};
+        temp = [temp, c*ones(1,length(condix))];
+    end
+    condassign = temp';
+    delLength = del(sessix).delaylen(par.trials.all);                                % Store the associated delay length for each of these conditions                   
 
     nTrials = numel(par.trials.all);                                                    % Total num of trials
     nTrain = floor(nTrials*par.train);                                                  % Num trials that go in the training set 
@@ -45,11 +53,11 @@ function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params)
     X.test = reshape(X.test,size(X.test,1),size(X.test,2)*size(X.test,3));
 
     % output data
-    Y.train = regr(sessix).singleProj(par.timerange,par.trials.train);                              % (time,trials);
+    Y.train = del(sessix).singleProj(par.timerange,par.trials.train);                              % (time,trials);
     Y.size = size(Y.train);
     Y.train = reshape(Y.train, size(Y.train,1)*size(Y.train,2),size(Y.train,3));        % (time * trials)
 
-    Y.test = regr(sessix).singleProj(par.timerange,par.trials.test);
+    Y.test = del(sessix).singleProj(par.timerange,par.trials.test);
     Y.test = reshape(Y.test, size(Y.test,1)*size(Y.test,2),size(Y.test,3));
 
     % standardize data
