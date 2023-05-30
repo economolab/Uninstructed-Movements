@@ -165,7 +165,7 @@ movefns = {'noMove','Move','all'};
 % testsingleproj has fields 'noMove', 'Move', 'all' indicating whether these single trial projections are from noMove trials, move trials, or all trials
 % Each field then has a (1 x 2) cell array.  First cell contains single test trial projections from the 2AFC context. 
 % Second cell contains projections from AW context
-[cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params);
+[cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params,zscored);
 
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits times
 %% Reorganize into a simpler structure
@@ -198,7 +198,27 @@ alph = 0.2;             % Shading opacity for error bars
 condfns = {'afc','aw'};
 nSessions = length(meta);
 figure();
-subplot(1,2,1)
+subplot(3,1,1)
+for cond = 1:length(condfns)
+    if cond ==1
+        col = colors.afc;
+    else
+        col = colors.aw;
+    end
+    toplot = mean(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),2,'omitnan');
+    err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    ax = gca;
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+end
+xline(-2.2,'k--')
+xline(-0.9,'k--')
+xline(-0,'k--')
+xlabel('Time from go cue / water drop (s)')
+ylabel('a.u.')
+title('Full pop')
+xlim([-2.5 2.5])
+
+subplot(3,1,2)
 for cond = 1:length(condfns)
     if cond ==1
         col = colors.afc;
@@ -218,7 +238,7 @@ ylabel('a.u.')
 title('Null')
 xlim([-2.5 2.5])
 
-subplot(1,2,2)
+subplot(3,1,3)
 for cond = 1:length(condfns)
     if cond ==1
         col = colors.afc;
@@ -244,8 +264,8 @@ xlim([-2.5 2.5])
 % figure();
 LinePlot_SelGrouped_MoveNonMove_V2(meta,all_grouped,times,alph,colors,obj,movefns,popfns)
 
-figure();
- all_grouped = LinePlot_SelGrouped_MnM_Normalized(meta,all_grouped,times,alph,colors,obj,movefns,popfns);
+% figure();
+%  all_grouped = LinePlot_SelGrouped_MnM_Normalized(meta,all_grouped,times,alph,colors,obj,movefns,popfns);
 %% Get the average presample selectivity in CDCont for move and non-move trials
 for ii = 1:length(popfns)
     cont = popfns{ii};
@@ -331,7 +351,7 @@ for po = 1:length(popfns)
     cont = popfns{po};
     switch cont
         case 'fullpop'
-        yl = [0 8.5];
+        yl = [0 0.35];
         col = [0.25 0.25 0.25];
         case 'null'
         yl = [0 0.35];
@@ -344,9 +364,9 @@ for po = 1:length(popfns)
     ax = gca;
     toplot = mean(all_grouped.(cont).all.selectivity,2,'omitnan');
     err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
-    %err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
+    %err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
-    ylim(yl)
+%     ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
     xlim([times.trialstart 0])
     ylabel(cont)
@@ -370,7 +390,7 @@ for po = 1:length(popfns)
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
 
-        ylim(yl)
+%         ylim(yl)
 %         if ii~=1
 %             set(ax, 'YDir','reverse')
 %         end

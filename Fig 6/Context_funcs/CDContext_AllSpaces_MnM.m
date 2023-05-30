@@ -1,4 +1,4 @@
-function [cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params)
+function [cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params,zscored)
 for sessix = 1:numel(meta)                                                  % For each session...
         for p = 1:length(popfns)                                            % For null, potent, and full population...
             temp1 = []; temp2 = [];
@@ -8,8 +8,9 @@ for sessix = 1:numel(meta)                                                  % Fo
                 case 2
                     temppsth = rez(sessix).recon.potent;                    % Single-trial PSTHs reconstructed from the potent space (time x trials x cells)
                 case 3
-                    temppsth = obj(sessix).trialdat;                        % Single-trial PSTHs from full neural data (time x cells x trials)
-                    temppsth = permute(temppsth,[1 3 2]);                   % Switch to format (time x trials x cells)
+%                     temppsth = obj(sessix).trialdat;                        % Single-trial PSTHs from full neural data (time x cells x trials)
+%                     temppsth = permute(temppsth,[1 3 2]);                   % Switch to format (time x trials x cells)
+                    temppsth = zscored(sessix).trialdat;                        % Single-trial PSTHs from full neural data (time x cells x trials)
             end
             for c = 1:length(condfns)                                       % For each condition...
                 traintrials = testsplit(sessix).trainix.all.(condfns{c});   % Get the training trials
