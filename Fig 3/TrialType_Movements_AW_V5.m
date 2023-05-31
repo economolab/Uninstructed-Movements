@@ -105,8 +105,6 @@ times.startix = find(obj(1).time>times.start,1,'first');
 times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
 times.stopix = find(obj(1).time<times.stop,1,'last');
 
-
-
 feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'top_paw_yvel_view2'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
@@ -146,7 +144,7 @@ colors = {[1 0 0],[0 1 0],[0 0 1]};
 nTrixPlot = 16;
 offset = 3;
 sm = 31;
-cond2use = 2;
+cond2use = 3;
 for sessix = sess2use
     figure();
     for c = 1:length(cond2use)

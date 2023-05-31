@@ -283,11 +283,11 @@ for ii = 1:length(popfns)
     presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
 %% Do all t-tests (paired)
-sigcutoff = 0.05;
+sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
 for ii = 1:length(popfns)
     cont = popfns{ii};  
-    %hyp.(cont) = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
+%     hyp.(cont) = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
     hyp.(cont) = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 disp('---Summary Statistics for average ITI context selectivity---')
@@ -351,13 +351,13 @@ for po = 1:length(popfns)
     cont = popfns{po};
     switch cont
         case 'fullpop'
-        yl = [0 0.35];
+        yl = [0 0.5];
         col = [0.25 0.25 0.25];
         case 'null'
-        yl = [0 0.35];
+        yl = [0 0.5];
         col = colors.null;
         case 'potent'
-        yl = [0 0.35];
+        yl = [0 0.5];
         col = colors.potent;
     end
     subplot(3,2,cnt)
@@ -366,7 +366,7 @@ for po = 1:length(popfns)
     err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
     %err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
-%     ylim(yl)
+    ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
     xlim([times.trialstart 0])
     ylabel(cont)
@@ -390,7 +390,7 @@ for po = 1:length(popfns)
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
 
-%         ylim(yl)
+        ylim(yl)
 %         if ii~=1
 %             set(ax, 'YDir','reverse')
 %         end

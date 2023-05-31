@@ -182,7 +182,7 @@ ctrlparams(~sess2incl) = [];
 %% Get avg jaw velocity for all ctrl sessions
 cond2use = [2,3];
 feature = 'motion_energy';
-sm = 200;
+sm = 100;
 
 samp = mode(ctrlobj(1).bp.ev.sample)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
 delay = mode(ctrlobj(1).bp.ev.delay)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
@@ -213,7 +213,7 @@ end
 %% Get avg jaw velocity for all haz delay sessions
 feature = 'motion_energy';
 del2use = 1.2;
-sm = 200;
+sm = 100;
 
 startix = find(ctrlobj(1).time>0,1,'first');
 stopix = find(ctrlobj(1).time<del2use,1,'last');
@@ -257,13 +257,12 @@ go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEven
 startix = find(ctrlobj(1).time>delay,1,'first');
 stopix = find(ctrlobj(1).time<go,1,'last');
 for sessix = 1:length(ctrlmeta)
-    tempjaw = ctrlobj(sessix).jawSelectivity;
+    tempjaw = ctrlobj(sessix).jawvel;
     temp1 = [temp1,tempjaw];
 %     temp1 = [temp1,mySmooth(tempjaw,smooth)];
     
 end
 jv.ctrl = temp1;
-
 %%
 delay = 0;
 go = del2use;
@@ -273,12 +272,27 @@ stopix = find(obj(1).time<go,1,'last');
 temp2 = []; blah2 = [];
 for sessix = 1:length(meta)
 %     temp2 = [temp2,mySmooth(obj(sessix).jawSelectivity,smooth)];
-    temp2 = [temp2,obj(sessix).jawSelectivity];
+    temp2 = [temp2,obj(sessix).jawvel];
     
 end
 jv.haz = temp2;
 
 clear temp1; clear temp2
+%%
+delay = 0;
+start = params(1).tmin;
+startix = find(obj(1).time>start,1,'first');
+stopix = find(obj(1).time<delay,1,'last');
+
+baseME = mean(jv.ctrl(startix:stopix,:),1,'omitnan');
+baseME = mean(baseME,'omitnan');
+jv.ctrl = jv.ctrl-baseME;
+
+startix = find(ctrlobj(1).time>start,1,'first');
+stopix = find(ctrlobj(1).time<delay,1,'last');
+baseME = mean(jv.haz(startix:stopix,:),1,'omitnan');
+baseME = mean(baseME,'omitnan');
+jv.haz = jv.haz-baseME+5;     %% Hard-coded value rn to center at zero
 %% Sanity check
 % subplot(1,2,1)
 % imagesc(ctrlobj(1).time,1:16,jv.ctrl')
@@ -334,7 +348,7 @@ xline(del2use,'LineStyle','--','Color',hazcol,'LineWidth',1.5)
 legend(' ',' ',' ','Haz',' ',' ',' ','Static','Delay','Go cue, static','Go cue, haz','Location','best')
 xlim([-1.3 del2use])
 xlabel('Time from delay onset (s)')
-ylabel(['Selectivity in ' feature])
+ylabel(['Average ' feature])
 %% FUNCTIONS
 function [params,obj] = cleanUpData(params, meta,objs)
 % Reorganize params into a struct to match structure of updated data
