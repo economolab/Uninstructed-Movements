@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -17,6 +17,8 @@ addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig1')));
 figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 3'];
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
