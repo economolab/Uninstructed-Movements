@@ -17,7 +17,7 @@ addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig1')));
-figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+figpth = [basepth  '\Uninstructed-Movements\Fig 1'];
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
@@ -79,10 +79,7 @@ meta = loadEKH1_ALMVideo(meta,datapth); % selectivity in ME
 meta = loadEKH3_ALMVideo(meta,datapth); % selectivity in ME
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB13_ALMVideo(meta,datapth);
-% meta = loadJEB14_ALMVideo(meta,datapth); % selectivity in ME % go cue is at 2.3 instead of 2.5 like all other sessions??
-% meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 
 % --- M1TJ ---
@@ -100,35 +97,33 @@ for sessix = 1:numel(meta)
     me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+%% Get tongue length and angle for individual licks for all animals and sessions
+% Stored in variable 'tonguefeat': (1 x nSessions)
+% Each session will have fields 'tongue_length' and 'tongue_angle'
+% Each field will have subfields 'RAFC', 'LAFC','RAW','LAW'
 
-%% CODING DIMENSIONS
+nLicks = 5;
+lickDur = 10;
+cond2use = 2:5;
+condfns = {'RAFC','LAFC','RAW','LAW'};
+feat2use = {'tongue_angle','tongue_length'};
 
-clearvars -except obj meta params sel_corr_mat datapth me kin
+featix = getFeatIx(feat2use,kin);
 
-% % 2afc (early, late, go)
-% cond2use = [2 3]; % left hit, right hit
-% cond2proj = [2 3 4 5 6 7 8 9];
-% rez_2afc = getCodingDimensions_2afc(obj,params,cond2use,cond2proj, 1);
+% Get times for which you want to look at the tongue
+go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+times.goix = find(obj(1).time<go,1,'last');
+resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+times.respix = find(obj(1).time<resp,1,'last');
 
-% % aw (context mode)
-cond2use = [6 7]; % hit 2afc, hit aw
-cond2proj = [2 3 4 5 6 7 8 9];
-rez_aw = getCodingDimensions_aw(obj,params,cond2use,cond2proj);
+% tonguefeat = extractAllLicks(meta,feat2use,cond2use,params,times,nLicks,lickDur,kin,featix,condfns);
+rawtonguekin = getRawTongueKin(meta,feat2use,cond2use,params,times,nLicks,lickDur,kin,featix,condfns);
 
-%allrez = concatRezAcrossSessions(rez_2afc,rez_aw);
-
-%% CONTEXT MODE ON SINGLE TRIALS
-
-% cond2use = [6 7]; % hit 2afc, hit aw
-for sessix = 1:numel(meta)
-    Wcontext = rez_aw(sessix).cd_mode_orth;
-    trialdat{sessix} = tensorprod(obj(sessix).trialdat,Wcontext,2,1); % (time,trials)
-end
-
+clearvars -except tonguefeat obj params meta kin me cond2use condfns feat2use nLicks rawtonguekin
 %% DECODING PARAMETERS
 
-% input data = neural data (time*trials,neurons)
-% output data = kin data   (time*trials,kin feats)
+% input data = tongue kinematic data
+% output data = classification of 2AFC or AW
 
 par.pre=6; % time bins prior to output used for decoding
 par.post=0; % time bins after output used for decoding
@@ -150,11 +145,7 @@ par.train = 1; % fraction of trials (just using cross-val here, matlab's kFoldPr
 par.test = 1 - par.train;
 
 % feature to use to decode
-par.feats = kin(1).featLeg;
-par.feats = {'tongue','motion','nose','jaw'};
-temp = cellfun(@(x) patternMatchCellArray(kin(1).featLeg,{x},'all') , par.feats,'UniformOutput',false);
-par.feats = cat(1, temp{:});
-% par.feats = {'tongue_angle','tongue_length','motion_energy'};
+par.feats = {'tongue_angle','tongue_length'};
 
 % trials
 par.cond2use = [6 7];
@@ -162,7 +153,8 @@ par.cond2use = [6 7];
 par.regularize = 0; % if 0, linear regression. if 1, ridge regression
 
 %% DECODING
-
+%%% Use fitcvsm with predictor data being the first lick tongue length for
+%%% each trial
 close all
 
 for sessix = 1:numel(meta)

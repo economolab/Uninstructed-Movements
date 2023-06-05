@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -279,13 +279,15 @@ for feat = 1:length(feat2use)
         vartongue.(feat2use{feat}).(condfns{c}) = varAll;
     end
 end
-%% Plot average tongue angle for 1st, 2nd, 3rd, etc. licks across sessions
+%% Plot average tongue angle for 1st, 2nd, 3rd, etc. licks for each session
 feat2use = {'tongue_angle'};
+condfns = {'RAFC','RAW','LAFC','LAW'};
 lickDur = 10;
 alph = 0.2;
 colors = getColors;
-for feat = 1:length(feat2use)
+for sessix = 1:length(meta)
     figure();
+for feat = 1:length(feat2use)
     for lix = 1:nLicks
         subplot(1,nLicks,lix)
         for c = 1:length(condfns)
@@ -293,19 +295,18 @@ for feat = 1:length(feat2use)
                 case 1
                     col = colors.rhit;
                 case 2
-                    col = colors.lhit;
-                case 3
                     col = colors.rhit_aw;
+                case 3
+                    col = colors.lhit;
                 case 4
                     col = colors.lhit_aw;
             end
-            toplot = squeeze(mean(avgtongue.(feat2use{feat}).(condfns{c}),3,'omitnan'));
-            toplot = toplot(:,lix);
-            stdev = std(avgtongue.(feat2use{feat}).(condfns{c}),0,3,'omitnan');
-            err = 1.96*(stdev./sqrt(length(meta)));
-            err = err(:,lix);
+            currtongue = tonguefeat(sessix).(feat2use{feat}).(condfns{c})(:,lix,:);
+            nTrials = size(currtongue,3);
+            toplot = squeeze(mean(currtongue,3,'omitnan'));
+            err = 1.96*(std(currtongue,0,3,'omitnan')./sqrt(nTrials));
             ax = gca;
-            shadedErrorBar(1:lickDur,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+            shadedErrorBar(1:lickDur,toplot,err,{'Color',col,'LineWidth',2},alph, ax); hold on;
         end
         title(['Lick ' num2str(lix)])
         if lix==1&&strcmp(feat2use{feat},'tongue_length')
@@ -314,45 +315,6 @@ for feat = 1:length(feat2use)
             ylabel('angle')
         end
         xlim([0 11])
-    end
-    sgtitle([feat2use{feat}])
-end
-%% Plot average tongue angle for 1st, 2nd, 3rd, etc. licks for each session
-feat2use = {'tongue_angle'};
-condfns = {'RAFC','RAW','LAFC','LAW'};
-lickDur = 10;
-alph = 0.2;
-colors = getColors;
-cnt = 1;
-figure();
-for sessix = 1:length(meta)
-for feat = 1:length(feat2use)
-    for lix = 1:nLicks
-        subplot(length(meta),nLicks,cnt)
-        for c = 1:length(condfns)
-            switch c
-                case 1
-                    col = colors.rhit;
-                case 2
-                    col = colors.rhit_aw;
-                case 3
-                    col = colors.lhit;
-                case 4
-                    col = colors.lhit_aw;
-            end
-            toplot = squeeze(avgtongue.(feat2use{feat}).(condfns{c})(:,:,sessix));
-            toplot = toplot(:,lix);
-            ax = gca;
-            plot(1:lickDur,toplot,'Color',col,'LineWidth',2); hold on;
-        end
-        title(['Lick ' num2str(lix)])
-        if lix==1&&strcmp(feat2use{feat},'tongue_length')
-            ylabel('Length')
-        elseif lix==1&&strcmp(feat2use{feat},'tongue_angle')
-            ylabel('angle')
-        end
-        xlim([0 11])
-        cnt = cnt+1;
     end
     sgtitle([feat2use{feat}])
 end
@@ -363,45 +325,43 @@ condfns = {'RAFC','RAW','LAFC','LAW'};
 lickDur = 10;
 alph = 0.2;
 colors = getColors;
-for feat = 1:length(feat2use)
+for sessix = 1:length(meta)
     figure();
-    for lix = 1:nLicks
-        
-        for c = 1:length(condfns)
-            switch c
-                case 1
-                    col = colors.rhit;
-                    sub = lix;
-                case 2
-                    col = colors.rhit_aw;
-                    sub = lix;
-                case 3
-                    col = colors.lhit;
-                    sub = lix+nLicks;
-                case 4
-                    col = colors.lhit_aw;
-                    sub = lix+nLicks;
+    for feat = 1:length(feat2use)
+        for lix = 1:nLicks
+            for c = 1:length(condfns)
+                switch c
+                    case 1
+                        col = colors.rhit;
+                        sub = lix;
+                    case 2
+                        col = colors.rhit_aw;
+                        sub = lix;
+                    case 3
+                        col = colors.lhit;
+                        sub = lix+nLicks;
+                    case 4
+                        col = colors.lhit_aw;
+                        sub = lix+nLicks;
+                end
+                subplot(2,nLicks,sub)
+                currtongue = tonguefeat(sessix).(feat2use{feat}).(condfns{c})(:,lix,:);
+                nTrials = size(currtongue,3);
+                toplot = squeeze(mean(currtongue,3,'omitnan'));
+                err = 1.96*(std(currtongue,0,3,'omitnan')./sqrt(nTrials));
+                ax = gca;
+                shadedErrorBar(1:lickDur,toplot,err,{'Color',col,'LineWidth',2},alph, ax); hold on;
+                xlim([0 11])
             end
-            subplot(2,nLicks,sub)
-
-            toplot = squeeze(mean(avgtongue.(feat2use{feat}).(condfns{c}),3,'omitnan'));
-            toplot = toplot(:,lix);
-            stdev = std(avgtongue.(feat2use{feat}).(condfns{c}),0,3,'omitnan');
-            err = 1.96*(stdev./sqrt(length(meta)));
-            err = err(:,lix);
-            ax = gca;
-            shadedErrorBar(1:lickDur,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
-            xlim([0 11])
+            title(['Lick ' num2str(lix)])
+            if lix==1&&strcmp(feat2use{feat},'tongue_length')
+                ylabel('Length')
+            elseif lix==1&&strcmp(feat2use{feat},'tongue_angle')
+                ylabel('angle')
+            end
         end
-        title(['Lick ' num2str(lix)])
-        if lix==1&&strcmp(feat2use{feat},'tongue_length')
-            ylabel('Length')
-        elseif lix==1&&strcmp(feat2use{feat},'tongue_angle')
-            ylabel('angle')
-        end
-        
+        sgtitle([feat2use{feat}])
     end
-    sgtitle([feat2use{feat}])
 end
 %% Plot average duration of each lick (1st, 2nd, 3rd) across sessions and animals
 camrate = 400;
@@ -451,61 +411,6 @@ for feat = 1:length(feat2use)
             ylim([0 21])
             if lix==1
                 ylabel('Duration (ms)')
-            end
-        end
-        title(['Lick ' num2str(lix)])
-    end
-    sgtitle([feat2use{feat}])
-end
-%%
-sigcutoff = 0.05;
-feat2use = {'tongue_length','tongue_angle'};
-cond2use = {'RAFC','RAW','LAFC','LAW'};
-for feat = 1:length(feat2use)
-    figure();
-    for lix = 1:nLicks
-        temp = [];
-        for c = 1:length(cond2use)
-            cond = cond2use{c};
-            curr = vartongue.(feat2use{feat}).(cond)(lix,:)';
-            temp = [temp, curr];
-        end
-
-        subplot(1,nLicks, lix)
-        for c = 1:length(cond2use)
-            switch c
-                case 1
-                    col = colors.rhit;
-                case 2
-                    col = colors.rhit_aw;
-                case 3
-                    col = colors.lhit;
-                case 4
-                    col = colors.lhit_aw;
-            end
-            bar(c,mean(temp(:,c),1,'omitnan'),'FaceColor',col,'EdgeColor',col); hold on
-            xx = c*ones(length(meta),1);
-            scatter(xx,temp(:,c),15,'filled','MarkerFaceColor','black')
-
-            for test = 1:(length(cond2use)/2)
-                x = temp(:,(test*2)-1);
-                y = temp(:,test*2);
-                hyp = ttest(x,y,'Alpha',sigcutoff);
-                if strcmp(feat2use{feat},'tongue_length')
-                    starheight = 16;
-                else
-                    starheight = 0.12;
-                end
-                if hyp&&test==1
-                    scatter(1.5,starheight,20,'*','MarkerEdgeColor','black')
-                elseif hyp&&test==2
-                    scatter(3.5,starheight,20,'*','MarkerEdgeColor','black')
-                end
-            end
-            xlim([0 5])
-            %ylim([0 21])
-            if lix==1
-                ylabel('Variance')
             end
         end
         title(['Lick ' num2str(lix)])
