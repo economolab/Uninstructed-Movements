@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -15,7 +15,7 @@ utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-addpath(genpath(fullfile(utilspth,'fig1')));
+addpath(genpath(fullfile(utilspth,'figNP')));
 figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
@@ -79,7 +79,7 @@ meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
-meta = loadJEB19_ALMVideo(meta,datapth);
+% meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -360,6 +360,77 @@ for sessix = 21 %1:numel(meta)
     legend({'Right','Left'},'Location','best')
 
 end
+%% Plot example of motion energy and ramping mode, averaged across right and left trials
+colors = getColors();
+
+nSessions = numel(meta);
+cond2plot = [2 3];
+MEix = find(strcmp(kin(1).featLeg,'motion_energy'));
+
+times.trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+times.startix = find(obj(1).time>times.trialstart,1,'first');
+times.samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+times.stopix = find(obj(1).time<times.samp,1,'last');
+
+cols = {colors.rhit,colors.lhit};
+alph = 0.2;
+sm = 21;
+for sessix = 21 %1:numel(meta)
+    tempME = [];
+    tempRamp = [];
+    tempTrials = [];
+    for c = 1:length(cond2plot)
+        cond = cond2plot(c);
+        if c==1
+            dir = 'Rhit';
+        else
+            dir = 'Lhit';
+        end
+        condtrix = params(sessix).trialid{cond};
+        condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
+        % Baseline subtract ME where baseline is presample
+        %     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
+        %     presampME = mean(presampME);
+        %     condME = condME-presampME;
+        % Baseline subtract ME where baseline is 1st percentile
+        pctME = prctile(condME,1);
+        condME = condME-pctME;
+        nTrials = size(condME,2);
+        tempTrials = [tempTrials,nTrials];
+        tempME = [tempME,condME];
+
+        condRamp = trueVals.(dir){sessix};
+        tempRamp = [tempRamp,condRamp];
+    end
+    nTrials = sum(tempTrials);
+    condME = tempME;
+    condRamp = tempRamp;
+    ax1 = subplot(2,1,1);
+    toplot = mean(mySmooth(condME,31),2,'omitnan');
+    err = 1.96*(std(mySmooth(condME,31),0,2,'omitnan')./sqrt(nTrials));
+    ax = gca;
+    shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color','black','LineWidth',2},alph,ax); hold on;
+
+    ax2 = subplot(2,1,2);
+    toplot = mean(mySmooth(condRamp(par.timerange,:),21),2,'omitnan');
+    err = 1.96*(std(mySmooth(condRamp(par.timerange,:),21),0,2,'omitnan')./sqrt(nTrials));
+    ax = gca;
+    shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color','black','LineWidth',2},alph,ax); hold on;
+end
+    xlabel(ax1,'Time from go cue (s)')
+    ylabel(ax1,'Motion energy (a.u.)')
+    xline(ax1,0,'k--','LineWidth',1)
+    xline(ax1,-0.9,'k--','LineWidth',1)
+    xline(ax1,-2.2,'k--','LineWidth',1)
+    xlim(ax1,[-2.3 0])
+
+    xlabel(ax2,'Time from go cue (s)')
+    ylabel(ax2,'CDRamping (a.u.)')
+    xline(ax2,0,'k--','LineWidth',1)
+    xline(ax2,-0.9,'k--','LineWidth',1)
+    xline(ax2,-2.2,'k--','LineWidth',1)
+    xlim(ax2,[-2.3 0])
+    legend({'Hit trials'},'Location','best')
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 plotheatmap = 'yes';
 sm = 15;

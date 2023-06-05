@@ -320,6 +320,46 @@ for feat = 1:length(feat2use)
     end
     sgtitle([feat2use{feat}])
 end
+%% Plot average tongue angle for 1st, 2nd, 3rd, etc. licks for each session
+feat2use = {'tongue_angle'};
+condfns = {'RAFC','RAW','LAFC','LAW'};
+lickDur = 10;
+alph = 0.2;
+colors = getColors;
+cnt = 1;
+figure();
+for sessix = 1:length(meta)
+for feat = 1:length(feat2use)
+    for lix = 1:nLicks
+        subplot(length(meta),nLicks,cnt)
+        for c = 1:length(condfns)
+            switch c
+                case 1
+                    col = colors.rhit;
+                case 2
+                    col = colors.rhit_aw;
+                case 3
+                    col = colors.lhit;
+                case 4
+                    col = colors.lhit_aw;
+            end
+            toplot = squeeze(avgtongue.(feat2use{feat}).(condfns{c})(:,:,sessix));
+            toplot = toplot(:,lix);
+            ax = gca;
+            plot(1:lickDur,toplot,'Color',col,'LineWidth',2); hold on;
+        end
+        title(['Lick ' num2str(lix)])
+        if lix==1&&strcmp(feat2use{feat},'tongue_length')
+            ylabel('Length')
+        elseif lix==1&&strcmp(feat2use{feat},'tongue_angle')
+            ylabel('angle')
+        end
+        xlim([0 11])
+        cnt = cnt+1;
+    end
+    sgtitle([feat2use{feat}])
+end
+end
 %% Plot average tongue length for 1st, 2nd, 3rd, etc. licks across sessions
 feat2use = {'tongue_length'};
 condfns = {'RAFC','RAW','LAFC','LAW'};
