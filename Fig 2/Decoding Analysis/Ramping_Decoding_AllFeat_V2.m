@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -79,7 +79,7 @@ meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -210,67 +210,6 @@ for sessix = 1:numel(meta)
 end
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
-%% Show how the movements of different body parts are driving the potent space
-del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);
-start = find(obj(1).time>del,1,'first');
-resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
-stop = find(obj(1).time<resp,1,'last');
-resp2 = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))+2;
-stop2 = find(obj(1).time<resp2,1,'last');
-
-epochfns = {'delay'};
-
-featgroups = {'tongue','nos','jaw','motion_energy','trident'};
-binWidth = par.pre+par.post;
-for group = 1:length(featgroups)
-    currgroup = featgroups{group};
-    temp = NaN(1,length(kin(1).featLeg));
-    for feat = 1:length(kin(1).featLeg)
-        currfeat = kin(1).featLeg{feat};
-        temp(feat) = contains(currfeat,currgroup);
-    end
-    groupixs = find(temp);
-    shiftedixs = NaN(1,length(groupixs*binWidth));
-    cnt = 1;
-    for ii = 1:length(groupixs)
-        currfeatix = groupixs(ii);
-        ixstart = (currfeatix*binWidth)-(binWidth-1);
-        ixstop = (currfeatix*binWidth);
-        ixrange = ixstart:ixstop;
-        shiftedixs(cnt:cnt+binWidth-1) = ixrange;
-        cnt = cnt+binWidth;
-    end
-
-    for sessix = 1:length(meta)
-        featload = abs(avgloadings(shiftedixs,sessix));                             % (num ixs that belong to this feature group x time)
-        allloadings(sessix).(featgroups{group}) = featload;
-
-    end
-end
-%% Normalize all of the beta coefficients to be a fraction of 1
-featgroups = {'tongue','nos','jaw','motion_energy','trident'};
-epochfns = {'delay'};
-totalnormfeats = NaN(length(meta),length(featgroups));
-for sessix = 1:length(meta)
-    temp = [];
-    for feat = 1:length(featgroups)
-        temp = [temp,sum(allloadings(sessix).(featgroups{feat}))];
-    end
-    totalbeta = sum(temp);
-    normfeats = temp./totalbeta;
-    totalnormfeats(sessix,:) = normfeats;
-end
-
-% Get all ME vals
-MEix = find(strcmp(featgroups,'motion_energy'));
-MEvals = totalnormfeats(:,MEix);
-[~,sortix] = sort(MEvals,'descend');
-totalnormfeats = totalnormfeats(sortix,:);
-%% Make a stacked bar plot to show across sessions that it varies which feature group contributes most to predicting CDTrialType
-bar(totalnormfeats,'stacked')
-legend(featgroups,'Location','best')
-xlabel('Session #')
-ylabel('Relative contribution to CDTrialType pred')
 %% Baseline subtract CDRamping
 % Times that you want to use to baseline normalize CDTrialType
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -312,125 +251,59 @@ times.stopix = find(obj(1).time<times.samp,1,'last');
 cols = {colors.rhit,colors.lhit};
 alph = 0.2;
 sm = 21;
-for sessix = 21 %1:numel(meta)
+for sessix = 19 %1:numel(meta)
+    condME = [];
+    condRamp = [];
     for c = 1:length(cond2plot)
         cond = cond2plot(c);
-        if c==1
+        condtrix = params(sessix).trialid{cond};
+        temp = squeeze(kin(sessix).dat(:,condtrix,MEix));
+        condME = [condME,temp];
+
+         if c==1
             dir = 'Rhit';
         else
             dir = 'Lhit';
         end
-        condtrix = params(sessix).trialid{cond};
-        condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
-        % Baseline subtract ME where baseline is presample
-        %     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
-        %     presampME = mean(presampME);
-        %     condME = condME-presampME;
-        % Baseline subtract ME where baseline is 1st percentile
-        pctME = prctile(condME,1);
-        condME = condME-pctME;
-        nTrials = size(condME,2);
-
-        ax1 = subplot(2,1,1);
-        toplot = mean(mySmooth(condME,31),2,'omitnan');
-        err = 1.96*(std(mySmooth(condME,31),0,2,'omitnan')./sqrt(nTrials));
-        ax = gca;
-        shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
-
-        ax2 = subplot(2,1,2);
-        condRamp = trueVals.(dir){sessix};
-        toplot = mean(mySmooth(condRamp(par.timerange,:),21),2,'omitnan');
-        err = 1.96*(std(mySmooth(condRamp(par.timerange,:),21),0,2,'omitnan')./sqrt(nTrials));
-        ax = gca;
-        shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+        temp = trueVals.(dir){sessix};
+        condRamp = [condRamp,temp];
     end
-    xlabel(ax1,'Time from go cue (s)')
-    ylabel(ax1,'Motion energy (a.u.)')
-    xline(ax1,0,'k--','LineWidth',1)
-    xline(ax1,-0.9,'k--','LineWidth',1)
-    xline(ax1,-2.2,'k--','LineWidth',1)
-    xlim(ax1,[-2.3 0])
+    % Baseline subtract ME where baseline is presample
+    %     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
+    %     presampME = mean(presampME);
+    %     condME = condME-presampME;
+    % Baseline subtract ME where baseline is 1st percentile
+    pctME = prctile(condME,1);
+    condME = condME-pctME;
+    nTrials = size(condME,2);
 
-    xlabel(ax2,'Time from go cue (s)')
-    ylabel(ax2,'CDRamping (a.u.)')
-    xline(ax2,0,'k--','LineWidth',1)
-    xline(ax2,-0.9,'k--','LineWidth',1)
-    xline(ax2,-2.2,'k--','LineWidth',1)
-    xlim(ax2,[-2.3 0])
-    legend({'Right','Left'},'Location','best')
-
-end
-%% Plot example of motion energy and ramping mode, averaged across right and left trials
-colors = getColors();
-
-nSessions = numel(meta);
-cond2plot = [2 3];
-MEix = find(strcmp(kin(1).featLeg,'motion_energy'));
-
-times.trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-times.startix = find(obj(1).time>times.trialstart,1,'first');
-times.samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-times.stopix = find(obj(1).time<times.samp,1,'last');
-
-cols = {colors.rhit,colors.lhit};
-alph = 0.2;
-sm = 21;
-for sessix = 21 %1:numel(meta)
-    tempME = [];
-    tempRamp = [];
-    tempTrials = [];
-    for c = 1:length(cond2plot)
-        cond = cond2plot(c);
-        if c==1
-            dir = 'Rhit';
-        else
-            dir = 'Lhit';
-        end
-        condtrix = params(sessix).trialid{cond};
-        condME = squeeze(kin(sessix).dat(:,condtrix,MEix));
-        % Baseline subtract ME where baseline is presample
-        %     presampME = mean(condME(times.startix:times.stopix,:),1,'omitnan');
-        %     presampME = mean(presampME);
-        %     condME = condME-presampME;
-        % Baseline subtract ME where baseline is 1st percentile
-        pctME = prctile(condME,1);
-        condME = condME-pctME;
-        nTrials = size(condME,2);
-        tempTrials = [tempTrials,nTrials];
-        tempME = [tempME,condME];
-
-        condRamp = trueVals.(dir){sessix};
-        tempRamp = [tempRamp,condRamp];
-    end
-    nTrials = sum(tempTrials);
-    condME = tempME;
-    condRamp = tempRamp;
     ax1 = subplot(2,1,1);
     toplot = mean(mySmooth(condME,31),2,'omitnan');
     err = 1.96*(std(mySmooth(condME,31),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color','black','LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time,mySmooth(toplot,sm),err,{'Color',[0.2 0.2 0.2],'LineWidth',2},alph,ax); hold on;
 
     ax2 = subplot(2,1,2);
     toplot = mean(mySmooth(condRamp(par.timerange,:),21),2,'omitnan');
     err = 1.96*(std(mySmooth(condRamp(par.timerange,:),21),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color','black','LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color',[0.2 0.2 0.2],'LineWidth',2},alph,ax); hold on;
 end
-    xlabel(ax1,'Time from go cue (s)')
-    ylabel(ax1,'Motion energy (a.u.)')
-    xline(ax1,0,'k--','LineWidth',1)
-    xline(ax1,-0.9,'k--','LineWidth',1)
-    xline(ax1,-2.2,'k--','LineWidth',1)
-    xlim(ax1,[-2.3 0])
+xlabel(ax1,'Time from go cue (s)')
+ylabel(ax1,'Motion energy (a.u.)')
+xline(ax1,0,'k--','LineWidth',1)
+xline(ax1,-0.9,'k--','LineWidth',1)
+xline(ax1,-2.2,'k--','LineWidth',1)
+xlim(ax1,[-2.3 0])
+set(ax1,'TickDir','out'); 
 
-    xlabel(ax2,'Time from go cue (s)')
-    ylabel(ax2,'CDRamping (a.u.)')
-    xline(ax2,0,'k--','LineWidth',1)
-    xline(ax2,-0.9,'k--','LineWidth',1)
-    xline(ax2,-2.2,'k--','LineWidth',1)
-    xlim(ax2,[-2.3 0])
-    legend({'Hit trials'},'Location','best')
+xlabel(ax2,'Time from go cue (s)')
+ylabel(ax2,'CDRamping (a.u.)')
+xline(ax2,0,'k--','LineWidth',1)
+xline(ax2,-0.9,'k--','LineWidth',1)
+xline(ax2,-2.2,'k--','LineWidth',1)
+xlim(ax2,[-2.3 0])
+set(ax2,'TickDir','out'); 
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 plotheatmap = 'yes';
 sm = 15;
@@ -448,7 +321,7 @@ if strcmp(plotheatmap,'yes')
     goodsess = [4,6,19,21];
 
     cond2plot = {'Lhit','Rhit'};
-    for sessix = 21                                                                  % For each session...
+    for sessix = 19                                                                  % For each session...
         figure();
         cnt = 0;
         tempTrue = [];
@@ -531,7 +404,7 @@ for sessix = plotrange
 
     %%% Plot an example session of CDlate prediction vs true value
     subplot(1,2,1)
-    plotExampleCDTrialType_Pred(colors, obj, par, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2,'no');
+    plotExampleCDRamp_Pred(colors, obj, par, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2,'no');
 
     %     if strcmp(plotexample,'no')
     %         close all
@@ -543,7 +416,7 @@ delR2_ALL = abs(delR2_ALL);
 anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
     'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
     'JEB15','JEB15','JEB15','JEB15','JEB19','JEB19','JEB19','JEB19'};
-exsess = 21;
+exsess = 19;
 nSessions = numel(anmNames_all);
 uniqueAnm = unique(anmNames_all);
 % The index of the session that you want to be highlighted
@@ -573,6 +446,10 @@ t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% FUNCTIONS
 function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
+temp = [trueVals.Rhit{sessix},trueVals.Lhit{sessix}];
+avgCD.allhits.true = mean(mySmooth(temp,81),2,'omitnan');
+stdCD.allhits.true = mean(mySmooth(temp,81),2,'omitnan');
+avgCD.allhits.nTrials = size(temp,2);
 
 avgCD.Rhit.true = mean(mySmooth(trueVals.Rhit{sessix},81),2,'omitnan');      % Get average true CDlate for R and L hits for this session
 avgCD.Lhit.true = mean(mySmooth(trueVals.Lhit{sessix},81),2,'omitnan');
@@ -583,6 +460,11 @@ modelpred.Rhit{sessix} = fillmissing(modelpred.Rhit{sessix},"nearest");
 modelpred.Lhit{sessix} = fillmissing(modelpred.Lhit{sessix},"nearest");
 infix = find(isinf(modelpred.Rhit{sessix})); modelpred.Rhit{sessix}(infix) = 0;
 infix = find(isinf(modelpred.Lhit{sessix})); modelpred.Lhit{sessix}(infix) = 0;
+
+temp = [modelpred.Rhit{sessix},modelpred.Lhit{sessix}];
+avgCD.allhits.pred = mean(mySmooth(temp,81),2,'omitnan');
+stdCD.allhits.pred = mean(mySmooth(temp,81),2,'omitnan');
+
 avgCD.Rhit.pred = mean(mySmooth(modelpred.Rhit{sessix},81),2,'omitnan');     % Get average predicted CDlate for R and L hits for this session
 avgCD.Lhit.pred = mean(mySmooth(modelpred.Lhit{sessix},81),2,'omitnan');
 stdCD.Rhit.pred = std(mySmooth(modelpred.Rhit{sessix},81),0,2,'omitnan');    % Get stdev of predicted CDlate for R and L hits for this session

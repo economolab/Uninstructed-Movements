@@ -281,6 +281,8 @@ bar(totalnormfeats,'stacked')
 legend(featgroups,'Location','best')
 xlabel('Session #')
 ylabel('Sum of beta coefficients for each feature group')
+%%
+
 %% Baseline subtract CDTrialType
 % Times that you want to use to baseline normalize CDTrialType
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));

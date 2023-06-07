@@ -119,7 +119,6 @@ end
 
 trix2use = 100;
 
-
 del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
 delix = find(obj(1).time>del,1,'first');
 go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));

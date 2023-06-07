@@ -139,7 +139,7 @@ for sessix = sess2use
     title(['Tongue traj, side view; ' meta(sessix).anm meta(sessix).date])
 end
 %% Example session of tongue trajectories for bottom cam (across contexts)
-sess2use = 1;
+sess2use = 2;
 cond2use = 2:5;
 feat2use = {'top_tongue'};
 featix = find(strcmp(obj(1).traj{2}(1).featNames,feat2use));
@@ -171,7 +171,7 @@ for sessix = sess2use
             for trix = 1:nTrixPlot
                 currtrix = randtrix(trix);
                 condfeat = squeeze(obj(sessix).traj{2}(currtrix).ts(:,1:2,featix));
-                plot(condfeat(:,1),condfeat(:,2),'Color',col); hold on
+                plot(-mySmooth(condfeat(:,1), 5),-mySmooth(condfeat(:,2), 5),'Color',col); hold on
             end
         end
     end

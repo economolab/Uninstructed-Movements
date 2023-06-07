@@ -104,7 +104,7 @@ end
 
 nLicks = 5;
 lickDur = 10;
-cond2use = 2:5;
+cond2use = [2,3,8,9];
 condfns = {'RAFC','LAFC','RAW','LAW'};
 feat2use = {'tongue_angle','tongue_length'};
 
@@ -125,11 +125,11 @@ clearvars -except tonguefeat obj params meta kin me cond2use condfns feat2use nL
 % input data = tongue kinematic data
 % output data = classification of 2AFC or AW
 
-par.pre=6; % time bins prior to output used for decoding
-par.post=0; % time bins after output used for decoding
-par.dt = params(1).dt; % moving time bin
-par.pre_s = par.pre .* params(1).dt; % dt, pre_s, and post_s just here to know how much time you're using. Set params.dt and pre/post appropriately for you analysis
-par.post_s = par.post .* params(1).dt;
+% par.pre=6; % time bins prior to output used for decoding
+% par.post=0; % time bins after output used for decoding
+% par.dt = params(1).dt; % moving time bin
+% par.pre_s = par.pre .* params(1).dt; % dt, pre_s, and post_s just here to know how much time you're using. Set params.dt and pre/post appropriately for you analysis
+% par.post_s = par.post .* params(1).dt;
 
 % these parameters above are important for decoding accuracy. for actual
 % analyses (like a final analysis to be included in a publication),
@@ -146,153 +146,65 @@ par.test = 1 - par.train;
 
 % feature to use to decode
 par.feats = {'tongue_angle','tongue_length'};
+par.licks2use = 1;
+par.maxDur = 10;
 
-% trials
-par.cond2use = [6 7];
-
-par.regularize = 0; % if 0, linear regression. if 1, ridge regression
+% iterations
+par.nIterations = 100;
 
 %% DECODING
 %%% Use fitcvsm with predictor data being the first lick tongue length for
 %%% each trial
 close all
 
+accuracy = NaN(length(meta),par.nIterations);
+shuffaccuracy = NaN(length(meta),par.nIterations);
+
 for sessix = 1:numel(meta)
-    disp([num2str(sessix) ' / ' num2str(numel(meta))])
+    disp(['Decoding session ' ' ' num2str(sessix) ' / ' num2str(numel(meta))])
 
-    % predict 'trialdat' from par.feats (kinematic features of interest)
+    for ii = 1:par.nIterations
+        % predict context from the tongue angle and tongue length of each first lick in a trial
 
-    % trials
-    par.trials.all = cell2mat(params(sessix).trialid(par.cond2use)');
+        % trials
+        % get the minimum number of trials across all conditions (RAFC, LAFC, RAW, LAW)
+        % subsample trials from each condition to make sure all conditions are trained on the same number of trials
+        par = getTrialsforDecoding(rawtonguekin(sessix),condfns,par);
 
-    nTrials = numel(par.trials.all);
-    nTrain = floor(nTrials*par.train);
-    par.trials.train = par.trials.all; %randsample(par.trials.all,nTrain,false);
-    % par.trials.test = par.trials.all(~ismember(par.trials.all,par.trials.train));
-    par.trials.test = [];
+        % input data
+        X.train = formatTongueRegressors(par,condfns,rawtonguekin(sessix));         % (nTrainTrials * conds,lick length * num of licks * num regressors)
 
+        % output data
+        Y.train = formatOutputData(par,condfns);                            % (nTrainTrials * conds, 1)
+        shuffTrix = randsample(1:length(Y.train),length(Y.train),'false');
+        Y.shuff = Y.train(shuffTrix);
 
-    % input data
-    par.featix = find(ismember(kin(sessix).featLeg,par.feats));
+        % fill missing values in kinematics
+        X.train = fillmissing(X.train,'constant',0);
 
-    X.train = kin(sessix).dat(:,par.trials.train,par.featix); % (time,trials,feats)
-    X.size = size(X.train);
-    X.train = reshape(X.train, size(X.train,1)*size(X.train,2),size(X.train,3));
+        % fit the SVM
+        mdl = fitcsvm(X.train,Y.train,'KFold',par.nFolds);
+        pred = kfoldPredict(mdl);
 
-    X.test = kin(sessix).dat(:,par.trials.test,par.featix); % (time,trials,feats)
-    X.test = permute(X.test,[1 3 2]);
-    X.test = reshape(X.test, size(X.test,1)*size(X.test,2),size(X.test,3));
+        % fit the SVM on data with shuffled labels
+        shuffmdl = fitcsvm(X.train,Y.shuff,'KFold',par.nFolds);
+        shuffpred = kfoldPredict(shuffmdl);
 
-    % reshape train and test data to account for prediction bin size
-    X.train = reshapePredictors(X.train,par);
-    X.test = reshapePredictors(X.test,par);
-
-    % flatten inputs
-    % if you're using a model with recurrence, don't flatten
-    X.train = reshape(X.train,size(X.train,1),size(X.train,2)*size(X.train,3));
-    X.test = reshape(X.test,size(X.test,1),size(X.test,2)*size(X.test,3));
-
-    % output data
-    Y.train = trialdat{sessix}(:,par.trials.train); % (time,trials);
-    Y.size = size(Y.train);
-    Y.train = reshape(Y.train, size(Y.train,1)*size(Y.train,2),size(Y.train,3));
-
-    Y.test = trialdat{sessix}(:,par.trials.test);
-    Y.test = reshape(Y.test, size(Y.test,1)*size(Y.test,2),size(Y.test,3));
-
-    % standardize data
-    % standardize both train and test sets using train set statistics
-    % can also standardize using specific time points (presample for example)
-    X.mu = mean(X.train,1,'omitnan');
-    X.sigma = std(X.train,[],1,'omitnan');
-    X.train = (X.train - X.mu) ./ X.sigma;
-    if ~par.test==0
-        X.test = (X.test - X.mu) ./ X.sigma;
+        accuracy(sessix,ii) = sum(pred==Y.train)/length(Y.train);
+        shuffaccuracy(sessix,ii) = sum(shuffpred==Y.shuff)/length(Y.shuff);
     end
-
-    Y.mu = mean(Y.train,1,'omitnan');
-    Y.sigma = std(Y.train,[],1,'omitnan');
-    Y.train = (Y.train - Y.mu);% ./ Y.sigma;
-    if ~par.test==0
-        Y.test = (Y.test - Y.mu);% ./ Y.sigma;
-    end
-
-    % fill missing values in kinematics
-    X.train = fillmissing(X.train,'constant',0);
-    Y.train = fillmissing(Y.train,'nearest');
-    X.test = fillmissing(X.test,'constant',0);
-    Y.test = fillmissing(Y.test,'nearest');
-
-    if par.regularize
-        mdl = fitrlinear(X.train,Y.train,'Learner','svm','KFold',par.nFolds,'Regularization','ridge');
-    else
-        mdl = fitrlinear(X.train,Y.train,'Learner','svm','KFold',par.nFolds);
-    end
-    pred = kfoldPredict(mdl);
-
-    nPredictors = size(X.train,2);                  % Number of kinematic predictors * binWidth
-    loadings = NaN(nPredictors,par.nFolds);         % (# predictors x folds for CV)
-    for fol = 1:par.nFolds
-        loadings(:,fol) = mdl.Trained{fol}.Beta;
-    end
-    avgloadings(:,sessix) = mean(loadings,2,'omitnan');  % Average the coefficients for each predictor term across folds; save these for each time point
-
 end
+clearvars -except accuracy shuffaccuracy obj meta params par kin 
 %%
-binWidth = par.pre-par.post;
-featid =[];
-for ff = 1:numel(par.feats)
-    temp = cell(1,binWidth);
-    for bb = 1:binWidth
-        temp{bb} = par.feats{ff};
-    end
-    featid = [featid,temp];
-end
-%% Normalize all of the beta coefficients to be a fraction of 1
-clear temp
-featgroups = {'tongue','nos','jaw','motion_energy'};
-epochfns = {'delay'};
-totalnormfeats = NaN(length(meta),length(featgroups));
-for sessix = 1:length(meta)
-    totalbeta = sum(abs(avgloadings(:,sessix)));
-    allLoadings(sessix).totalbeta = totalbeta;
-    for group = 1:length(featgroups)
-        temp = zeros(1,length(featid));
-        currgroup = featgroups{group};
-        for feat = 1:length(featid)
-            currfeat = featid{feat};
-            temp(feat) = contains(currfeat,currgroup);
-        end
-        groupixs = find(temp);
-        allLoadings(sessix).(currgroup) = abs(avgloadings(groupixs, sessix));
-    end
-end
+avgAcc_persesh = mean(accuracy,2,'omitnan');
+shuffAcc_persesh = mean(shuffaccuracy,2,'omitnan');
+X = [1,2];
+Y = [mean(avgAcc_persesh),mean(shuffAcc_persesh)];
+bar(X,Y); hold on
+scatter(1,avgAcc_persesh,'filled','black')
+scatter(2,shuffAcc_persesh,'filled','black')
 
-totalnormfeats = NaN(length(meta),length(featgroups));
-for group = 1:length(featgroups)
-    currgroup = featgroups{group};
-    for sessix = 1:length(meta)
-        groupLoad = allLoadings(sessix).(currgroup);
-        grouptotal = sum(groupLoad,'omitnan');
-        grouprelative = grouptotal / allLoadings(sessix).totalbeta;
-        grouprelative = grouprelative/(length(groupLoad));
-        totalnormfeats(sessix,group) = grouprelative;
-    end
-end
-
-for sessix = 1:length(meta)
-    currsess = totalnormfeats(sessix,:);
-    tot = sum(currsess,'omitnan');
-    totalnormfeats(sessix,:) = currsess./tot;
-end
-
-% Get all ME vals
-MEix = find(strcmp(featgroups,'motion_energy'));
-MEvals = totalnormfeats(:,MEix);
-[~,sortix] = sort(MEvals,'descend');
-totalnormfeats = totalnormfeats(sortix,:);
-%% Make a stacked bar plot to show across sessions that it varies which feature group contributes most to predicting CDTrialType
-bar(totalnormfeats,'stacked')
-legend(featgroups,'Location','best')
-xlabel('Session #')
-ylabel('Sum of beta coefficients for each feature group')
+xticks([1,2])
+xticklabels({'Data', 'Shuffled'})
+ylabel('CV Accuracy of SVM decoder')
+title('Context decoding from first lick')

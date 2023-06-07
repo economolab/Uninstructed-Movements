@@ -194,7 +194,6 @@ all_grouped = combineSessions_grouped(meta,grouped,sm, popfns, movefns);
 
 colors = getColors();
 alph = 0.2;             % Shading opacity for error bars
-
 condfns = {'afc','aw'};
 nSessions = length(meta);
 figure();
@@ -215,8 +214,10 @@ xline(-0.9,'k--')
 xline(-0,'k--')
 xlabel('Time from go cue / water drop (s)')
 ylabel('a.u.')
+% ylim(yl)
 title('Full pop')
 xlim([-2.5 2.5])
+set(gca,'TickDir','out');
 
 subplot(3,1,2)
 for cond = 1:length(condfns)
@@ -237,6 +238,8 @@ xlabel('Time from go cue / water drop (s)')
 ylabel('a.u.')
 title('Null')
 xlim([-2.5 2.5])
+set(gca,'TickDir','out');
+% ylim(yl)
 
 subplot(3,1,3)
 for cond = 1:length(condfns)
@@ -257,6 +260,8 @@ xlabel('Time from go cue / water drop (s)')
 ylabel('a.u.')
 title('Potent')
 xlim([-2.5 2.5])
+set(gca,'TickDir','out');
+% ylim(yl)
 %% Plot average selectivity in CDContext across all sessions for each context
 % figure();
 % LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)

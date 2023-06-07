@@ -82,7 +82,7 @@ meta = loadJGR3_ALMVideo(meta,datapth);
 % meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth); % selectivity in ME % go cue is at 2.3 instead of 2.5 like all other sessions??
 % meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 
 % --- M1TJ ---
@@ -304,3 +304,113 @@ bar(totalnormfeats,'stacked')
 legend(featgroups,'Location','best')
 xlabel('Session #')
 ylabel('Sum of beta coefficients for each feature group')
+
+%%
+feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'tongue_length'};
+featix = NaN(1,length(feat2use));
+for f = 1:length(feat2use)
+    currfeat = feat2use{f};
+    currix = find(strcmp(kin(1).featLeg,currfeat));
+    featix(f) = currix;
+end
+
+cond2use = [6 7];
+condfns = {'2AFC hit','AW hit'};
+trix2use = 20;
+
+times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
+times.startix = find(obj(1).time>times.start,1,'first');
+times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+times.stopix = find(obj(1).time<times.stop,1,'last');
+
+del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
+delix = find(obj(1).time>del,1,'first');
+go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+goix = find(obj(1).time<go,1,'last');
+resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+respix = find(obj(1).time<resp,1,'last');
+
+sm = 31;
+ptiles = [92 95 20];
+
+sortedSess2use = 11;
+sessix = sortix(sortedSess2use);
+
+
+for c = 1:length(cond2use)
+    allkin = [];
+    figure();
+    cond = cond2use(c);
+    condtrix = params(sessix).trialid{cond};
+    ntrials = length(condtrix);
+    randtrix = randsample(condtrix,trix2use);
+    for f = 1:length(featix)
+        currfeat = featix(f);
+        
+        % ^ Don't actually want to max normalize because then will be
+        % normalizing by an outlier value probably
+
+        % Want to normalize to the 90-99th percentile of values to account
+        % for more of the data
+   
+        if strcmp(feat2use{f},'tongue_length')
+            currkin = kin(sessix).dat(times.startix:goix,randtrix,currfeat);
+            abskin = abs(currkin);
+            normkin = abskin./prctile(abskin(:), ptiles(f));
+            normkin(normkin>1) = 1;
+        else
+            currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+            abskin = abs(currkin);
+            normkin = abskin./prctile(abskin(:), ptiles(f));
+            normkin(normkin>1) = 1;
+        end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+
+        allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+    end
+
+    allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+    RI = imref2d(size(allkin));
+    RI.XWorldLimits = [0 3];
+    RI.YWorldLimits = [2 5];
+    IMref = imshow(allkin, RI,'InitialMagnification','fit');
+    title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+end
+%%
+sortedSess2use = 6;
+sess2use = sortix(sortedSess2use);
+
+% Plot all features for the same trial in one subplot
+
+colors = {[1 0 0],[0 1 0],[0 0 1]};
+nTrixPlot = 9;
+offset = 3;
+sm = 20;
+for sessix = sess2use
+    for c = 1:length(cond2use)
+        figure();
+        condtrix = params(sessix).trialid{cond2use(c)};
+        trix = randsample(condtrix,nTrixPlot);
+        for tt = 1:nTrixPlot
+            subplot(3,3,tt)
+            for feat = 1:length(featix)
+                if strcmp(feat2use{feat},'tongue_length')
+                    condkin = kin(sessix).dat(:,trix(tt),featix(feat));
+                    condkin = condkin./prctile(condkin(:), 1);
+%                     condkin(condkin>1) = 1;
+                    toplot = offset*feat+abs(condkin(:,:,:));
+                else
+                    condkin = kin(sessix).dat_std(:,trix(tt),:);
+                    toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
+                end
+                plot(obj(sessix).time,toplot,'LineWidth',2,'Color',colors{feat}); hold on;
+            end
+            title(feat2use(feat))
+            xlabel('Time from go cue (s)')
+            ylim([2 14])
+            xlim([-2.5 0])
+            xline(-0.9,'k--','LineWidth',1)
+            xline(-2.2,'k--','LineWidth',1)
+        end
+        sgtitle(['Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+    end
+end

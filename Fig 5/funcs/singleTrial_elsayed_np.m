@@ -29,18 +29,13 @@ trials = [trialsHit ; trialsMiss]; % (minTrials*numCond,1) vector of trials used
 
 
 %%
-
 % trials = trialsHit; % only hit trials
-
 
 if onlyAW
     trials = cell2mat(trials_cond(5:end)');
 else
     trials = cell2mat(trials_cond'); % all trials from cond2use
 end
-
-
-
 %% split data into quiet and moving time points
 
 if delayOnly
