@@ -3,13 +3,22 @@
 % -------------------------------------------------------------------------------------
 clear,clc,close all
 
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
 % add paths
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-addpath(genpath(fullfile(utilspth,'fig3')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 1';
+addpath(genpath(fullfile(utilspth,'figNP')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 1'];
 addpath(genpath(fullfile(figpth,'Utils')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
@@ -28,8 +37,11 @@ params.condition(end+1) = {'R&~stim.enable&autowater&~early'};              % le
 params.condition(end+1) = {'R&stim.enable&autowater&~early'};               % left, stim, AW
 %% SPECIFY DATA TO LOAD
 
-datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
-
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 meta = [];
 meta = loadMAH13_MCStim(meta,datapth);
 meta = loadMAH14_MCStim(meta,datapth);
@@ -81,19 +93,24 @@ for sessix = 1:length(meta)
 end
 %% INCLUSION CRITERIA: Omit sessions where 2AFC stim didn't work or where performance was bad
 sess2omit = false(length(meta),1);
-LAFCstimCond = 1;
-RAFCstimCond = 3;
+Rperf = NaN(length(meta),1);  Reff = NaN(length(meta),1);
+Lperf = NaN(length(meta),1);  Leff = NaN(length(meta),1);
+
+LAFCctrlCond = 1;
+RAFCctrlCond = 3;
 EffectCutoff = 0.10;
 perfCutoff = 0.55;
 for sessix = 1:length(meta)
     temp = perf_all(sessix,:);
-    if temp(RAFCstimCond)-temp(RAFCstimCond+1) < EffectCutoff || temp(LAFCstimCond)-temp(LAFCstimCond+1) < EffectCutoff
+    Reff(sessix) = temp(RAFCctrlCond)-temp(RAFCctrlCond+1);
+    Leff(sessix) = temp(LAFCctrlCond)-temp(LAFCctrlCond+1);
+    if Reff(sessix) < EffectCutoff ||  Leff(sessix)< EffectCutoff
         sess2omit(sessix) = 1;
     end
     bp = obj(sessix).bp;
-    Rperf = sum(bp.R&bp.hit&~bp.autowater)/sum(bp.R&~bp.autowater);
-    Lperf = sum(bp.L&bp.hit&~bp.autowater)/sum(bp.L&~bp.autowater);
-    if Rperf<perfCutoff || Lperf<perfCutoff
+    Rperf(sessix) = sum(bp.R&bp.hit&~bp.autowater)/sum(bp.R&~bp.autowater); 
+    Lperf(sessix) = sum(bp.L&bp.hit&~bp.autowater)/sum(bp.L&~bp.autowater);
+    if Rperf(sessix)<perfCutoff || Lperf(sessix)<perfCutoff
         sess2omit(sessix) = 1;
     end
 end
@@ -105,14 +122,20 @@ clearvars -except obj meta rez params perf_all lickCutoff sess2omit
 anmNames = {'MAH13','MAH13','MAH13','MAH13','MAH13','MAH13',...
     'MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14'};
 anmNames(sess2omit) = [];
-cols = getColors_Updated();
+cols = getColors();
 sigcutoff = 0.05;
-plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff)
+[AFCpval,AWpval] = plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff);
 
 %plotPerfV2(colors,perf_all,lickCutoff,anmNames)
-
+%% Print summary statistics 
+disp('---Summary statistics for MC go cue photoinhibition---')
+disp(['p-values for 2AFC t-tests -- L: ' num2str(AFCpval(1)) ' ; R: ' num2str(AFCpval(2))])
+disp(['p-values for AW t-tests -- L: ' num2str(AWpval(1)) ' ; R: ' num2str(AWpval(2))])
+disp('Paired t-test')
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %%
-function plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff)
+function [AFCpval,AWpval] = plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff)
 figure();
 subplot(1,2,1)
 uniqueAnm = unique(anmNames);
@@ -156,7 +179,7 @@ end
 for test = 1:(length(conds2plot)/2)
     x = perf_all(:,(test*2)-1);
     y = perf_all(:,test*2);
-    hyp = ttest(x,y,'Alpha',sigcutoff);
+    [hyp,AFCpval(test)] = ttest(x,y,'Alpha',sigcutoff);
     disp(num2str(hyp))
     if hyp&&test==1
         scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')
@@ -211,7 +234,7 @@ end
 for test = 1:(length(conds2plot)/2)
     x = perf_all(:,conds2plot((test*2)-1));
     y = perf_all(:,conds2plot(test*2));
-    hyp = ttest(x,y,'Alpha',sigcutoff);
+    [hyp,AWpval(test)] = ttest(x,y,'Alpha',sigcutoff);
     disp(num2str(hyp))
     if hyp&&test==1
         scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')

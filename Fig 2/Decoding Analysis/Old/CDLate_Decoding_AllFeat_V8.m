@@ -1,4 +1,5 @@
-% DECODING CDlate FROM ALL KINEMATIC FEATURES
+% DECODING CDlate FROM ALL KINEMATIC FEATURES (ridge regression,
+% regularization; NO TRAIN/TEST SPLIT)
 clear,clc,close all
 
 whichcomp = 'LabPC';                                                % LabPC or Laptop
@@ -211,7 +212,7 @@ for sessix = 1:numel(meta)
 end
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
-clearvars -except datapth kin me meta obj params regr nSessions exsess modelpred trueVals par avgloadings
+clearvars -except datapth kin me meta obj params regr nSessions exsess modelpred trueVals par avgloadings regtype
 %% Show how the movements of different body parts are driving the potent space
 binWidth = par.pre-par.post;
 featid =[];
@@ -309,10 +310,10 @@ for sessix = 1:length(meta)
     trueVals.Lhit{sessix} = trueVals.Lhit{sessix}-presampcurr;
 end
 
-%% Plot example of motion energy and ramping mode, averaged across right and left trials
+%% Plot example of motion energy and CDChoice, averaged across right and left trials
 colors = getColors();
 
-exsess = 8;
+exsess = 9;
 nSessions = numel(meta);
 cond2plot = [2 3];
 MEix = find(strcmp(kin(1).featLeg,'motion_energy'));
@@ -339,7 +340,6 @@ sm = 30;
 invertCD = 'invert';                    % 'Invert' or 'no' for whether or not you want to flip the sign of the CD projection
 
 load('C:\Code\Uninstructed-Movements\LeftRightDiverging_Colormap.mat')
-exsess = 8;
 if strcmp(plotheatmap,'yes')
     % Times that you want to use to sort CDTrialType
     del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -414,7 +414,7 @@ stop = find(obj(1).time<resp,1,'last');
 
 delR2_ALL = [];
 
-plotexample = 'no';
+plotexample = 'yes';
 
 if strcmp(plotexample,'yes')
     plotrange = exsess;
@@ -448,14 +448,10 @@ for sessix = plotrange
 end
 %% Plot bar plot to show average R2 values across sessions
 colors = getColors();
-exsess = 2;
 delR2_ALL = abs(delR2_ALL);
-anmNames_all = {'JEB13','JEB13','JEB13','JEB13','JEB13','JEB13',...
-    'JEB6', 'JEB7', 'JEB7', 'EKH1','JGR2','JGR2','JGR3','JEB14','JEB14','JEB14','JEB14',...
-    'JEB15','JEB15','JEB15','JEB15','JEB19','JEB19','JEB19','JEB19'};
 
-nSessions = numel(anmNames_all);
-uniqueAnm = unique(anmNames_all);
+nSessions =length(meta);
+
 % The index of the session that you want to be highlighted
 markerSize = 60;
 figure();
@@ -464,11 +460,10 @@ for sessix = 1:nSessions
     scatter(1,delR2_ALL(sessix),markerSize,'filled','o','MarkerFaceColor',[0.65 0.65 0.65]); hold on;
 end
 scatter(1,delR2_ALL(exsess),markerSize,'filled','o','cyan','MarkerEdgeColor','black')
-legend([' ',anmNames_all])
 ylim([0 1])
 ax = gca;
 ax.FontSize = 16;
-title(['Ex session = Sesh ' num2str(exsess) '; Animal ' anmNames_all{exsess} ])
+title(['Ex session = ' meta(exsess).anm meta(exsess).date])
 %% Print summary statistics 
 disp('---Summary statistics for CDTrialType prediction---')
 disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])

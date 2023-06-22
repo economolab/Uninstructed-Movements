@@ -1,5 +1,5 @@
 function plotCondAvgMEandCD(cond2plot, sessix, params, obj, meta, kin, trueVals, alph, cols, MEix,times,par,invert)
-sm = 21;
+sm = 31;
 
 for c = 1:length(cond2plot)
     cond = cond2plot(c);
@@ -19,6 +19,7 @@ for c = 1:length(cond2plot)
     err = 1.96*(std(condME(par.timerange,:),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
     shadedErrorBar(obj(sessix).time(par.timerange),mySmooth(toplot,sm),mySmooth(err,sm),{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    set(gca,'TickDir','out');
 
     if cond==2
         dir = 'Rhit';
@@ -34,7 +35,8 @@ for c = 1:length(cond2plot)
     toplot = mean(condRamp(par.timerange,:),2,'omitnan');
     err = 1.96*(std(condRamp(par.timerange,:),0,2,'omitnan')./sqrt(nTrials));
     ax = gca;
-    shadedErrorBar(obj(sessix).time(par.timerange),toplot,err,{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    shadedErrorBar(obj(sessix).time(par.timerange),mySmooth(toplot,sm),mySmooth(err,sm),{'Color',cols{c},'LineWidth',2},alph,ax); hold on;
+    set(gca,'TickDir','out');
 end
 xlabel(ax1,'Time from go cue (s)')
 ylabel(ax1,'Motion energy (a.u.)')

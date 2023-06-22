@@ -231,49 +231,59 @@ resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.
 respix = find(obj(1).time<resp,1,'last');
 
 sm = 31;
-ptiles = [95 95 95];
+ptiles = [94 98 94];
 
-sortedSess2use = 25;
-sessix = sortix(sortedSess2use);
+sortedSess2use = [1 25];
 
+for sessix = 9 %ss = 1:length(sortedSess2use)
+    %sessix = sortix(sortedSess2use(ss));
 
-for c = 1:length(cond2use)
-    allkin = [];
-    figure();
-    cond = cond2use(c);
-    condtrix = params(sessix).trialid{cond};
-    ntrials = length(condtrix);
-    randtrix = randsample(condtrix,trix2use);
-    for f = 1:length(featix)
-        currfeat = featix(f);
-        
-        % ^ Don't actually want to max normalize because then will be
-        % normalizing by an outlier value probably
+    for c = 1:length(cond2use)
+        allkin = [];
+        figure();
+        cond = cond2use(c);
+        condtrix = params(sessix).trialid{cond};
+        ntrials = length(condtrix);
+        randtrix = randsample(condtrix,trix2use);
+        for f = 1:length(featix)
+            currfeat = featix(f);
 
-        % Want to normalize to the 90-99th percentile of values to account
-        % for more of the data
-   
-        if strcmp(feat2use{f},'motion_energy')
-            currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
-            abskin = abs(currkin);
-            normkin = abskin./prctile(abskin(:), ptiles(f));
-            normkin(normkin>1) = 1;
-        else
-            currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
-            abskin = abs(currkin);
-            normkin = abskin./prctile(abskin(:), ptiles(f));
-            normkin(normkin>1) = 1;
-        end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+            % ^ Don't actually want to max normalize because then will be
+            % normalizing by an outlier value probably
 
-        allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+            % Want to normalize to the 90-99th percentile of values to account
+            % for more of the data
+
+            if strcmp(feat2use{f},'motion_energy')
+                currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            else
+                currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+
+            allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+        end
+
+        allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+%         MEix = find(strcmp(feat2use,'motion_energy'));
+%         currME = squeeze(allkin(:,:,MEix));
+%         delME = currME(:,(size(currME,2)/2):end);
+%         delME = mean(delME,2,'omitnan');
+%         [~,sortix] = sort(delME,'descend');
+%         allkin(:,:,MEix) = currME(sortix,:);
+
+        RI = imref2d(size(allkin));
+        RI.XWorldLimits = [0 3];
+        RI.YWorldLimits = [2 5];
+        IMref = imshow(allkin, RI,'InitialMagnification','fit');
+%         title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use(ss)) ' ; ' condfns{c}])
+        title(['RGB = ' feat2use '; Sorted session ' num2str(sessix) ' ; ' condfns{c}])
     end
-
-    allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
-    RI = imref2d(size(allkin));
-    RI.XWorldLimits = [0 3];
-    RI.YWorldLimits = [2 5];
-    IMref = imshow(allkin, RI,'InitialMagnification','fit');
-    title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
 end
 %%
 sess2use = sessix;

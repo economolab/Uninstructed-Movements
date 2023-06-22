@@ -3,15 +3,22 @@
 % For peri-stimulus time histograms (Figs. 5, 6, Extended Data Fig. 8k), only correct trials were included. For the peri-stimulus time histograms and selectivity of the 
 % random delay task (Fig. 6, Extended Data Fig. 8k), only spikes before the go cue were pooled. Spikes were averaged over 100 ms with a 1-ms sliding window."
 
-clear,clc,close all
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
-% add paths for data loading scripts, all fig funcs, and utils
-utilspth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Munib Uninstruct Move\uninstructedMovements_v2';
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
 addpath(genpath(fullfile(utilspth,'fig1')));
-figpth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements\Fig 3';
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'funcs')));
 addpath(genpath(fullfile(figpth,'Hazarded Delay')));
 %% PARAMETERS
@@ -55,7 +62,11 @@ params.delay(5) = 2.4000;
 params.delay(6) = 3.6000;
 %% SPECIFY DATA TO LOAD
 
-datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 meta = [];
 
@@ -194,7 +205,12 @@ ctrlparams.feat_varToExplain = 80; % num factors for dim reduction of video feat
 ctrlparams.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
 ctrlparams.advance_movement = 0;
 
-datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 ctrlmeta = [];
 
@@ -321,7 +337,7 @@ end
 %%
 clearvars -except selectivity_All selectivity_AllCtrl obj meta params kin ctrlobj ctrlmeta ctrlparams ctrlkin
 
-colors = getColors_Updated();
+colors = getColors;
 ctrlcol = colors.afc;
 hazcol = [0.5 0.5 0.5];
 go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));

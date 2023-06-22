@@ -100,6 +100,7 @@ ctrlmeta = loadJGR3_ALMVideo(ctrlmeta,datapth);
 ctrlmeta = loadJEB13_ALMVideo(ctrlmeta,datapth);
 ctrlmeta = loadJEB14_ALMVideo(ctrlmeta,datapth);
 ctrlmeta = loadJEB15_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB19_ALMVideo(ctrlmeta,datapth);
 
 ctrlparams.probe = {ctrlmeta.probe}; % put probe numbers into ctrlparams, one entry for element in ctrlmeta, just so i don't have to change code i've already written
 
@@ -202,7 +203,7 @@ for sessix = 1:length(ctrlmeta)
         tempjaw = [tempjaw, condtemp];
     end
 
-    ctrlobj(sessix).jawvel = tempjaw;
+    ctrlobj(sessix).jawvel = mean(tempjaw,2);
     sel = tempjaw(:,1)-tempjaw(:,2);
     delSelectivity = mean(sel(startix:stopix),'omitnan');
     if delSelectivity<0
@@ -245,7 +246,7 @@ for sessix = 1:length(meta)
         sel = -1*sel;
     end
     obj(sessix).jawSelectivity = mySmooth(sel,sm);
-    obj(sessix).jawvel = tempjaw;
+    obj(sessix).jawvel = mean(tempjaw,2);
 end
 %% Concatenate avg jaw selectivities across all sessions
 smooth = 41;

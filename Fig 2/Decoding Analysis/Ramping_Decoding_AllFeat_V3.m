@@ -1,4 +1,5 @@
-% DECODING CDlate FROM ALL KINEMATIC FEATURES
+% DECODING CDRamp FROM ALL KINEMATIC FEATURES (with ridge regression,
+% regularization; train/test split, cross-validation)
 clear,clc,close all
 
 whichcomp = 'LabPC';                                                % LabPC or Laptop
@@ -121,18 +122,18 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+clearvars -except obj meta kin regr params me
 %% Predict CDRamping from DLC features
-clearvars -except datapth kin me meta obj params regr nSessions exsess
-clc;
+%%% DECODING PARAMETERS %%%
 
 % input data = neural data (time*trials,neurons)
 % output data = kin data   (time*trials,kin feats)
-par.pre=5; % time bins prior to output used for decoding
+
+par.pre=6; % time bins prior to output used for decoding
 par.post=0; % time bins after output used for decoding
 par.dt = params(1).dt; % moving time bin
 par.pre_s = par.pre .* params(1).dt; % dt, pre_s, and post_s just here to know how much time you're using. Set params.dt and pre/post appropriately for you analysis
 par.post_s = par.post .* params(1).dt;
-
 
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);
 start = find(obj(1).time>trialstart,1,'first');
@@ -141,11 +142,17 @@ stop = find(obj(1).time>go,1,'first');
 
 par.timerange = start:stop;
 
+% these parameters above are important for decoding accuracy. for actual
+% analyses (like a final analysis to be included in a publication),
+% you should vary these parameters only if you have a validation
+% set that you won't test on until these parameters are set. Otherwise,
+% there's a high risk of overfitting
+
 % cross val folds
 par.nFolds = 4;
 
 % data sets
-par.train = 1; % fraction of trials (just using cross-val here, matlab's kFoldPredict uses held out data for testing)
+par.train = 0.6; % fraction of trials 
 par.test = 1 - par.train;
 
 % feature to use to decode
@@ -153,89 +160,97 @@ par.test = 1 - par.train;
 par.feats = {'motion','nos','jaw'};
 temp = cellfun(@(x) patternMatchCellArray(kin(1).featLeg,{x},'all') , par.feats,'UniformOutput',false);
 par.feats = cat(1, temp{:});
-% par.feats = {'tongue_angle','tongue_length','motion_energy'};
 
 % trials
-par.cond2use = [2 3];
+par.cond2use = [2 3]; % CHANGE this for each CD prediction %%%%%%%%%%%%%%%%
 
 par.regularize = 1; % if 0, linear regression. if 1, ridge regression
+
+par.lambdas = logspace(-3,3,20); % regularization parameters to search over. don't need to change unless you want to make it more fine-grained.
+
 %% DECODING
 
 close all
 
 for sessix = 1:numel(meta)
     disp(['Decoding for session ' ' ' num2str(sessix) ' / ' num2str(numel(meta))])
+    
+    [X,Y,par] = preparePredictorsRegressors_v2(par, sessix, kin, regr,params);
 
-    [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params);
-
-    if par.regularize
-        mdl = fitrlinear(X.train,Y.train,'Learner','leastsquares','KFold',par.nFolds,'Regularization','ridge');
-    else
-        mdl = fitrlinear(X.train,Y.train,'Learner','leastsquares','KFold',par.nFolds);
+    for ilambda = 1:numel(par.lambdas)
+        lambda = par.lambdas(ilambda);
+        cvmdl{ilambda} = fitrlinear(X.train,Y.train,'Learner','svm','KFold',par.nFolds,'Regularization','ridge','Lambda',lambda);
+        loss(ilambda) = cvmdl{ilambda}.kfoldLoss;
+        % cvpred{ilambda} = kfoldPredict(cvmdl{ilambda});
     end
-
-    % Save the predictor coefficients for this point in time (averaged
-    % across fold iterations)
-    nPredictors = size(X.train,2);                  % Number of kinematic predictors * binWidth
-    loadings = NaN(nPredictors,par.nFolds);         % (# predictors x folds for CV)
-    for fol = 1:par.nFolds
-        loadings(:,fol) = mdl.Trained{fol}.Beta;
+    
+    [~,bestmodel] = min(loss);
+    mdl = cvmdl{bestmodel}; % we now have the best lambda, and they trained cvmodel with that lambda,
+    % can predict test data using best cv mdl
+    for i = 1:par.nFolds
+        mdl_loss(i) = mdl.Trained{i}.loss(X.train,Y.train);
     end
-    avgloadings(:,sessix) = mean(loadings,2,'omitnan');  % Average the coefficients for each predictor term across folds; save these for each time point
+    [~,bestmodel] = min(mdl_loss);
+    testmdl = mdl.Trained{bestmodel}; % we now have the best lambda, and the trained model with that lambda,
+    
+    pred = testmdl.predict(X.test);   % use left-out test data for the prediction
+    
+    % Save the predictor coefficients from the testmdl
+    loadings(:,sessix) = testmdl.Beta;  % Average the coefficients for each predictor term across folds; save these for each time point
 
-    pred = kfoldPredict(mdl);
 
-    y = reshape(Y.train,Y.size(1),Y.size(2)); % original input data (standardized)
-    yhat = reshape(pred,Y.size(1),Y.size(2)); % prediction
+    y = reshape(Y.test,Y.size.test(1),Y.size.test(2)); % original input data (standardized)
+    yhat = reshape(pred,Y.size.test(1),Y.size.test(2)); % prediction
+   
 
-    %     figure()
-    %     subplot(1,2,1); imagesc(y'); colorbar; subplot(1,2,2); imagesc(yhat');colorbar()
-    %     figure()
-    %     plot(yhat)
-    %     pause
 
-    cnt = 1;
-    for c = 1:length(par.cond2use)
-        if c==1
-            cond = 'Rhit';
-        else
-            cond = 'Lhit';
-        end
-        ncondtrix = length(params(sessix).trialid{par.cond2use(c)});
-        ixrange = cnt:cnt+ncondtrix-1;
-        trueVals.(cond){sessix} = y(:,ixrange);
-        modelpred.(cond){sessix} = yhat(:,ixrange);
-        cnt = ncondtrix+1;
-    end
+%     figure()
+%     subplot(1,2,1); imagesc(y'); colorbar; subplot(1,2,2); imagesc(yhat');colorbar()
+%     figure()
+%     plot(yhat)
+%     pause
+
+    % find which trials were Rhit and which were Lhit in test set
+    Rhit_trials = ismember(par.trials.test,par.trials.Rhit); 
+    Lhit_trials = ismember(par.trials.test,par.trials.Lhit); 
+
+    % neural data, split into trial type
+    trueVals.Rhit{sessix} = y(:,Rhit_trials);
+    trueVals.Lhit{sessix} = y(:,Lhit_trials);
+
+    % predicted neural data, split into ground truth
+    modelpred.Rhit{sessix} = yhat(:,Rhit_trials);
+    modelpred.Lhit{sessix} = yhat(:,Lhit_trials);
 end
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
+clearvars -except datapth kin me meta obj params regr nSessions exsess modelpred trueVals par loadings
 %% Baseline subtract CDRamping
-% Times that you want to use to baseline normalize CDTrialType
+% Times that you want to use to baseline normalize CDRamping
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
 start = find(obj(1).time>trialstart,1,'first');
 samp = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
 
-cond2use = 'Rhit';
+cond2use = {'Rhit','Lhit'};
 for sessix = 1:length(meta)
-    curr = modelpred.(cond2use){sessix};
-    presampcurr = curr(start:stop,:);
-    presampcurr = mean(presampcurr,1,'omitnan');
-    presampcurr = mean(presampcurr,'omitnan');
+    for c = 1:length(cond2use)
+        cond = cond2use{c};
+        curr = modelpred.(cond){sessix};
+        presampcurr = curr(start:stop,:);
+        presampcurr = mean(presampcurr,1,'omitnan');
+        presampcurr = mean(presampcurr,'omitnan');
 
-    modelpred.Rhit{sessix} = modelpred.Rhit{sessix}-presampcurr;
-    modelpred.Lhit{sessix} = modelpred.Lhit{sessix}-presampcurr;
+        modelpred.(cond){sessix} = modelpred.(cond){sessix}-presampcurr;
 
-    curr = trueVals.(cond2use){sessix};
-    presampcurr = curr(start:stop,:);
-    presampcurr = mean(presampcurr,1,'omitnan');
-    presampcurr = mean(presampcurr,'omitnan');
+        curr = trueVals.(cond){sessix};
+        presampcurr = curr(start:stop,:);
+        presampcurr = mean(presampcurr,1,'omitnan');
+        presampcurr = mean(presampcurr,'omitnan');
 
-    trueVals.Rhit{sessix} = trueVals.Rhit{sessix}-presampcurr;
-    trueVals.Lhit{sessix} = trueVals.Lhit{sessix}-presampcurr;
+        trueVals.(cond){sessix} = trueVals.(cond){sessix}-presampcurr;
+    end
 end
-
 %% Plot example of motion energy and ramping mode, averaged across right and left trials
 exsess = 19;
 colors = getColors();
@@ -305,7 +320,7 @@ xline(ax2,-0.9,'k--','LineWidth',1)
 xline(ax2,-2.2,'k--','LineWidth',1)
 xlim(ax2,[-2.3 0])
 set(ax2,'TickDir','out'); 
-%% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
+%% Make heatmaps for a single session showing CDRamp across trials and predicted CDRamp
 plotheatmap = 'yes';
 sm = 15;
 invertCD = 'invert';                    % 'Invert' or 'no' for whether or not you want to flip the sign of the CD projection
@@ -356,6 +371,7 @@ if strcmp(plotheatmap,'yes')
         xline(ax1,-0.9,'k--','LineWidth',1)
         xline(ax1,-2.2,'k--','LineWidth',1)
         xlim(ax1,[-2.5 0])
+        set(gca,'TickDir','out');
 
         title(ax2,'Model prediction')
         xlabel(ax2,'Time from go cue (s)')
@@ -363,6 +379,7 @@ if strcmp(plotheatmap,'yes')
         xline(ax2,-0.9,'k--','LineWidth',1)
         xline(ax2,-2.2,'k--','LineWidth',1)
         xlim(ax2,[-2.5 0])
+        set(gca,'TickDir','out');
 
         colorbar(ax2)
         colormap(LeftRightDiverging_Colormap)
@@ -379,7 +396,7 @@ stop = find(obj(1).time<resp,1,'last');
 
 delR2_ALL = [];
 
-plotexample = 'yes';
+plotexample = 'no';
 
 if strcmp(plotexample,'yes')
     plotrange = exsess;
@@ -414,21 +431,24 @@ end
 %% Plot bar plot to show average R2 values across sessions
 colors = getColors();
 delR2_ALL = abs(delR2_ALL);
-nSessions = length(meta);
+
+nSessions =length(meta);
 
 % The index of the session that you want to be highlighted
 markerSize = 60;
 figure();
-bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
-for sessix = 1:nSessions
- 
-    scatter(1,delR2_ALL(sessix),markerSize,'filled','o','MarkerFaceColor',[0.65 0.65 0.65]); hold on;
-end
-scatter(1,delR2_ALL(exsess),markerSize,'filled','o','cyan','MarkerEdgeColor','black')
-ylim([0 1])
+b = bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
+ix2plot = 1:nSessions;
+ix2plot(exsess) = [];
+scatter(ones(nSessions-1,1),delR2_ALL(ix2plot),markerSize,'filled','o','MarkerFaceColor',...,
+    'k','XJitter','randn','XJitterWidth',0.25); hold on;
+scatter(1,delR2_ALL(exsess),markerSize,'o','MarkerEdgeColor',colors.afc)
+errorbar(b.XEndPoints,mean(delR2_ALL,'omitnan'),std(delR2_ALL,'omitnan'),'LineStyle','none','Color','k','LineWidth',1)
+ylim([0 0.8])
+set(gca,'TickDir','out');
 ax = gca;
 ax.FontSize = 16;
-title(['Ex session = ' meta(exsess).anm meta(exsess).date])
+title(['CDRamp: Ex session = ' meta(exsess).anm meta(exsess).date])
 %% Print summary statistics 
 disp('---Summary statistics for CDRamping prediction---')
 disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])
@@ -436,9 +456,10 @@ disp(['Standard deviation across all sessions = ' num2str(std(delR2_ALL))])
 if par.regularize==1
     regtype = 'Ridge';
 else
-    regtype = 'none';
+    regtype = 'Linear; No regularization';
 end
 disp(['Regularization type: ' regtype])
+disp(['Train percentage: ' num2str(100*par.train) ' %'])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% FUNCTIONS

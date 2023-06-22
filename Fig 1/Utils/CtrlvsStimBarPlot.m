@@ -1,4 +1,4 @@
-function CtrlvsStimBarPlot(cols,perf_all,anmNames,sigcutoff,starheight,condition)
+function pval = CtrlvsStimBarPlot(cols,perf_all,anmNames,sigcutoff,starheight,condition)
 
 uniqueAnm = unique(anmNames);
 nAnimals = length(uniqueAnm);
@@ -49,7 +49,7 @@ end
 for test = 1:(length(conds2plot)/2)
     x = perf_all(:,(test*2)-1);
     y = perf_all(:,test*2);
-    hyp = ttest(x,y,'Alpha',sigcutoff);
+    [hyp,pval(test)] = ttest(x,y,'Alpha',sigcutoff);
     %disp(num2str(hyp))
     if hyp&&test==1
         scatter(1.5,starheight,30,'*','MarkerEdgeColor','black')

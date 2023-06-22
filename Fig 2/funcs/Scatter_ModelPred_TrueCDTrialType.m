@@ -17,9 +17,10 @@ else
     modeldat = [modR, modL];
 end
 
-R2 = corrcoef(truedat,modeldat);
-R2 = R2(2);
-coeff = polyfit(modeldat,truedat,1);                   % Find the line of best fit
+R = corrcoef(truedat,modeldat);                       % Find the correlation coefficient matrix between avg delay period CDChoice proj and predicted CDChoice proj
+R = R(2);                                             % Get the correct value from the matrix
+R2 = R^2;                                             % Want to report the R^2 value instead of the correlation value
+coeff = polyfit(modeldat,truedat,1);                  % Find the line of best fit
 sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
 %scatter(modeldat,truedat,20,'filled','black')
 scatter(modL,trueL,20,'filled','red'); hold on
@@ -30,4 +31,5 @@ hline.Color = 'k';
 xlabel('Model prediction')
 ylabel('True data')
 legend('data',['R^2 = ' num2str(R2)],'Location','Best')
+set(gca,'TickDir','out');
 title(sesstitle)

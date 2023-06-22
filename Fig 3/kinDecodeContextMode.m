@@ -258,7 +258,7 @@ for ff = 1:numel(par.feats)
 end
 %% Normalize all of the beta coefficients to be a fraction of 1
 clear temp
-featgroups = {'tongue','nos','jaw','motion_energy'};
+featgroups = {'jaw','nos','motion_energy'};
 epochfns = {'delay'};
 totalnormfeats = NaN(length(meta),length(featgroups));
 for sessix = 1:length(meta)
@@ -306,7 +306,77 @@ xlabel('Session #')
 ylabel('Sum of beta coefficients for each feature group')
 
 %%
-feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'tongue_length'};
+% feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+% featix = NaN(1,length(feat2use));
+% for f = 1:length(feat2use)
+%     currfeat = feat2use{f};
+%     currix = find(strcmp(kin(1).featLeg,currfeat));
+%     featix(f) = currix;
+% end
+% 
+% cond2use = [6 7];
+% condfns = {'2AFC hit','AW hit'};
+% trix2use = 20;
+% 
+% times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
+% times.startix = find(obj(1).time>times.start,1,'first');
+% times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+% times.stopix = find(obj(1).time<times.stop,1,'last');
+% 
+% del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
+% delix = find(obj(1).time>del,1,'first');
+% go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+% goix = find(obj(1).time<go,1,'last');
+% resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+% respix = find(obj(1).time<resp,1,'last');
+% 
+% sm = 31;
+% ptiles = [92 95 20];
+% 
+% sortedSess2use = 11;
+% sessix = sortix(sortedSess2use);
+% 
+% 
+% for c = 1:length(cond2use)
+%     allkin = [];
+%     figure();
+%     cond = cond2use(c);
+%     condtrix = params(sessix).trialid{cond};
+%     ntrials = length(condtrix);
+%     randtrix = randsample(condtrix,trix2use);
+%     for f = 1:length(featix)
+%         currfeat = featix(f);
+%         
+%         % ^ Don't actually want to max normalize because then will be
+%         % normalizing by an outlier value probably
+% 
+%         % Want to normalize to the 90-99th percentile of values to account
+%         % for more of the data
+%    
+%         if strcmp(feat2use{f},'tongue_length')
+%             currkin = kin(sessix).dat(times.startix:goix,randtrix,currfeat);
+%             abskin = abs(currkin);
+%             normkin = abskin./prctile(abskin(:), ptiles(f));
+%             normkin(normkin>1) = 1;
+%         else
+%             currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+%             abskin = abs(currkin);
+%             normkin = abskin./prctile(abskin(:), ptiles(f));
+%             normkin(normkin>1) = 1;
+%         end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+% 
+%         allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+%     end
+% 
+%     allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+%     RI = imref2d(size(allkin));
+%     RI.XWorldLimits = [0 3];
+%     RI.YWorldLimits = [2 5];
+%     IMref = imshow(allkin, RI,'InitialMagnification','fit');
+%     title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+% end
+%%
+feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
     currfeat = feat2use{f};
@@ -331,52 +401,54 @@ resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.
 respix = find(obj(1).time<resp,1,'last');
 
 sm = 31;
-ptiles = [92 95 20];
+ptiles = [94 98 96];
 
-sortedSess2use = 11;
-sessix = sortix(sortedSess2use);
+sortedSess2use = [1 7];
 
+for ss = 1:length(sortedSess2use)
+    sessix = sortix(sortedSess2use(ss));
 
-for c = 1:length(cond2use)
-    allkin = [];
-    figure();
-    cond = cond2use(c);
-    condtrix = params(sessix).trialid{cond};
-    ntrials = length(condtrix);
-    randtrix = randsample(condtrix,trix2use);
-    for f = 1:length(featix)
-        currfeat = featix(f);
-        
-        % ^ Don't actually want to max normalize because then will be
-        % normalizing by an outlier value probably
+    for c = 1:length(cond2use)
+        allkin = [];
+        figure();
+        cond = cond2use(c);
+        condtrix = params(sessix).trialid{cond};
+        ntrials = length(condtrix);
+        randtrix = randsample(condtrix,trix2use);
+        for f = 1:length(featix)
+            currfeat = featix(f);
 
-        % Want to normalize to the 90-99th percentile of values to account
-        % for more of the data
-   
-        if strcmp(feat2use{f},'tongue_length')
-            currkin = kin(sessix).dat(times.startix:goix,randtrix,currfeat);
-            abskin = abs(currkin);
-            normkin = abskin./prctile(abskin(:), ptiles(f));
-            normkin(normkin>1) = 1;
-        else
-            currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
-            abskin = abs(currkin);
-            normkin = abskin./prctile(abskin(:), ptiles(f));
-            normkin(normkin>1) = 1;
-        end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+            % ^ Don't actually want to max normalize because then will be
+            % normalizing by an outlier value probably
 
-        allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+            % Want to normalize to the 90-99th percentile of values to account
+            % for more of the data
+
+            if strcmp(feat2use{f},'motion_energy')
+                currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            else
+                currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+
+            allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+        end
+
+        allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+        RI = imref2d(size(allkin));
+        RI.XWorldLimits = [0 3];
+        RI.YWorldLimits = [2 5];
+        IMref = imshow(allkin, RI,'InitialMagnification','fit');
+        title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use(ss)) ' ; ' condfns{c}])
     end
-
-    allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
-    RI = imref2d(size(allkin));
-    RI.XWorldLimits = [0 3];
-    RI.YWorldLimits = [2 5];
-    IMref = imshow(allkin, RI,'InitialMagnification','fit');
-    title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
 end
 %%
-sortedSess2use = 6;
+sortedSess2use = 7;
 sess2use = sortix(sortedSess2use);
 
 % Plot all features for the same trial in one subplot

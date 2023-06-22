@@ -91,9 +91,9 @@ conds = [5 6 7 8];
 figure(2)
 plotLickRaster(sessix,clrs,obj,params,'AW',conds);
 %% For supplement: show what tongue looks like during the stim period
-sessix = 2;
+sessix = 6;
 
-trix2plot = 13;
+trix2plot = 10;
 smooth = 31;
 offset = 5;
 
@@ -174,7 +174,7 @@ temp(:,1) = pctTime(:,1);
 temp(:,2) = pctTime(:,3);
 temp(:,3) = pctTime(:,2);
 temp(:,4) = pctTime(:,4);
-CtrlvsStimBarPlot(cols,temp,anmNames,sigcutoff,starheight,condition)
+AFCpvals = CtrlvsStimBarPlot(cols,temp,anmNames,sigcutoff,starheight,condition);
 ylabel('Fraction of time')
 ylim([0 0.42])
 title('2AFC trials')
@@ -188,9 +188,16 @@ temp(:,1) = pctTime(:,5);
 temp(:,2) = pctTime(:,7);
 temp(:,3) = pctTime(:,6);
 temp(:,4) = pctTime(:,8);
-CtrlvsStimBarPlot(cols,temp,anmNames,sigcutoff,starheight,condition)
+AWpvals = CtrlvsStimBarPlot(cols,temp,anmNames,sigcutoff,starheight,condition);
 ylabel('Fraction of time')
 ylim([0 0.42])
 title('Autowater trials')
 clear temp
 sgtitle(['Frac of time with tongue visible--from ' num2str(stim.stimstart) ' to ' num2str(stim.stimstop) ' (s)'])
+%% Print summary statistics 
+disp('---Pct of time with tongue visible for MC go cue photoinhibition---')
+disp(['p-values for 2AFC t-tests -- L: ' num2str(AFCpvals(1)) ' ; R: ' num2str(AFCpvals(2))])
+disp(['p-values for AW t-tests -- L: ' num2str(AWpvals(1)) ' ; R: ' num2str(AWpvals(2))])
+disp('Paired t-test')
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)

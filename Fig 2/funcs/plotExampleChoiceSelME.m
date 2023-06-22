@@ -32,6 +32,7 @@ for c = 1:length(cond2plot)
     xline(ax,-0.9,'k--','LineWidth',1)
     xline(ax,-2.2,'k--','LineWidth',1)
     xlim(ax,[-2.3 0])
+    set(gca,'TickDir','out');
 end
 sgtitle([meta(sessix).anm ' ' meta(sessix).date '; Sesh ' num2str(sessix)])
 end

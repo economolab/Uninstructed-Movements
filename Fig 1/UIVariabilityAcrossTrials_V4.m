@@ -102,14 +102,7 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 %%
-times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
-times.startix = find(obj(1).time>times.start,1,'first');
-times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
-times.stopix = find(obj(1).time<times.stop,1,'last');
-
-cond2use = 4;
-
-feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'top_paw_yvel_view2'};
+feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
     currfeat = feat2use{f};
@@ -117,7 +110,14 @@ for f = 1:length(feat2use)
     featix(f) = currix;
 end
 
+cond2use = 4;
+condfns = 'All hit trials';
 trix2use = 100;
+
+times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
+times.startix = find(obj(1).time>times.start,1,'first');
+times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+times.stopix = find(obj(1).time<times.stop,1,'last');
 
 del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
 delix = find(obj(1).time>del,1,'first');
@@ -127,72 +127,76 @@ resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.
 respix = find(obj(1).time<resp,1,'last');
 
 sm = 31;
-ptiles = [95 99, 90];
+ptiles = [94 98 96];
 
-for sessix = 1:length(meta)
-    figure();
-    allkin = [];
-    cond = cond2use;
-    condtrix = params(sessix).trialid{cond};
-    ntrials = length(condtrix);
-    randtrix = randsample(condtrix,trix2use);
-    for f = 1:length(featix)
-        currfeat = featix(f);
-%         if f~=3
-            currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
-            currkin = abs(currkin);
-%         else
-%             % Mean-center paw
-%             tempkin = kin(sessix).dat_std(:,randtrix,currfeat);
-%             presampME = squeeze(mean(tempkin(times.startix:times.stopix,:,:),1,'omitnan'));
-%             avgpresampME = mean(presampME,'omitnan');
-%             tempkin = tempkin-avgpresampME;
-%             currkin = mySmooth(tempkin,sm);
-%             currkin = currkin(times.startix:goix,:);
-%         end
+sess2use = 2;
 
-        % Max normalize current feature
-        % ^ Don't actually want to max normalize because then will be
-        % normalizing by an outlier value probably
-        % Want to normalize to the 90-99th percentile of values to account
-        % for more of the data
-        abskin = abs(currkin);
-        normkin = abskin./prctile(abskin(:), ptiles(f));
-        normkin(normkin>1) = 1;                                              % Will end up with values greater than 1 in this case--set these to 1
-%         normkin = 1-normkin;
-%         maxkin = max(currkin,[],"all");
-%         currkin = abs(currkin./maxkin);
+for sessix = sess2use
+    for c = 1:length(cond2use)
+        allkin = [];
+        figure();
+        cond = cond2use(c);
+        condtrix = params(sessix).trialid{cond};
+        ntrials = length(condtrix);
+        randtrix = randsample(condtrix,trix2use);
+        for f = 1:length(featix)
+            currfeat = featix(f);
 
-        allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+            % ^ Don't actually want to max normalize because then will be
+            % normalizing by an outlier value probably
+
+            % Want to normalize to the 90-99th percentile of values to account
+            % for more of the data
+
+            if strcmp(feat2use{f},'motion_energy')
+                currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            else
+                currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+
+            allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+        end
+
+        allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+        RI = imref2d(size(allkin));
+        RI.XWorldLimits = [0 3];
+        RI.YWorldLimits = [2 5];
+        IMref = imshow(allkin, RI,'InitialMagnification','fit');
+        title(['RGB = ' feat2use '; Sorted session ' num2str(sessix) ' ; ' condfns])
     end
-
-    allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
-    RI = imref2d(size(allkin));
-    RI.XWorldLimits = [0 3];
-    RI.YWorldLimits = [2 5];
-    IMref = imshow(allkin, RI,'InitialMagnification','fit');
-    title(['RGB = ' feat2use '; ' meta(sessix).anm meta(sessix).date])
 end
 %%
-% sess2use = [1 5];
-sess2use = 1:length(meta);
+sess2use = sessix;
 
 % Plot all features for the same trial in one subplot
 
 colors = {[1 0 0],[0 1 0],[0 0 1]};
-nTrixPlot = 16;
+nTrixPlot = 9;
 offset = 3;
 sm = 31;
 for sessix = sess2use
-    figure();
     for c = 1:length(cond2use)
+        figure();
         condtrix = params(sessix).trialid{cond2use(c)};
         trix = randsample(condtrix,nTrixPlot);
         for tt = 1:nTrixPlot
-            subplot(4,4,tt)
-            condkin = kin(sessix).dat_std(:,tt,:);
+            subplot(3,3,tt)
             for feat = 1:length(featix)
-                toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
+                if strcmp(feat2use{feat},'motion_energy')
+                    condkin = kin(sessix).dat(:,trix(tt),featix(feat));
+                    condkin = condkin./prctile(condkin(:), 60);
+%                     condkin(condkin>1) = 1;
+                    toplot = offset*feat+abs(mySmooth(condkin(:,:,:),5));
+                else
+                    condkin = kin(sessix).dat_std(:,trix(tt),:);
+                    toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
+                end
                 plot(obj(sessix).time,toplot,'LineWidth',2,'Color',colors{feat}); hold on;
             end
             title(feat2use(feat))
@@ -202,6 +206,6 @@ for sessix = sess2use
             xline(-0.9,'k--','LineWidth',1)
             xline(-2.2,'k--','LineWidth',1)
         end
+        sgtitle(['Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
     end
-    sgtitle([meta(sessix).anm, meta(sessix).date])
 end

@@ -37,6 +37,7 @@ for i = 1:4
     end
     ax = gca;
     shadedErrorBar(time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',linestyle},alph,ax); hold on;
+    set(gca,'TickDir','out');
 end
 sample = mode(obj(1).bp.ev.sample) - mode(obj(1).bp.ev.goCue);      % Timing of sample, delay and trialstart for plotting
 delay = mode(obj(1).bp.ev.delay) - mode(obj(1).bp.ev.goCue);

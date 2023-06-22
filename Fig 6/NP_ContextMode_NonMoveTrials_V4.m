@@ -293,11 +293,12 @@ allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Th
 for ii = 1:length(popfns)
     cont = popfns{ii};  
 %     hyp.(cont) = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
-    hyp.(cont) = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
+    [hyp.(cont),pval.(cont)] = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 disp('---Summary Statistics for average ITI context selectivity---')
 disp(['For significance cutoff ' num2str(sigcutoff) ' :'])
-hyp
+%hypS
+pval
 disp(['Nsessions = ' num2str(length(meta))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)

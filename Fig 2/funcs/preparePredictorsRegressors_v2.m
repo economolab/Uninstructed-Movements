@@ -1,5 +1,5 @@
-function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params) 
-% predict 'trialdat' from par.feats (kinematic features of interest)
+function [X,Y,par] = preparePredictorsRegressors_v2(par, sessix, kin, regr,params) 
+% predict single trial projections onto CDs from par.feats (kinematic features of interest)
 
 
     stdcutoff = 100;                                                                    % Cut-off for determining outlier kinematic values 
@@ -7,33 +7,33 @@ function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params)
     % trials
     par.trials.all = cell2mat(params(sessix).trialid(par.cond2use)');                   % All trials from all conditions you are decoding for
 
-    nTrials = numel(par.trials.all);                                                    % Total num of trials
-    nTrain = floor(nTrials*par.train);                                                  % Num trials that go in the training set 
-    if par.train==1
-        par.trials.train = par.trials.all;
-        par.trials.test = [];
-    else
-        %randsample(par.trials.all,nTrain,false);
-        % par.trials.test = par.trials.all(~ismember(par.trials.all,par.trials.train));
-    end
+    % get DR rhit and DR lhit trials so that we can match them
+    % up with the test trials later
+    par.trials.Rhit = params(sessix).trialid{par.cond2use(1)}; 
+    par.trials.Lhit = params(sessix).trialid{par.cond2use(2)}; 
     
+    % partition train and test
+    nTrials = numel(par.trials.all);
+    nTrain = floor(nTrials*par.train);
+    par.trials.train = randsample(par.trials.all,nTrain,false);                         % Trials for training set
+    par.trials.test = par.trials.all(~ismember(par.trials.all,par.trials.train));       % Trials for testing set 
 
     % input data (kinematic data)                           
     par.featix = find(ismember(kin(sessix).featLeg,par.feats));                         % Find any feature indices that contain the strings in 'par.feats'
 
-    X.train = kin(sessix).dat_std(par.timerange,par.trials.train,par.featix);                           % (time,trials,feats)
-    X.train = fillmissing(X.train,'constant',0);    % Make NaNs into zeros
-    outlierx = find(abs(X.train)>stdcutoff);              % If any of the regressors (movement values) have a very large value (greater than 100), label it as an outlier
+    X.train = kin(sessix).dat_std(par.timerange,par.trials.train,par.featix);           % (time,trials,feats)
+    X.train = fillmissing(X.train,'constant',0);                                        % Make NaNs into zeros
+    outlierx = find(abs(X.train)>stdcutoff);                                            % If any of the regressors (movement values) have a very large value (greater than 100), label it as an outlier
     if ~isempty(outlierx)                   
-        X.train(outlierx) = 0;                      % Set these outlier values to 0
+        X.train(outlierx) = 0;                                                          % Set these outlier values to 0
     end
-    
-    X.size = size(X.train);
-    X.train = reshape(X.train, size(X.train,1)*size(X.train,2),size(X.train,3));        % (time * trials, feats)
+    X.size.train = size(X.train);
+    X.train = reshape(X.train, size(X.train,1)*size(X.train,2),size(X.train,3));        % RESHAPE to: (time * trials, feats)
 
-    X.test = kin(sessix).dat_std(par.timerange,par.trials.test,par.featix);                             % (time,trials,feats)
-    X.test = permute(X.test,[1 3 2]);
-    X.test = reshape(X.test, size(X.test,1)*size(X.test,2),size(X.test,3));
+    
+    X.test = kin(sessix).dat_std(par.timerange,par.trials.test,par.featix);             % (time,trials,feats)
+    X.size.test = size(X.test);
+    X.test = reshape(X.test, size(X.test,1)*size(X.test,2),size(X.test,3));             % RESHAPE to: (time * trials, feats)
 
     % reshape train and test data to account for prediction bin size
     X.train = reshapePredictors(X.train,par);                                           % (time*trials, binWidth, feats)
@@ -45,13 +45,15 @@ function [X,Y] = preparePredictorsRegressors(par, sessix, kin, regr,params)
     X.test = reshape(X.test,size(X.test,1),size(X.test,2)*size(X.test,3));
 
     % output data
-    Y.train = regr(sessix).singleProj(par.timerange,par.trials.train);                              % (time,trials);
-    Y.size = size(Y.train);
+    Y.train = regr(sessix).singleProj(par.timerange,par.trials.train);                  % (time,trials);
+    Y.size.train = size(Y.train);
     Y.train = reshape(Y.train, size(Y.train,1)*size(Y.train,2),size(Y.train,3));        % (time * trials)
 
     Y.test = regr(sessix).singleProj(par.timerange,par.trials.test);
+    Y.size.test = size(Y.test);
     Y.test = reshape(Y.test, size(Y.test,1)*size(Y.test,2),size(Y.test,3));
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % standardize data
     % standardize both train and test sets using train set statistics
     % can also standardize using specific time points (presample for example)

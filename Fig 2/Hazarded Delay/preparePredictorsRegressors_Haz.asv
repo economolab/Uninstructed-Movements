@@ -19,19 +19,15 @@ function [X,Y,delLength,par] = preparePredictorsRegressors_Haz(par, sessix, kin,
     lengths = unique(delLength);
     deltrain = [];
     deltest = [];
-    for dd = 1:length(lengths)
-            delixs = find(delLength==lengths(dd));
+    for del = 1:length(lengths)
+            delixs = find(delLength==lengths(del));
             nTrials = length(delixs);
-            if nTrials ~= 1
             nTrain = floor(nTrials*par.train);
             temptrain = randsample(delixs,nTrain,false);                         % Trials for training set
-            trainix = delixs(ismember(delixs,temptrain));
-            testix = delixs(~ismember(delixs,temptrain));
-            else
-                trainix = delixs;
-            end
-            deltrain = [deltrain; trainix];
-            deltest = [deltest; testix];
+            
+            temptest = find(~ismember(delixs,temptrain));
+            deltrain = [deltrain; temptrain];
+            deltest = [deltest; temptest];
     end
     par.trials.train = deltrain;
     par.trials.test = deltest;       % Trials for testing set 
