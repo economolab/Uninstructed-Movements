@@ -292,7 +292,7 @@ sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
 for ii = 1:length(popfns)
     cont = popfns{ii};  
-%     hyp.(cont) = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
+    [hyp.(cont),pval.(cont)] = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
     [hyp.(cont),pval.(cont)] = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 disp('---Summary Statistics for average ITI context selectivity---')
@@ -303,7 +303,7 @@ disp(['Nsessions = ' num2str(length(meta))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% Bar plot + scatter plot of avg presample CDContext on move trials vs non-move trials
-plotBarPlot_Scatter_WLines(presampavgnorm,meta)
+plotBarPlot_Scatter_WLines(presampavg,meta)
 %% Plotting functions
 
 function LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
@@ -376,6 +376,7 @@ for po = 1:length(popfns)
     xline(times.samp,'k--','LineWidth',1)
     xlim([times.trialstart 0])
     ylabel(cont)
+    set(gca,'TickDir','out');
     title('All trials')
     cnt = cnt+1;
 
@@ -403,6 +404,7 @@ for po = 1:length(popfns)
 %        xline(0,'k--','LineWidth',1)
         xline(times.samp,'k--','LineWidth',1)
         xlim([times.trialstart 0])
+        set(gca,'TickDir','out');
         ylabel('Selectivity (a.u.)')
         legend({movefns{1} movefns{2}})
     end
@@ -443,6 +445,7 @@ for ii  = 1:3
     for sessix = 1:length(meta)
         plot(xx,[presampavgnorm.(cont).Move(sessix),presampavgnorm.(cont).noMove(sessix)],'Color','black')
     end
+    set(gca,'TickDir','out');
 end
 % ylim([0 1])
 end

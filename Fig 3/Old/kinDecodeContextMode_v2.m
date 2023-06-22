@@ -1,22 +1,23 @@
+
 clear,clc,close all
 
-% add paths for data loading scripts, all fig funcs, and utils
-utilspth = 'C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements_v3';
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-rmpath(genpath(fullfile(utilspth,'fig3/')))
-rmpath(genpath(fullfile(utilspth,'fig2/')))
-rmpath(genpath(fullfile(utilspth,'figx/')))
-rmpath(genpath(fullfile(utilspth,'mc_stim/')))
-rmpath(genpath(fullfile(utilspth,'MotionMapper/')))
-rmpath(genpath(fullfile(utilspth,'musall2019/')))
-
-% add paths for figure specific functions
-addpath(genpath(pwd))
-
-clc
-
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -62,29 +63,25 @@ params.advance_movement = 0.0;
 
 %% SPECIFY DATA TO LOAD
 
-datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 meta = [];
 
 % --- ALM ---
-% meta = loadJEB6_ALMVideo(meta,datapth);
-% meta = loadJEB7_ALMVideo(meta,datapth); % selectivity in ME
-% meta = loadEKH1_ALMVideo(meta,datapth); % selectivity in ME
-% meta = loadEKH3_ALMVideo(meta,datapth); % selectivity in ME
-% meta = loadJGR2_ALMVideo(meta,datapth);
-% meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB13_ALMVideo(meta,datapth);
-% meta = loadJEB14_ALMVideo(meta,datapth); % selectivity in ME % go cue is at 2.3 instead of 2.5 like all other sessions??
-% meta = loadJEB15_ALMVideo(meta,datapth);
+meta = loadJEB6_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth); % selectivity in ME
+meta = loadEKH1_ALMVideo(meta,datapth); % selectivity in ME
+meta = loadEKH3_ALMVideo(meta,datapth); % selectivity in ME
+meta = loadJGR2_ALMVideo(meta,datapth);
+meta = loadJGR3_ALMVideo(meta,datapth);
 meta = loadJEB19_ALMVideo(meta,datapth);
 
-
-% --- M1TJ ---
-% meta = loadJEB14_M1TJVideo(meta,datapth);
-
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
-
-
 %% LOAD DATA
 
 [obj,params] = loadSessionData(meta,params);

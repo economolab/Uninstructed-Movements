@@ -1,22 +1,23 @@
+
 clear,clc,close all
 
-% add paths for data loading scripts, all fig funcs, and utils
-utilspth = 'C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements_v3';
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
 addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
 addpath(genpath(fullfile(utilspth,'funcs')));
 addpath(genpath(fullfile(utilspth,'utils')));
-rmpath(genpath(fullfile(utilspth,'fig3/')))
-rmpath(genpath(fullfile(utilspth,'fig2/')))
-rmpath(genpath(fullfile(utilspth,'figx/')))
-rmpath(genpath(fullfile(utilspth,'mc_stim/')))
-rmpath(genpath(fullfile(utilspth,'MotionMapper/')))
-rmpath(genpath(fullfile(utilspth,'musall2019/')))
-
-% add paths for figure specific functions
-addpath(genpath(pwd))
-
-clc
-
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
@@ -61,7 +62,11 @@ params.advance_movement = 0.0;
 
 %% SPECIFY DATA TO LOAD
 
-datapth = '/Users/Munib/Documents/Economo-Lab/data/';
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
 
 meta = [];
 
@@ -72,15 +77,7 @@ meta = loadEKH1_ALMVideo(meta,datapth); % selectivity in ME
 meta = loadEKH3_ALMVideo(meta,datapth); % selectivity in ME
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB13_ALMVideo(meta,datapth);
-% meta = loadJEB14_ALMVideo(meta,datapth); % selectivity in ME % go cue is at 2.3 instead of 2.5 like all other sessions??
-% meta = loadJEB15_ALMVideo(meta,datapth);
 meta = loadJEB19_ALMVideo(meta,datapth);
-
-
-% --- M1TJ ---
-% meta = loadJEB14_M1TJVideo(meta,datapth);
-
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
 
@@ -94,33 +91,27 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 
-%% CODING DIMENSIONS
-
 clearvars -except obj meta params sel_corr_mat datapth me kin
-
+%% CODING DIMENSIONS
 % % 2afc (early, late, go)
-cond2use = [2 3]; % left hit, right hit
-cond2proj = [2 3 4 5 6 7 8 9];
-rez_2afc = getCodingDimensions_2afc(obj,params,cond2use,cond2proj, 1);
+% cond2use = [2 3]; % left hit, right hit
+% cond2proj = [2 3 4 5 6 7 8 9];
+% rez_2afc = getCodingDimensions_2afc(obj,params,cond2use,cond2proj, 1);
 
 % % aw (context mode)
 cond2use = [6 7]; % hit 2afc, hit aw
 cond2proj = [2 3 4 5 6 7 8 9];
 rez_aw = getCodingDimensions_aw(obj,params,cond2use,cond2proj);
 
-
-allrez = concatRezAcrossSessions(rez_2afc,rez_aw);
+%allrez = concatRezAcrossSessions(rez_2afc,rez_aw);
 
 %% CONTEXT MODE ON SINGLE TRIALS
 
-% CHANGE this to CDchoice/ramp %%%%%%%%%%%%%%%%
-
+% cond2use = [6 7]; % hit 2afc, hit aw
 for sessix = 1:numel(meta)
     Wcontext = rez_aw(sessix).cd_mode_orth;
     trialdat{sessix} = tensorprod(obj(sessix).trialdat,Wcontext,2,1); % (time,trials)
 end
-
-
 %% DECODING PARAMETERS
 
 % input data = neural data (time*trials,neurons)
@@ -163,9 +154,6 @@ par.lambdas = logspace(-3,3,20); % regularization parameters to search over. don
 
 close all
 
-cmapfn = 'ContextColormap.mat'; % CHANGE probably
-temp = load(fullfile('C:\Users\munib\Documents\Economo-Lab\code\uninstructedMovements_v3\utils',cmapfn));
-contextcmap = flipud(temp.ContextColormap);
 
 for sessix = 1:numel(meta) % 7 is the example session for CDcontext
     disp([num2str(sessix) ' / ' num2str(numel(meta))])
@@ -253,6 +241,9 @@ for sessix = 1:numel(meta) % 7 is the example session for CDcontext
     [~,bestmodel] = min(mdl_loss);
     testmdl = mdl.Trained{bestmodel}; % we now have the best lambda, and the trained model with that lambda,
     
+    % Save the predictor coefficients from the testmdl
+    loadings(:,sessix) = testmdl.Beta;  % Average the coefficients for each predictor term across folds; save these for each time point
+
     pred = testmdl.predict(X.test);
 
     % the R-squared should be for the data we plot in the scatterplots (for
@@ -279,187 +270,244 @@ for sessix = 1:numel(meta) % 7 is the example session for CDcontext
     yhatwc = yhat(:,wc_trials); %% CHANGE %%%%%%%%%%%%
 
 
-    %% PLOTS
-
-    % heatmaps
-
-
-    cols = getColors;
-    sm = 31;
-    alph = 0.2;
-    xlims = [-2.5 2.5];
-    lw = 2;
-
-    heatmapsm = 11;
-
-    f = figure;
-    f.Renderer = 'painters';
-    ax = subplot(1,2,1);
-    hold on;
-    temp = mySmooth(cat(2,ydr,ywc),heatmapsm);
-
-    imagesc(obj(sessix).time,1:size(y,2),temp');
-    ax.YDir = "reverse";
-    yline(size(ydr,2),'k-');
-    xline(sample,'k--')
-    xline(delay,'k--')
-    xline(gc,'k--')
-    colormap(contextcmap)
-    title('data')
-    c1 = colorbar;
-    ylim(ax,[1 size(y,2)])
-    % change tick direction to outside
-    ax.TickDir = 'out';
-
-    ax = subplot(1,2,2);
-
-    temp = mySmooth(cat(2,yhatdr,yhatwc),heatmapsm);
-    imagesc(obj(sessix).time,1:size(yhat,2),temp');
-    ax.YDir = "reverse";
-    yline(size(ydr,2),'k-','linewidth',0.1);
-    xline(sample,'k--','linewidth',0.1)
-    xline(delay,'k--','linewidth',0.1)
-    xline(gc,'k--','linewidth',0.1)
-    colormap(contextcmap)
-    title('prediction')
-    c2 = colorbar;
-    ylim(ax,[1 size(y,2)])
-    % change tick direction to outside
-    ax.TickDir = 'out';
-
-
-    %% trial-averaged plot
-
-
-    mu.ydr = mean(ydr,2,'omitmissing');
-    mu.ywc = mean(ywc,2,'omitmissing');
-    mu.yhatdr = mean(yhatdr,2,'omitmissing');
-    mu.yhatwc = mean(yhatwc,2,'omitmissing');
-
-    sd.ydr = getCI(ydr); % 95% CI
-    sd.ywc = getCI(ywc);
-    sd.yhatdr = getCI(yhatdr);
-    sd.yhatwc = getCI(yhatwc);
-
-
-    fns = fieldnames(mu);
-    for i = 1:numel(fns)
-        mu.(fns{i}) = mySmooth(mu.(fns{i}),sm,'reflect');
-        sd.(fns{i}) = mySmooth(sd.(fns{i}),sm,'reflect');
+end
+%%
+binWidth = par.pre-par.post;
+featid =[];
+for ff = 1:numel(par.feats)
+    temp = cell(1,binWidth);
+    for bb = 1:binWidth
+        temp{bb} = par.feats{ff};
     end
-
-
-    f = figure;
-    f.Position = [644   483   338   231];
-    ax = gca;
-    f.Renderer = 'painters';
-    ax = prettifyPlot(ax);
-    hold on;
-    shadedErrorBar(obj(1).time,mu.ydr,sd.ydr,{'Color',cols.afc,'LineWidth',lw,'LineStyle','-'},alph,ax)
-    shadedErrorBar(obj(1).time,mu.ywc,sd.ywc,{'Color',cols.aw,'LineWidth',lw,'LineStyle','-'},alph,ax)
-    shadedErrorBar(obj(1).time,mu.yhatdr,sd.yhatdr,{'Color',cols.afc,'LineWidth',lw,'LineStyle','--'},alph,ax)
-    shadedErrorBar(obj(1).time,mu.yhatwc,sd.yhatwc,{'Color',cols.aw,'LineWidth',lw,'LineStyle','--'},alph,ax)
-    % ax.FontSize = 10;
-    xlim(xlims)
-    xline(sample,'k--')
-    xline(delay,'k--')
-    xline(gc,'k--')
-
-    ylabel('CD Context projection')
-    xlabel('Time from go cue (s)')
-    % title(t,['R^2 = ' num2str(round(r2,2))])  
-    
-    %% scatter plot of average iti activity
-
-    % CHANGE - time points to use
-    tix = [-2.4,-2.2]; % presample 
-    % tix = [-2.4,2.4];
-    ix = findTimeIX(obj(1).time,tix);
-    ix = ix(1):ix(2);
-
-    % mean across time points
-    sdr = mean(ydr(ix,:),1,'omitmissing');
-    shatdr = mean(yhatdr(ix,:),1,'omitmissing');
-    swc = mean(ywc(ix,:),1,'omitmissing');
-    shatwc = mean(yhatwc(ix,:),1,'omitmissing');
-
-    % fit a linear model, use coefficients to plot line and get var exp
-    xxx = cat(2,sdr,swc);
-    yyy = cat(2,shatdr,shatwc);
-    mdl_ = fitlm(xxx,yyy);
-    r2(sessix) = mdl_.Rsquared.Ordinary;
-
-    W = mdl_.Coefficients.Estimate; % intercept, x1; slope, x2
-
-
-    f = figure;
-    f.Position = [644   483   338   231];
-    ax = gca;
-    f.Renderer = 'painters';
-    ax = prettifyPlot(ax);
-    hold on;
-    scatter(shatdr,sdr,30,'filled','MarkerEdgeColor','none','MarkerFaceColor',cols.afc);
-    scatter(shatwc,swc,30,'filled','MarkerEdgeColor','none','MarkerFaceColor',cols.aw);
-    xlabel('CD Context, prediction')
-    ylabel('CD Context, data')
-    thisr2 = round(r2(sessix),2);
-    title(['R^2 = ' num2str(thisr2) ])
-    xs = ax.XLim;
-    xs = linspace(xs(1),xs(2),100); % plot best fit line
-    rr =  xs.* W(2) + W(1);
-    plot(xs,rr,'k--')
-    axis square
-
+    featid = [featid,temp];
+end
+%% Normalize all of the beta coefficients to be a fraction of 1
+clear temp
+featgroups = {'jaw','nos','motion_energy'};
+epochfns = {'delay'};
+totalnormfeats = NaN(length(meta),length(featgroups));
+for sessix = 1:length(meta)
+    totalbeta = sum(abs(loadings(:,sessix)));
+    allLoadings(sessix).totalbeta = totalbeta;
+    for group = 1:length(featgroups)
+        temp = zeros(1,length(featid));
+        currgroup = featgroups{group};
+        for feat = 1:length(featid)
+            currfeat = featid{feat};
+            temp(feat) = contains(currfeat,currgroup);
+        end
+        groupixs = find(temp);
+        allLoadings(sessix).(currgroup) = abs(loadings(groupixs, sessix));
+    end
 end
 
-%% r2 bar plot
-
-f = figure;
-f.Position = [748   394   193   272];
-ax = gca;
-f.Renderer = 'painters';
-ax = prettifyPlot(ax);
-hold on;
-
-dat = r2;
-
-
-xs = 0;
-for i = 1:numel(xs)
-    b(i) = bar(xs(i),mean(dat,'omitmissing'));
-    b(i).FaceColor = [0.5 0.5 0.5]; %[143, 49, 139] ./ 255; % 143, 49, 139
-    b(i).EdgeColor = 'none';
-    % b(i).FaceAlpha = 0.5;
-    b(i).BarWidth = 0.7;
-    vs(i) = scatter(xs(i)*ones(numel(dat),1),dat,50,'MarkerFaceColor','none',...
-        'MarkerEdgeColor','k','XJitter','randn','XJitterWidth',0.25);
-    errorbar(b(i).XEndPoints,nanmean(dat),nanstd(dat),'LineStyle','none','Color','k','LineWidth',1)
+totalnormfeats = NaN(length(meta),length(featgroups));
+for group = 1:length(featgroups)
+    currgroup = featgroups{group};
+    for sessix = 1:length(meta)
+        groupLoad = allLoadings(sessix).(currgroup);
+        grouptotal = sum(groupLoad,'omitnan');
+        grouprelative = grouptotal / allLoadings(sessix).totalbeta;
+        grouprelative = grouprelative/(length(groupLoad));
+        totalnormfeats(sessix,group) = grouprelative;
+    end
 end
-ax.XTick = [];
-ylabel("R^2")
-ax = gca;
-% ax.FontSize = 12;
 
+for sessix = 1:length(meta)
+    currsess = totalnormfeats(sessix,:);
+    tot = sum(currsess,'omitnan');
+    totalnormfeats(sessix,:) = currsess./tot;
+end
 
+% Get all ME vals
+MEix = find(strcmp(featgroups,'motion_energy'));
+MEvals = totalnormfeats(:,MEix);
+[~,sortix] = sort(MEvals,'descend');
+totalnormfeats = totalnormfeats(sortix,:);
+%% Make a stacked bar plot to show across sessions that it varies which feature group contributes most to predicting CDTrialType
+bar(totalnormfeats,'stacked')
+legend(featgroups,'Location','best')
+xlabel('Session #')
+ylabel('Sum of beta coefficients for each feature group')
 
+%%
+% feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+% featix = NaN(1,length(feat2use));
+% for f = 1:length(feat2use)
+%     currfeat = feat2use{f};
+%     currix = find(strcmp(kin(1).featLeg,currfeat));
+%     featix(f) = currix;
+% end
+% 
+% cond2use = [6 7];
+% condfns = {'2AFC hit','AW hit'};
+% trix2use = 20;
+% 
+% times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
+% times.startix = find(obj(1).time>times.start,1,'first');
+% times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+% times.stopix = find(obj(1).time<times.stop,1,'last');
+% 
+% del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
+% delix = find(obj(1).time>del,1,'first');
+% go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+% goix = find(obj(1).time<go,1,'last');
+% resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+% respix = find(obj(1).time<resp,1,'last');
+% 
+% sm = 31;
+% ptiles = [92 95 20];
+% 
+% sortedSess2use = 11;
+% sessix = sortix(sortedSess2use);
+% 
+% 
+% for c = 1:length(cond2use)
+%     allkin = [];
+%     figure();
+%     cond = cond2use(c);
+%     condtrix = params(sessix).trialid{cond};
+%     ntrials = length(condtrix);
+%     randtrix = randsample(condtrix,trix2use);
+%     for f = 1:length(featix)
+%         currfeat = featix(f);
+%         
+%         % ^ Don't actually want to max normalize because then will be
+%         % normalizing by an outlier value probably
+% 
+%         % Want to normalize to the 90-99th percentile of values to account
+%         % for more of the data
+%    
+%         if strcmp(feat2use{f},'tongue_length')
+%             currkin = kin(sessix).dat(times.startix:goix,randtrix,currfeat);
+%             abskin = abs(currkin);
+%             normkin = abskin./prctile(abskin(:), ptiles(f));
+%             normkin(normkin>1) = 1;
+%         else
+%             currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+%             abskin = abs(currkin);
+%             normkin = abskin./prctile(abskin(:), ptiles(f));
+%             normkin(normkin>1) = 1;
+%         end                                                                  % Will end up with values greater than 1 in this case--set these to 1
+% 
+%         allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+%     end
+% 
+%     allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+%     RI = imref2d(size(allkin));
+%     RI.XWorldLimits = [0 3];
+%     RI.YWorldLimits = [2 5];
+%     IMref = imshow(allkin, RI,'InitialMagnification','fit');
+%     title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+% end
+%%
+feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+featix = NaN(1,length(feat2use));
+for f = 1:length(feat2use)
+    currfeat = feat2use{f};
+    currix = find(strcmp(kin(1).featLeg,currfeat));
+    featix(f) = currix;
+end
 
+cond2use = [6 7];
+condfns = {'2AFC hit','AW hit'};
+trix2use = 20;
 
+times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
+times.startix = find(obj(1).time>times.start,1,'first');
+times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+times.stopix = find(obj(1).time<times.stop,1,'last');
 
+del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
+delix = find(obj(1).time>del,1,'first');
+go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
+goix = find(obj(1).time<go,1,'last');
+resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
+respix = find(obj(1).time<resp,1,'last');
 
+sm = 31;
+ptiles = [94 98 96];
 
+sortedSess2use = [1 7];
 
+for ss = 1:length(sortedSess2use)
+    sessix = sortix(sortedSess2use(ss));
 
+    for c = 1:length(cond2use)
+        allkin = [];
+        figure();
+        cond = cond2use(c);
+        condtrix = params(sessix).trialid{cond};
+        ntrials = length(condtrix);
+        randtrix = randsample(condtrix,trix2use);
+        for f = 1:length(featix)
+            currfeat = featix(f);
 
+            % ^ Don't actually want to max normalize because then will be
+            % normalizing by an outlier value probably
 
+            % Want to normalize to the 90-99th percentile of values to account
+            % for more of the data
 
+            if strcmp(feat2use{f},'motion_energy')
+                currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            else
+                currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
+                abskin = abs(currkin);
+                normkin = abskin./prctile(abskin(:), ptiles(f));
+                normkin(normkin>1) = 1;
+            end                                                                  % Will end up with values greater than 1 in this case--set these to 1
 
+            allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
+        end
 
+        allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
+        RI = imref2d(size(allkin));
+        RI.XWorldLimits = [0 3];
+        RI.YWorldLimits = [2 5];
+        IMref = imshow(allkin, RI,'InitialMagnification','fit');
+        title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use(ss)) ' ; ' condfns{c}])
+    end
+end
+%%
+sortedSess2use = 7;
+sess2use = sortix(sortedSess2use);
 
+% Plot all features for the same trial in one subplot
 
-
-
-
-
-
-
-
+colors = {[1 0 0],[0 1 0],[0 0 1]};
+nTrixPlot = 9;
+offset = 3;
+sm = 20;
+for sessix = sess2use
+    for c = 1:length(cond2use)
+        figure();
+        condtrix = params(sessix).trialid{cond2use(c)};
+        trix = randsample(condtrix,nTrixPlot);
+        for tt = 1:nTrixPlot
+            subplot(3,3,tt)
+            for feat = 1:length(featix)
+                if strcmp(feat2use{feat},'tongue_length')
+                    condkin = kin(sessix).dat(:,trix(tt),featix(feat));
+                    condkin = condkin./prctile(condkin(:), 1);
+%                     condkin(condkin>1) = 1;
+                    toplot = offset*feat+abs(condkin(:,:,:));
+                else
+                    condkin = kin(sessix).dat_std(:,trix(tt),:);
+                    toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
+                end
+                plot(obj(sessix).time,toplot,'LineWidth',2,'Color',colors{feat}); hold on;
+            end
+            title(feat2use(feat))
+            xlabel('Time from go cue (s)')
+            ylim([2 14])
+            xlim([-2.5 0])
+            xline(-0.9,'k--','LineWidth',1)
+            xline(-2.2,'k--','LineWidth',1)
+        end
+        sgtitle(['Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+    end
+end
