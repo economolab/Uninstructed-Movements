@@ -357,20 +357,20 @@ for po = 1:length(popfns)
     cont = popfns{po};
     switch cont
         case 'fullpop'
-        yl = [0 0.5];
+        yl = [0 0.55];
         col = [0.25 0.25 0.25];
         case 'null'
-        yl = [0 0.5];
+        yl = [0 0.55];
         col = colors.null;
         case 'potent'
-        yl = [0 0.5];
+        yl = [0 0.55];
         col = colors.potent;
     end
     subplot(3,2,cnt)
     ax = gca;
     toplot = mean(all_grouped.(cont).all.selectivity,2,'omitnan');
-    err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
-    %err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
+%     err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
+    err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
     ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
@@ -392,8 +392,8 @@ for po = 1:length(popfns)
         subplot(3,2,cnt)
         ax = gca;
         toplot = mean(all_grouped.(cont).(movefns{gg}).selectivity,2,'omitnan');
-        err = std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions);
-        %err = 1.96*(std(all_grouped.(cont).selectivity{gg},0,2,'omitnan')./sqrt(nSessions));
+%         err = std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions);
+        err = 1.96*(std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions));
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
 
