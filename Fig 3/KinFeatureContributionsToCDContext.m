@@ -481,19 +481,23 @@ for ss = 1:length(sortedSess2use)
         RI.YWorldLimits = [2 5];
         IMref = imshow(allkin, RI,'InitialMagnification','fit');
         title(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use(ss)) ' ; ' condfns{c}])
+        xlabel([meta(sessix).anm meta(sessix).date])
     end
 end
 %%
-sortedSess2use = 7;
-sess2use = sortix(sortedSess2use);
 
 % Plot all features for the same trial in one subplot
 
 colors = {[1 0 0],[0 1 0],[0 0 1]};
 nTrixPlot = 9;
 offset = 3;
-sm = 20;
-for sessix = sess2use
+sm = 10;
+
+sortedSess2use = [1];
+
+for ss = 1:length(sortedSess2use)
+    sessix = sortix(sortedSess2use(ss));
+    
     for c = 1:length(cond2use)
         figure();
         condtrix = params(sessix).trialid{cond2use(c)};
@@ -519,6 +523,7 @@ for sessix = sess2use
             xline(-0.9,'k--','LineWidth',1)
             xline(-2.2,'k--','LineWidth',1)
         end
-        sgtitle(['Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+        sgtitle(['RGB = ' feat2use '; Sorted session ' num2str(sortedSess2use(ss)) ' ; ' condfns{c}])
+        xlabel([meta(sessix).anm meta(sessix).date])
     end
 end

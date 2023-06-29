@@ -91,7 +91,7 @@ conds = [5 6 7 8];
 figure(2)
 plotLickRaster(sessix,clrs,obj,params,'AW',conds);
 %% For supplement: show what tongue looks like during the stim period
-sessix = 6;
+sessix = 2;
 
 trix2plot = 10;
 smooth = 31;

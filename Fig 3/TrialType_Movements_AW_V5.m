@@ -1,7 +1,7 @@
 % DECODING CDlate FROM ALL KINEMATIC FEATURES
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -146,7 +146,7 @@ colors = {[1 0 0],[0 1 0],[0 0 1]};
 nTrixPlot = 16;
 offset = 3;
 sm = 31;
-cond2use = 3;
+cond2use = 2;
 for sessix = sess2use
     figure();
     for c = 1:length(cond2use)

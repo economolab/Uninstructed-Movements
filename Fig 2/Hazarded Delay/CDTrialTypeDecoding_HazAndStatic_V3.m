@@ -221,7 +221,7 @@ par.timerange = 1:stop;
 par.nFolds = 4;
 
 % data sets
-par.train = 0.5; % fraction of trials
+par.train = 1; % fraction of trials
 par.test = 1 - par.train;
 
 % feature to use to decode

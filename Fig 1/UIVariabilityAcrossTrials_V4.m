@@ -65,15 +65,16 @@ end
 meta = [];
 
 % --- ALM ---
-% meta = loadJEB13_ALMVideo(meta,datapth);
+meta = loadJEB13_ALMVideo(meta,datapth);
 % meta = loadJEB6_ALMVideo(meta,datapth);
 % meta = loadJEB7_ALMVideo(meta,datapth);
 % meta = loadEKH1_ALMVideo(meta,datapth);
 % meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
 % meta = loadJGR3_ALMVideo(meta,datapth);
 % meta = loadJEB14_ALMVideo(meta,datapth);
 % meta = loadJEB15_ALMVideo(meta,datapth);
+% meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -102,7 +103,8 @@ for sessix = 1:numel(meta)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
 %%
-feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+% feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'top_paw_yvel_view2'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
     currfeat = feat2use{f};
@@ -129,7 +131,7 @@ respix = find(obj(1).time<resp,1,'last');
 sm = 31;
 ptiles = [94 98 96];
 
-sess2use = 2;
+sess2use = 1;
 
 for sessix = sess2use
     for c = 1:length(cond2use)
@@ -168,11 +170,10 @@ for sessix = sess2use
         RI.XWorldLimits = [0 3];
         RI.YWorldLimits = [2 5];
         IMref = imshow(allkin, RI,'InitialMagnification','fit');
-        title(['RGB = ' feat2use '; Sorted session ' num2str(sessix) ' ; ' condfns])
+        title([meta(sess2use).anm meta(sess2use).date '; ~early and ~no'])
     end
 end
 %%
-sess2use = sessix;
 
 % Plot all features for the same trial in one subplot
 
@@ -206,6 +207,6 @@ for sessix = sess2use
             xline(-0.9,'k--','LineWidth',1)
             xline(-2.2,'k--','LineWidth',1)
         end
-        sgtitle(['Sorted session ' num2str(sortedSess2use) ' ; ' condfns{c}])
+        sgtitle([meta(sess2use).anm meta(sess2use).date '; ~early and ~no'])
     end
 end
