@@ -254,37 +254,37 @@ clear temp
 featgroups = {'nos','jaw','motion_energy'};
 epochfns = {'delay'};
 totalnormfeats = NaN(length(meta),length(featgroups));
-for sessix = 1:length(meta)
-    totalbeta = sum(abs(loadings(:,sessix)));
+for sessix = 1:length(meta)                             
+    totalbeta = sum(abs(loadings(:,sessix)));                               % Add up all of the abs value of beta coefficients used in the model 
     allLoadings(sessix).totalbeta = totalbeta;
-    for group = 1:length(featgroups)
+    for group = 1:length(featgroups)                                        % For each feature group...
         temp = zeros(1,length(featid));
         currgroup = featgroups{group};
-        for feat = 1:length(featid)
+        for feat = 1:length(featid)                                         % For each regressor... 
             currfeat = featid{feat};
-            temp(feat) = contains(currfeat,currgroup);
+            temp(feat) = contains(currfeat,currgroup);                      % Ask whether the current regressor is in the current feature group
         end
-        groupixs = find(temp);
-        allLoadings(sessix).(currgroup) = abs(loadings(groupixs, sessix));
+        groupixs = find(temp);                                              
+        allLoadings(sessix).(currgroup) = abs(loadings(groupixs, sessix));  % Get all of the beta coefficients that are a part of this feature group
     end
 end
 
 totalnormfeats = NaN(length(meta),length(featgroups));
-for group = 1:length(featgroups)
+for group = 1:length(featgroups)                                            % For all feature groups...
     currgroup = featgroups{group};
-    for sessix = 1:length(meta)
-        groupLoad = allLoadings(sessix).(currgroup);
-        grouptotal = sum(groupLoad,'omitnan');
-        grouprelative = grouptotal / allLoadings(sessix).totalbeta;
-        grouprelative = grouprelative/(length(groupLoad));
+    for sessix = 1:length(meta)                                             % For all sessions...
+        groupLoad = allLoadings(sessix).(currgroup);                        % Get the loadings for all features in this group
+        grouptotal = sum(groupLoad,'omitnan');                              % Get the sum of all of these loadings
+        grouprelative = grouptotal / allLoadings(sessix).totalbeta;         % Fraction of the total beta coefficients
+        grouprelative = grouprelative/(length(groupLoad));                  % Normalized by number of features in the group
         totalnormfeats(sessix,group) = grouprelative;
     end
 end
 
-for sessix = 1:length(meta)
+for sessix = 1:length(meta)                                         
     currsess = totalnormfeats(sessix,:);
-    tot = sum(currsess,'omitnan');
-    totalnormfeats(sessix,:) = currsess./tot;
+    tot = sum(currsess,'omitnan');                                          % Add all of the feature beta coefficients up
+    totalnormfeats(sessix,:) = currsess./tot;                               % Divide all group beta coefficients by the total (so that they add up to one)
 end
 
 
