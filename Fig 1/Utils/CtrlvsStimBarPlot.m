@@ -8,8 +8,8 @@ if strcmp(condition,'2AFC')
     rcol = cols.rhit;
     lcol = cols.lhit;
 else
-    rcol = cols.rhit_aw;
-    lcol = cols.lhit_aw;
+    rcol = cols.rhit;
+    lcol = cols.lhit;
 end
 
 for x = 1:length(conds2plot)
@@ -36,7 +36,7 @@ for x = 1:length(conds2plot)
             case 1
                 shape = 'o';
             case 2
-                shape = '^';
+                shape = 'o';
         end
         xx = x*ones(length(anmix),1);
         scatter(xx,perf_all(anmix,x),'filled',shape,'MarkerFaceColor','black');
@@ -57,7 +57,10 @@ for test = 1:(length(conds2plot)/2)
         scatter(3.5,starheight,30,'*','MarkerEdgeColor','black')
     end
 end
+ax = gca;
 xlim([0 5])
 xticks([1,2,3,4])
 xticklabels({'L ctrl', 'L stim','R ctrl', 'R stim'})
+set(ax,'TickDir','out')
+% ax.TickLength = [0.5, 0.5]; % Make tick marks longer.
 end

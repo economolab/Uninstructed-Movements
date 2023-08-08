@@ -3,7 +3,7 @@
 % -------------------------------------------------------------------------------------
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -61,12 +61,14 @@ meta = loadMAH14_MCStim(meta,datapth);
 % obj (struct array) - one entry per session
 % params (struct array) - one entry per session
 % ----------------------------------------------
+disp('Loading behavior objects')
 [obj,params] = loadBehavSessionData(meta,params);
 for sessix = 1:length(obj)
     obj(sessix).time = params(sessix).tmin:params(sessix).dt:params(sessix).tmax;
 end
 %% Get kinematics
 for sessix = 1:length(meta)
+    disp(['Finding kinematics for session ' num2str(sessix) ' / ' num2str(length(meta))])
     kin(sessix) = getKinematics_NoME(obj(sessix),params(sessix));
 end
 %% 2AFC trials: top subplot = left trials (control on top, stim on bottom); bottom subplot = right trials (control on top, stim on bottom)
@@ -156,6 +158,12 @@ for sessix = 1:length(meta)
     end
     stimEffects(sessix).pctTime = pctTime;
 end
+%% Omit sessions based on whether the photoinhibition had an effect bilaterally or not
+sess2omit = [1; 1; 1; 0; 1; 1; 0; 0; 0; 0; 1; 1; 1; 0; 1];   % Based on other script (MCStim_AlternatingContext
+sess2omit = find(sess2omit);
+
+stimEffects(sess2omit) = [];
+
 %% Make bar plot comparing pct of time with tongue visible for each condition
 pctTime = [];
 for sess = 1:length(stimEffects)
@@ -163,7 +171,7 @@ for sess = 1:length(stimEffects)
 end
 
 cols = getColors();
-anmNames = {'MAH13','MAH13','MAH13','MAH13','MAH13','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14'};
+anmNames = {'MAH13','MAH14','MAH14','MAH14','MAH14','MAH14'};
 sigcutoff = 0.05;
 
 subplot(1,2,1)
@@ -182,7 +190,7 @@ clear temp
 
 subplot(1,2,2)
 condition = 'AW';
-starheight = 0.4;
+starheight = 0.23;
 temp = NaN(length(stimEffects),4);
 temp(:,1) = pctTime(:,5);
 temp(:,2) = pctTime(:,7);
@@ -190,7 +198,7 @@ temp(:,3) = pctTime(:,6);
 temp(:,4) = pctTime(:,8);
 AWpvals = CtrlvsStimBarPlot(cols,temp,anmNames,sigcutoff,starheight,condition);
 ylabel('Fraction of time')
-ylim([0 0.42])
+ylim([0 0.24])
 title('Autowater trials')
 clear temp
 sgtitle(['Frac of time with tongue visible--from ' num2str(stim.stimstart) ' to ' num2str(stim.stimstop) ' (s)'])
@@ -199,5 +207,6 @@ disp('---Pct of time with tongue visible for MC go cue photoinhibition---')
 disp(['p-values for 2AFC t-tests -- L: ' num2str(AFCpvals(1)) ' ; R: ' num2str(AFCpvals(2))])
 disp(['p-values for AW t-tests -- L: ' num2str(AWpvals(1)) ' ; R: ' num2str(AWpvals(2))])
 disp('Paired t-test')
+disp(['Number of sessions = ' num2str(length(stimEffects))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)

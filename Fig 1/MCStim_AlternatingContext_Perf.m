@@ -3,7 +3,7 @@
 % -------------------------------------------------------------------------------------
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -53,6 +53,7 @@ meta = loadMAH14_MCStim(meta,datapth);
 % obj (struct array) - one entry per session
 % params (struct array) - one entry per session
 % ----------------------------------------------
+disp('Loading behavior objects')
 [obj,params] = loadBehavSessionData(meta,params);
 %% 
 conds2use = 2:9;
@@ -121,7 +122,7 @@ clearvars -except obj meta rez params perf_all lickCutoff sess2omit
 %% Plot
 anmNames = {'MAH13','MAH13','MAH13','MAH13','MAH13','MAH13',...
     'MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14'};
-anmNames(sess2omit) = [];
+% anmNames(sess2omit) = [];
 cols = getColors();
 sigcutoff = 0.05;
 [AFCpval,AWpval] = plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff);
