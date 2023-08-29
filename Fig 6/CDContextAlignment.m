@@ -45,6 +45,10 @@ params.condition(end+1) = {'hit&~stim.enable&autowater'};                % all A
 params.condition(end+1) = {'miss&~stim.enable&~autowater'};              % error 2AFC, no stim, aw off
 params.condition(end+1) = {'miss&~stim.enable&autowater'};               % error AW, no stim
 
+params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % all 2AFC hits, ~early, no stim
+params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};                % all AW hits, ~early,no stim
+
+
 params.tmin = -3;
 params.tmax = 2.5;
 params.dt = 1/100;
@@ -142,166 +146,117 @@ disp('----Projecting single trials onto CDContext----')
 cd = 'context';
 
 [cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
-%% Plot heatmap of single trialCDContext Null and Potent over the course of a session
-% tmax = 0;                               % what you want max of xlim to be
-% for sessix = 1:length(meta)%sessrange
-%     plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax)
-% end
-% 
-% %% Find trials in which the animal switches between contexts
-% for sessix = 1:numel(meta)
-%     bp = obj(sessix).bp;
-%     [toAW_ix, toAFC_ix] = findSwitchTrials(bp);
-%     % toAW_ix = the first trial in an AW block; toAFC_ix = the first trial in a 2AFC block
-%     obj(sessix).toAW_ix = toAW_ix;  obj(sessix).toAFC_ix = toAFC_ix;
-% end
-% %% Find avg context mode across trials in a given session on switch trials
-% clear temp
-% nBufferTrials = 10;                              % Number of trials that you want to look at before and after switches
-% % Time period over which you want to average CDContext
-% trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
-% start = find(obj(1).time>trialstart,1,'first');
-% samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
-% stop = find(obj(1).time<samp,1,'last');
-% 
-% for s=1:2
-%     if s==1
-%         space = cd_null;
-%         spacename = 'Null';
-%     else
-%         space = cd_potent;
-%         spacename = 'Potent';
-%     end
-%     for sessix = 1:numel(meta)
-%         CDCont = space(sessix).singleProj.context;
-% 
-%         % Find avg CDContext on 2AFC --> AWswitch trials (during the presample period)
-%         switchtype = 'toAW_ix';
-%         contswitch(sessix).toAW_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
-% 
-%         % Find avg CDContext on AW --> 2AFC switch trials (during the presample period)
-%         switchtype = 'toAFC_ix';
-%         contswitch(sessix).to2AFC_CDCont.(spacename) = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop);
-%     end
-% end
-% %%
-% % Normalize the CDContext values to the max of the absolute values (for
-% % each session--i.e. each session will have CDCont values between -1 and 1)
-% % for sessix = 1:length(meta)
-% %     blah = contswitch(sessix);
-% %     blah = normalizeCDCont(blah);
-% %     contswitch(sessix) = blah;
-% % end
-% %% Plot switch-aligned CDContext
-% % Concatenate all switch-aligned CDContexts from across sessions
-% for s=1:2
-%     if s==1
-%         spacename = 'Null';
-%     else
-%         spacename = 'Potent';
-%     end
-%     toAW = []; to2AFC = [];
-%     for sessix = 1:length(meta)
-%         toAW = [toAW; contswitch(sessix).toAW_CDCont.(spacename)];
-%         to2AFC = [to2AFC; contswitch(sessix).to2AFC_CDCont.(spacename)];
-%     end
-%     col = [0.35 0.35 0.35];
-%     nSessions = length(meta);
-%     tRange = -nBufferTrials:nBufferTrials;           % Number of trials that you want to plot
-%     stdCD = getStd(toAW,to2AFC);                     % Get the standard deviation of CDCont across all trials (from all sessions)
-%     alpha = 0.2;                                     % Opacity of confidence intervals
-% 
-%     plotSwitchAlignedCDCont(toAW, to2AFC,stdCD, nSessions, tRange, alpha, col,nBufferTrials)
-%     sgtitle(spacename)
-% end
-%% Concatenate coding dimensions in the null and potent space across sessions
-cd_null_all = concatRezAcrossSessions_Context(cd_null);
-cd_potent_all = concatRezAcrossSessions_Context(cd_potent);
-%% plots
+%% find DR/WC selective cells per session
+% only using cells with significant selectivity in this analysis
+trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+edges = [trialstart samp];
+cond2use = [6 7];
+for i = 1:numel(obj)
+    cluix{i} = findSelectiveCells(obj(i),params(i),edges,cond2use);
+end
 
+%% reconstruct single cell activity from CDcontext projs in either null or potent space
+
+cdix = 1; % index of cdchoice in the projs
+cond2use = {'hit|miss'}; % specifying which trials 
+for sessix = 1:numel(meta)
+    clear trialdat W proj 
+    disp(['Session ' num2str(sessix) '/' num2str(numel(meta))])
+    trix = findTrials(obj(sessix), cond2use);
+    trix = trix{1};
+    clus = find(cluix{sessix});
+
+    % get full single trial data (will compare reconstructed against this)
+%     trialdat.full = zscore_singleTrialNeuralData(obj(sessix));
+    trialdat.full = permute(obj(sessix).trialdat(:,:,trix),[1 3 2]);
+%     trialdat.full = trialdat.full(:,trix,:); % (time,trials,neurons);
+
+    % get CDs
+    W.null = cd_null(sessix).cd_mode_orth(:,cdix);
+    W.potent = cd_potent(sessix).cd_mode_orth(:,cdix);
+    fns = {'null','potent'};
+    for j = 1:numel(fns)
+        % single trials neural activity reconstructed from n/p
+        trialdat.(fns{j}) = rez(sessix).recon.(fns{j})(:,trix,:); % (time,trials,dims)
+        % project onto Wcontext
+        proj.(fns{j}) = tensorprod(trialdat.(fns{j}),W.(fns{j}),3,1);
+        % reconstruct data from CD context proj
+        trialdat.recon.(fns{j}) = tensorprod(proj.(fns{j}),W.(fns{j}),3,2);
+
+        % for each cell, get R^2 b/w it's original data and reconstructed
+        for k = 1:numel(clus) % for each cell
+            thisclu = clus(k);
+            % calculcate variance explained by CD context
+            orig = trialdat.full(:,:,thisclu); % (time,trials)
+
+            fr = mean(mean(orig)); % subspace contribution method
+            % weight = norm(W.(fns{j})(k));
+            % r2.(fns{j}){sessix}(k) = fr*weight;
+
+            recon = trialdat.recon.(fns{j})(:,:,thisclu); % (time,trials) % ve by recon method
+            mdl = fitlm(orig(:),recon(:));
+            r2.(fns{j}){sessix}(k) = mdl.Rsquared.Ordinary;
+          
+        end
+    end
+end
+
+
+%% plot
 close all
 
-sav = 0;
+% concatenate R^2s from null and potent spaces into two vectors
+alln = [];
+allp = [];
+for sessix = 1:numel(meta)
+    n = r2.null{sessix};
+    alln = [alln n];
+    p = r2.potent{sessix};
+    allp = [allp p];
+    % scatter(n,p,10,'filled','MarkerEdgeColor','k','MarkerFaceColor',[0.5,0.5,0.5]);
+    
+    trix = findTrials(obj(sessix), cond2use);
+    trix = trix{1};
+    trialdat.full = permute(obj(sessix).trialdat(:,:,trix),[1 3 2]);
 
-% -----------------------------------------------------------------------
-% -- Null and Potent Space Single Trial Projections --
-% -----------------------------------------------------------------------
+    clus = find(cluix{sessix});
+    for k = 1:numel(clus) % for each cell
+        thisclu = clus(k);
+        % calculcate variance explained by CD context
+        
+        orig = trialdat.full(:,:,thisclu); % (time,trials)
 
-% % - projections showing move / quiet somehow
-cond2use = [2 3];                       % 2AFC hits, AW hits (reference to params.condition)
-ndims = 4;                              % top ndims variance explaining dimensions
-%plotSingleTrialNPHeatmaps(rez,params,me,ndims,cond2use,meta);
-
-%%
-% -----------------------------------------------------------------------
-% -- Null and Potent Space Trial-averaged Projections --
-% -----------------------------------------------------------------------
-ndims = 5;                              % how many n/p dimensions to plot, in order of variance explained
-cond2plot = 1:2;                        % 2AFC hit, AW hit (reference to conditions used to find null_psth)
-% plot_NP_PSTH(rez,obj,params,ndims,cond2plot,meta)
-% plotTopDims_NP_Proj(meta,rez,obj,cond2plot,ndims)
-%%
-% -----------------------------------------------------------------------
-% -- Coding Dimensions --
-% -----------------------------------------------------------------------
-plotmiss = 0;
-
-figure();
-
-titlestring = 'Null';
-subplot(1,2,1)
-plotCDProj_Context(cd_null_all,cd_null,sav,titlestring,plotmiss)
-
-titlestring = 'Potent';
-subplot(1,2,2)
-plotCDProj_Context(cd_potent_all,cd_potent,sav,titlestring,plotmiss)
-
-%plotCDContext_Selectivity(cd_null_all, cd_potent_all,cd_null)
-
-% plotCDContext_SelectivityScatter(cd_null_all, cd_potent_all,cd_potent,obj(1),params(1))
-
-
-%plotNP_CD_Context(cd_null_all,cd_null,cd_potent_all,cd_potent)
-%%
-
-function stdCD = getStd(toAW,to2AFC)
-
-stdCD.toAW = std(toAW,0,1,'omitnan');     % Get standard deviation of switch aligned presamp CDContext across all trials
-stdCD.to2AFC = std(to2AFC,0,1,'omitnan');
+        tempAL = (n(k) - p(k)) ./ (p(k) + n(k)); % calculate alignment index
+        subplot(1,2,1)
+        imagesc(orig');
+        ylabel('Trials')
+        subplot(1,2,2)
+        plot(obj(sessix).time, mySmooth(obj(sessix).psth(:,thisclu,6),31)); hold on; plot(obj(sessix).time,mySmooth(obj(sessix).psth(:,thisclu,7),31)); hold off; 
+        xline(0,'k--')
+        xlabel('Time from go cue')
+        ylabel('FR')
+        legend('DR','WC')
+        sgtitle(num2str(tempAL))
+        pause
+    end
 end
+alignment = (alln - allp) ./ (allp + alln); % calculate alignment index
 
-function blah = normalizeCDCont(blah)
-maxblah = max(abs(blah.toAW_CDCont)); blah.toAW_CDCont = blah.toAW_CDCont./maxblah;
-maxblah = max(abs(blah.to2AFC_CDCont)); blah.to2AFC_CDCont = blah.to2AFC_CDCont./maxblah;
-end
-
-% Plotting
-function plotSwitchAlignedCDCont(toAW, to2AFC,stdCD, nSessions, tRange, alpha, col,nBufferTrials)
-figure();
-subplot(1,2,1)
-toplot = mean(toAW,1,'omitnan');
-plot(tRange,toplot)
+% histogram
+% f = figure;
+% f.Position = [644   483   338   231];
+% ax = gca;
+% f.Renderer = 'painters';
+% ax = prettifyPlot(ax);
 hold on;
-ax = gca;
-err = 1.96*(stdCD.toAW/nSessions);
-shadedErrorBar(tRange, toplot, err ,{'Color',col,'LineWidth',2}, alpha, ax)
-xline(0,'k--')
-title('2AFC to AW switches')
-xlabel('Trials to context switch')
-xlim([-nBufferTrials, nBufferTrials]);
-ylabel('Normalized MOVE-CDContext proj (a.u.)')
 
-subplot(1,2,2)
-toplot = mean(to2AFC,1,'omitnan');
-plot(tRange,toplot)
-hold on;
-ax = gca;
-err = 1.96*(stdCD.toAW/nSessions);
-shadedErrorBar(tRange, toplot, err ,{'Color',col,'LineWidth',2}, alpha, ax)
+h = histogram(alignment,30,'edgecolor','none','Normalization','count');
+ylabel('# Neurons')
+xlabel('CDContext alignment')
 xline(0,'k--')
-title('AW to 2AFC switches')
-xlabel('Trials to context switch')
-xlim([-nBufferTrials, nBufferTrials]);
-ylabel('Normalized MOVE-CDContext proj (a.u.)')
-end
+
+
+
+
 
