@@ -472,10 +472,8 @@ end
 %%
 feature = 'tongue_length';
 featix = find(strcmp(kin(1).featLeg,feature));
-offset = 10;
 for trial = 1:100
-    plot(obj(1).time,(trial*offset)+kin(1).dat(:,trial,featix));
-    hold on
+    p
 end
 %% FUNCTIONS
 function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)

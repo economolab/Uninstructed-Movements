@@ -8,9 +8,6 @@ if prbnum==1 || ~isfield(params,'trialid')
     disp('--Trials Found')
     disp(' ')
 end
-
-
-
 end 
 
 
