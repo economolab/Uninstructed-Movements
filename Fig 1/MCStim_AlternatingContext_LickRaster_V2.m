@@ -73,34 +73,6 @@ for sessix = 1:length(meta)
     disp(['Finding kinematics for session ' num2str(sessix) ' / ' num2str(length(meta))])
     kin(sessix) = getKinematics_NoME(obj(sessix),params(sessix));
 end
-%% 2AFC trials: top subplot = left trials (control on top, stim on bottom); bottom subplot = right trials (control on top, stim on bottom)
-% close all
-% sessix = 2; 
-% 
-% for sessix = 2:length(meta)
-%     sessname = [meta.anm, ';', meta.date];
-% 
-%     cols = getColors();
-%     clrs.rhit = cols.rhit;
-%     clrs.lhit = cols.lhit;
-% 
-%     conds = [1 2 3 4];
-% 
-%     figure()
-%     plotLickRaster(sessix,clrs,obj,params,'2AFC',conds);
-%     hold off;
-% 
-%     % AW trials: top subplot = left trials (control on top, stim on bottom); bottom subplot = right trials (control on top, stim on bottom)
-%     clrs.rhit = cols.rhit_aw;
-%     clrs.lhit = cols.lhit_aw;
-% 
-%     conds = [5 6 7 8];
-% 
-%     figure()
-%     plotLickRaster(sessix,clrs,obj,params,'AW',conds);
-%     hold off;
-%     pause
-% end
 %% For supplement: show what tongue looks like during the stim period
 sessix = 2;
 

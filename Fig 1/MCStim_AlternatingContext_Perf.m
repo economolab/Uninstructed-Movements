@@ -3,7 +3,7 @@
 % -------------------------------------------------------------------------------------
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -45,7 +45,8 @@ end
 meta = [];
 meta = loadMAH13_MCStim(meta,datapth);
 meta = loadMAH14_MCStim(meta,datapth);
-
+meta = loadMAH20_MCStim(meta,datapth);
+meta = loadMAH21_MCStim(meta,datapth);
 %% LOAD DATA
 
 % ----------------------------------------------
@@ -55,34 +56,34 @@ meta = loadMAH14_MCStim(meta,datapth);
 % ----------------------------------------------
 disp('Loading behavior objects')
 [obj,params] = loadBehavSessionData(meta,params);
-%% 
-conds2use = 2:9;
-lickCutoff = 0.6;
-trialCutoff = 40;
+%% Find trials with a correct lick within a certain latency from the go cue
+conds2use = 2:9;                          % L,R control DR; L,R stim DR; L,R control WC; L,R stim WC
+lickCutoff = 0.6;                         % Window after go cue that you are looking for correct licks
+trialCutoff = 40;                         % How many trials you want to cut off of the end of the session (to account for loss of motivation/engagement)
 blah = [];
-for sessix = 1:length(meta)
-    lastTrial = obj(sessix).bp.Ntrials-trialCutoff;
-    for c = 1:length(conds2use)
+for sessix = 1:length(meta)               % For each session...
+    lastTrial = obj(sessix).bp.Ntrials-trialCutoff;        % Get rid of the last 'trialCutoff' trials in the session
+    for c = 1:length(conds2use)                            % For each condition...                                         
         cond = conds2use(c);
-        condtrix = params(sessix).trialid{cond};
-        condtrix = condtrix(condtrix<lastTrial);
-        lickInit = false(length(condtrix),1);
-        for t = 1:length(condtrix)
+        condtrix = params(sessix).trialid{cond};              % Get the trials for that condition
+        condtrix = condtrix(condtrix<lastTrial);              % Exclude trials that are beyond the trialCutoff
+        lickInit = false(length(condtrix),1);                 % [# of trials in condition x 1]
+        for t = 1:length(condtrix)                            % For every trial in condition...                             
             currtrial = condtrix(t);
-            allLicks = [obj(sessix).bp.ev.lickL{currtrial},obj(sessix).bp.ev.lickR{currtrial}];
-            allLicks = sort(allLicks,'ascend');
-            if ~isempty(allLicks)
-                go = obj(sessix).bp.ev.goCue(currtrial);
-                postGoLicks = allLicks((allLicks>go));
-                if ~isempty(postGoLicks)
-                    firstLick_aligned = postGoLicks(1)-go;
-                    if firstLick_aligned<lickCutoff && obj(sessix).bp.hit(currtrial)
-                        lickInit(t) = 1;                     % 0 = no correct lick before LickCutoff time; 1 = there is a correct lick before LickCutoff
+            allLicks = [obj(sessix).bp.ev.lickL{currtrial},obj(sessix).bp.ev.lickR{currtrial}];     % Get the times of all licks in this trial
+            allLicks = sort(allLicks,'ascend');                 % Sort the licks in chronological order
+            if ~isempty(allLicks)                               % As long as there were licks in this trial...
+                go = obj(sessix).bp.ev.goCue(currtrial);          % Find the time of the go cue on this trial
+                postGoLicks = allLicks((allLicks>go));            % Find the licks that occurred after the go cue
+                if ~isempty(postGoLicks)                              % As long as there were licks after the go cue on this trial...
+                    firstLick_aligned = postGoLicks(1)-go;               % Get the time of the first lick that occurs after the go cue (time is aligned to the go cue)
+                    if firstLick_aligned<lickCutoff && obj(sessix).bp.hit(currtrial)      % If that first lick occurred before the cutoff time ('lickCutoff') and it was a correct trial...
+                        lickInit(t) = 1;                                                    % 0 = no correct lick before LickCutoff time; 1 = there is a correct lick before LickCutoff
                     end
                 end
             end
         end
-        perf(c) = sum(lickInit)/length(condtrix);
+        perf(c) = sum(lickInit)/length(condtrix);              % Number of trials with a correct lick within the time window / all trials in that condition
     end
     rez(sessix).trixWLicks = perf;
 end
@@ -99,7 +100,7 @@ Lperf = NaN(length(meta),1);  Leff = NaN(length(meta),1);
 
 LAFCctrlCond = 1;
 RAFCctrlCond = 3;
-EffectCutoff = 0.10;
+EffectCutoff = 0;
 perfCutoff = 0.55;
 for sessix = 1:length(meta)
     temp = perf_all(sessix,:);
@@ -116,13 +117,17 @@ for sessix = 1:length(meta)
     end
 end
 perf_all(sess2omit,:) = [];
-%% Do t-test
+
+% Do t-test
 clearvars -except obj meta rez params perf_all lickCutoff sess2omit
 %perf_all = (sessions x conditions)
+perf_all = 100*perf_all;
 %% Plot
 anmNames = {'MAH13','MAH13','MAH13','MAH13','MAH13','MAH13',...
-    'MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14'};
-% anmNames(sess2omit) = [];
+    'MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14','MAH14',...
+    'MAH20','MAH20','MAH20','MAH20','MAH20','MAH20','MAH20',...
+    'MAH21','MAH21','MAH21','MAH21','MAH21','MAH21','MAH21','MAH21',};
+anmNames(sess2omit) = [];
 cols = getColors();
 sigcutoff = 0.05;
 [AFCpval,AWpval] = plotPerfV1(cols,perf_all,lickCutoff,anmNames,sigcutoff);
@@ -183,9 +188,9 @@ for test = 1:(length(conds2plot)/2)
     [hyp,AFCpval(test)] = ttest(x,y,'Alpha',sigcutoff);
     disp(num2str(hyp))
     if hyp&&test==1
-        scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')
+        scatter(1.5,105,30,'*','MarkerEdgeColor','black')
     elseif hyp&&test==2
-        scatter(3.5,1.05,30,'*','MarkerEdgeColor','black')
+        scatter(3.5,105,30,'*','MarkerEdgeColor','black')
     end
 end
 xlim([0 5])
@@ -238,9 +243,9 @@ for test = 1:(length(conds2plot)/2)
     [hyp,AWpval(test)] = ttest(x,y,'Alpha',sigcutoff);
     disp(num2str(hyp))
     if hyp&&test==1
-        scatter(1.5,1.05,30,'*','MarkerEdgeColor','black')
+        scatter(1.5,105,30,'*','MarkerEdgeColor','black')
     elseif hyp&&test==2
-        scatter(3.5,1.05,30,'*','MarkerEdgeColor','black')
+        scatter(3.5,105,30,'*','MarkerEdgeColor','black')
     end
 end
 xlim([0 5])
@@ -250,54 +255,4 @@ ylabel(['Proportion of trials w/ lick within ' num2str(lickCutoff) ' (s) of wate
 title('Autowater')
 end
 
-function plotPerfV2(colors,perf_all,lickCutoff,anmNames)
-nSessions = numel(anmNames);
-
-figure();
-subplot(1,2,1)
-conds2plot = 1:4;
-means = mean(perf_all,1,'omitnan');
-for x = conds2plot
-    if x==1||x==2
-        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors.lhit); hold on;
-    else
-        scatter(x,means(:,x),65,'filled','MarkerFaceColor',colors.rhit); hold on;
-    end
-    plot(1:2,means(1:2),'Color',colors.lhit,'LineWidth',3)
-    plot(3:4,means(3:4),'Color',colors.rhit,'LineWidth',3)
-    for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,1:2),'Color',colors.lhit)
-        plot(3:4,perf_all(sessix,3:4),'Color',colors.rhit)
-    end
-end
-xlim([0 5])
-xticks([1,2,3,4])
-xticklabels({'L ctrl', 'L stim','R ctrl', 'R stim'})
-ylabel('Proportion of trials')
-title('2AFC')
-
-subplot(1,2,2)
-conds2plot = 5:8;
-for x = 1:length(conds2plot)
-    cond = conds2plot(x);
-    if x==1||x==2
-        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors.lhit_aw); hold on;
-    else
-        scatter(x,means(:,cond),65,'filled','MarkerFaceColor',colors.rhit_aw); hold on;
-    end
-    plot(1:2,means(5:6),'Color',colors.lhit_aw,'LineWidth',3)
-    plot(3:4,means(7:8),'Color',colors.rhit_aw,'LineWidth',3)
-    for sessix = 1:size(perf_all,1)
-        plot(1:2,perf_all(sessix,5:6),'Color',colors.lhit_aw)
-        plot(3:4,perf_all(sessix,7:8),'Color',colors.rhit_aw)
-    end
-end
-xlim([0 5])
-xticks([1,2,3,4])
-xticklabels({'L ctrl', 'L stim','R ctrl', 'R stim'})
-%ylabel(['Frac. of trials w/ lick within ' num2str(lickCutoff) ' (s) of waterDrop'])
-title('Autowater')
-
-sgtitle(['Proportion of trials w/ correct lick within ' num2str(lickCutoff) ' (s) of goCue/waterDrop'])
-end
 
