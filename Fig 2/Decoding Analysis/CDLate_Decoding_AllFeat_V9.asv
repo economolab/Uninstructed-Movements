@@ -116,35 +116,18 @@ disp('----Projecting single trials onto CDlate----')
 cd = 'late';
 regr = getSingleTrialProjs(regr,obj,cd);
 %% Load kinematic data
-% nSessions = numel(meta);
-% for sessix = 1:numel(meta)
-%     message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
-%     disp(message)
-%     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
-% end
-%% Sanity check -- why do averages of single trial projections onto CDChoice look so much smaller than the projection of the cond avg PSTHs?
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
+end
+%%
 figure()
 for sessix = 1:length(meta)
-    subplot(1,3,1)
     plot(obj(sessix).time,regr(sessix).cd_proj(:,1)); hold on;
-    plot(obj(sessix).time,regr(sessix).cd_proj(:,2)); hold off;
-
-    subplot(1,3,2)
-
-    temptrix = params(sessix).trialid{2};
-    plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'r'); hold on;
-
-    temptrix = params(sessix).trialid{3};
-    plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'b'); hold off;
-
-    subplot(1,3,3)
-    temptrix = params(sessix).trialid{2};
-    plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'r'); hold on;
-
-    temptrix = params(sessix).trialid{3};
-    plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'b'); hold off;
-
-    pause
+     plot(obj(sessix).time,regr(sessix).cd_proj(:,2)); hold off;
+     pause
 end
 %% Predict CDTrialType from DLC features
 %%% DECODING PARAMETERS %%%

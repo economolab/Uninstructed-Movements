@@ -126,6 +126,9 @@ for sessix = 1:length(meta)                 % For every session...
 end
 %% Make stacked bar plot to illustrate num neurons per session
 % Height of each bar = sum of elements in row
+
+sessnumDRWC = 12;
+
 xticklabs = cell(1,length(meta));
 for sessix = 1:length(meta)
     label = [meta(sessix).anm ';' meta(sessix).date];
@@ -134,6 +137,7 @@ end
 
 y = [numSingle', numMulti'];
 bar(y,'stacked')
+xline(sessnumDRWC+0.515,'k--')
 xticks(1:length(meta))
 xticklabels(xticklabs)
 xtickangle(45)
