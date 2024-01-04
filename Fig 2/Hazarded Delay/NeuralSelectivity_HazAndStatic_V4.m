@@ -1,0 +1,422 @@
+% From Inagaki 2019 Nature (Discrete Attractor Dynamics paper)
+% "Neurons with significant selectivity (two-sided Wilcoxon rank sum test comparing spike counts in two correct trial types, P < 0.05) during the delay epochs were classified as selective cells. Selective cells were classified into lick-right preferring versus lick-left preferring, on the basis of their total spike counts during the delay epoch.
+% For peri-stimulus time histograms (Figs. 5, 6, Extended Data Fig. 8k), only correct trials were included. For the peri-stimulus time histograms and selectivity of the 
+% random delay task (Fig. 6, Extended Data Fig. 8k), only spikes before the go cue were pooled. Spikes were averaged over 100 ms with a 1-ms sliding window."
+clear; close all; clc;
+
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
+addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
+addpath(genpath(fullfile(utilspth,'funcs')));
+addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
+addpath(genpath(fullfile(figpth,'Hazarded Delay')));
+%% PARAMETERS
+params.alignEvent          = 'delay'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for                            % all trials
+params.condition(1) = {'R&hit&~stim.enable&~autowater&~early'};             % R 2AFC hits, no stim
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % L 2AFC hits, no stim
+
+params.tmin = -1.6;
+params.tmax = 2.5;
+params.dt = 1/200;
+
+% smooth with causal gaussian kernel
+params.smooth = 31;
+
+% cluster qualities to use
+params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+% vid features to use
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+params.advance_movement = 0;
+
+% Haz delay params
+params.delay(1) = 0.3000;
+params.delay(2) = 0.6000;
+params.delay(3) = 1.2000;
+params.delay(4) = 1.8000;
+params.delay(5) = 2.4000;
+params.delay(6) = 3.6000;
+%% SPECIFY DATA TO LOAD
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+meta = [];
+
+% --- ALM --- 
+meta = loadJEB11_ALMVideo(meta,datapth);
+meta = loadJEB12_ALMVideo(meta,datapth);
+
+meta = loadJEB23_ALMVideo(meta,datapth);
+meta = loadJEB24_ALMVideo(meta,datapth);
+
+params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
+%% LOAD DATA
+% ----------------------------------------------
+% -- Neural Data --
+% obj (struct array) - one entry per session
+% params (struct array) - one entry per session
+% ----------------------------------------------
+[obj,params] = loadSessionData(meta,params);
+%% Find which cells are selective for trial-type during the delay period 
+%clearvars -except obj meta params
+smooth = 50;
+modparams.quals2excl = {'Poor','Noisy','Multi'};       % Cluster qualities that you want to exclude from single cell analysis
+modparams.sm = 30;                                     % Amount that you want to smooth PSTHs by
+modparams.subTrials = 40;                              % Num of trials you want to subsample from each condition for selectivity analysis                             
+
+for sessix = 1:length(meta)                            % For every randomzied delay session...
+    includedCells = [];
+    currobj = obj(sessix);
+    nTrials = size(currobj.trialdat,3);
+    nCells = size(currobj.psth,2);
+    probenum = meta(sessix).probe;
+    if length(probenum)>1                              % If the session has two probes in the ALM, pool data from both probes
+        [currobj,probenum] = poolDataFromProbes(currobj);
+    end
+
+    DelaySpikes = zeros(nCells,nTrials);
+    for c = 1:nCells                                        % For each cell...
+        cellQual = currobj.clu{probenum}(c).quality;        % Get the quality of the cluster
+        % Exclude cell from analysis if it is not of proper quality
+        if strcmp(cellQual,modparams.quals2excl{1}) || strcmp(cellQual,modparams.quals2excl{2}) || strcmp(cellQual,modparams.quals2excl{3})
+            includedCells = [includedCells,0];
+        else
+            for t = 1:nTrials                                                   % Go through all of the trials
+                spikeix = find(currobj.clu{probenum}(c).trial==t);              % Find the spikes for this cell that belong to the current trial
+                if ~isempty(spikeix)                                            % If there are spikes from this cell in this trial
+                    spktms = currobj.clu{probenum}(c).trialtm_aligned(spikeix);     % Get the aligned times within the trial that the spikes occur
+                    del = currobj.bp.ev.delay(t)-currobj.bp.ev.(params(sessix).alignEvent)(t);  % Start time of the delay period
+                    go = currobj.bp.ev.goCue(t)-currobj.bp.ev.(params(sessix).alignEvent)(t);   % Start time of go cue
+                    delspks = length(find(spktms<go&spktms>del));                            % Take the spikes which occur during the delay period
+                    if ~isempty(delspks)
+                        DelaySpikes(c,t) = delspks;                             % Save this number
+                    end
+                end
+            end
+            includedCells = [includedCells,1];
+        end
+    end
+
+    temp = DelaySpikes;                                        % (cells x trials)
+
+    % Sub-sample trials
+    nConds = size(currobj.psth,3);
+    for cond = 1:nConds                                        % For each condition...
+        trix = params(sessix).trialid{cond};               % Get the trials for that condition
+        if length(trix)>modparams.subTrials                    % If there are enough trials in this condition to subsample...
+            trix2use = randsample(trix,modparams.subTrials);        % Subsample trials from this condition
+            epochAvg{cond} = temp(:,trix2use);                      % [cells x trials]
+            goodSess(cond) = 1;                                     % Denote that this condition had enough trials to subsample
+        else                                                   % If this condition has too few trials to subsample...
+            goodSess(cond) = 0;                                     % Denote this
+        end
+    end
+
+    totalCriteria = sum(goodSess);              % If all conditions had enough trials, 'totalCriteria' should = nConds
+    if totalCriteria==nConds
+        totalspksR = sum(epochAvg{1},2);        % Total delay period spikes across R trials for each cell
+        totalspksL = sum(epochAvg{2},2);        % Total delay period spikes across L trials for each cell
+        spkdif = (totalspksR>totalspksL);       % 1 if R-preferring; 0 if L-preferring
+
+        % The p-value that you want to perform the ranksum test at
+        sig = 0.05;
+        [selectiveCells] = getSelectiveCells(epochAvg,sig);
+
+        obj(sessix).selectiveCells = find(includedCells&selectiveCells);
+        obj(sessix).spkdif = spkdif;
+    end
+end
+%% Calculate selectivity (spike rate difference) for all selective cells (on a given delay duration)
+del2use = 1.2000;
+cond2use = [1,2];
+smooth = 200;
+
+selectivity_All = calculatePopSelectivity(meta,obj,params,del2use,cond2use,smooth);
+%%
+tempobj = obj(1); tempparams = params(1);
+clearvars -except selectivity_All tempobj tempparams
+obj = tempobj; params = tempparams;
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%------------------------Static Delay-----------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% PARAMETERS
+ctrlparams.alignEvent          = 'delay'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+ctrlparams.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+ctrlparams.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+ctrlparams.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for                            % all trials
+ctrlparams.condition(1) = {'R&hit&~stim.enable&~autowater&~early'};             % R 2AFC hits, no stim
+ctrlparams.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % L 2AFC hits, no stim
+
+ctrlparams.tmin = -1.6;
+ctrlparams.tmax = 2.5;
+ctrlparams.dt = 1/200;
+
+% smooth with causal gaussian kernel
+ctrlparams.smooth = 31;
+
+% cluster qualities to use
+ctrlparams.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+% vid features to use
+ctrlparams.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_paw','bottom_paw','top_nostril','bottom_nostril'}};
+
+ctrlparams.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+ctrlparams.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+ctrlparams.advance_movement = 0;
+
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+ctrlmeta = [];
+
+% --- ALM --- 
+ctrlmeta = loadJEB6_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB7_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadEKH1_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadEKH3_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJGR2_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJGR3_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB13_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB14_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB15_ALMVideo(ctrlmeta,datapth);
+ctrlmeta = loadJEB19_ALMVideo(ctrlmeta,datapth);
+
+ctrlparams.probe = {ctrlmeta.probe}; % put probe numbers into params, one entry for element in ctrlmeta, just so i don't have to change code i've already written
+%% LOAD DATA
+% ----------------------------------------------
+% -- Neural Data --
+% obj (struct array) - one entry per session
+% params (struct array) - one entry per session
+% ----------------------------------------------
+[ctrlobj,ctrlparams] = loadSessionData(ctrlmeta,ctrlparams);
+%% Find which cells are selective for trial-type during the delay period 
+smooth = 50;
+modparams.quals2excl = {'Poor','Noisy','Multi'};       % Cluster qualities that you want to exclude from single cell analysis
+modparams.sm = 30;                                     % Amount that you want to smooth PSTHs by
+modparams.subTrials = 40;                              % Num of trials you want to subsample from each condition for selectivity analysis                             
+
+for sessix = 1:length(ctrlmeta)                            % For every randomzied delay session...
+    includedCells = [];
+    currobj = ctrlobj(sessix);
+    nTrials = size(currobj.trialdat,3);
+    nCells = size(currobj.psth,2);
+    probenum = ctrlmeta(sessix).probe;
+    if length(probenum)>1                              % If the session has two probes in the ALM, pool data from both probes
+        [currobj,probenum] = poolDataFromProbes(currobj);
+    end
+
+    DelaySpikes = zeros(nCells,nTrials);
+    for c = 1:nCells                                        % For each cell...
+        cellQual = currobj.clu{probenum}(c).quality;        % Get the quality of the cluster
+        % Exclude cell from analysis if it is not of proper quality
+        if strcmp(cellQual,modparams.quals2excl{1}) || strcmp(cellQual,modparams.quals2excl{2}) || strcmp(cellQual,modparams.quals2excl{3})
+            includedCells = [includedCells,0];
+        else
+            for t = 1:nTrials                                                   % Go through all of the trials
+                spikeix = find(currobj.clu{probenum}(c).trial==t);              % Find the spikes for this cell that belong to the current trial
+                if ~isempty(spikeix)                                            % If there are spikes from this cell in this trial
+                    spktms = currobj.clu{probenum}(c).trialtm_aligned(spikeix);     % Get the aligned times within the trial that the spikes occur
+                    del = currobj.bp.ev.delay(t)-currobj.bp.ev.(ctrlparams(sessix).alignEvent)(t);  % Start time of the delay period
+                    go = currobj.bp.ev.goCue(t)-currobj.bp.ev.(ctrlparams(sessix).alignEvent)(t);   % Start time of go cue
+                    delspks = length(find(spktms<go&spktms>del));                            % Take the spikes which occur during the delay period
+                    if ~isempty(delspks)
+                        DelaySpikes(c,t) = delspks;                             % Save this number
+                    end
+                end
+            end
+            includedCells = [includedCells,1];
+        end
+    end
+
+    temp = DelaySpikes;                                        % (cells x trials)
+
+    % Sub-sample trials
+    nConds = size(currobj.psth,3);
+    for cond = 1:nConds                                        % For each condition...
+        trix = ctrlparams(sessix).trialid{cond};               % Get the trials for that condition
+        if length(trix)>modparams.subTrials                    % If there are enough trials in this condition to subsample...
+            trix2use = randsample(trix,modparams.subTrials);        % Subsample trials from this condition
+            epochAvg{cond} = temp(:,trix2use);                      % [cells x trials]
+            goodSess(cond) = 1;                                     % Denote that this condition had enough trials to subsample
+        else                                                   % If this condition has too few trials to subsample...
+            goodSess(cond) = 0;                                     % Denote this
+        end
+    end
+
+    totalCriteria = sum(goodSess);              % If all conditions had enough trials, 'totalCriteria' should = nConds
+    if totalCriteria==nConds
+        totalspksR = sum(epochAvg{1},2);        % Total delay period spikes across R trials for each cell
+        totalspksL = sum(epochAvg{2},2);        % Total delay period spikes across L trials for each cell
+        spkdif = (totalspksR>totalspksL);       % 1 if R-preferring; 0 if L-preferring
+
+        % The p-value that you want to perform the ranksum test at
+        sig = 0.05;
+        [selectiveCells] = getSelectiveCells(epochAvg,sig);
+
+        ctrlobj(sessix).selectiveCells = find(includedCells&selectiveCells);
+        ctrlobj(sessix).spkdif = spkdif;
+    end
+end
+%% Calculate selectivity (spike rate difference) for all selective cells (on a given delay duration)
+del2use = 0.9;
+cond2use = [1,2];
+smooth = 200;
+
+selectivity_AllCtrl = calculatePopSelectivity(ctrlmeta,ctrlobj,ctrlparams,del2use,cond2use,smooth);
+%% DIDN'T WORK? Fixed delay appears to become greater than zero earlier than randomized
+% %%%% One-sided t-test to calculate when selectivity trace becomes greater
+% %%%% than 0  
+% siglevel = 0.01;
+% nWindows = size(selectivity_All,1);   % # of time windows being used for the t-test
+% zerodif = NaN(nWindows,2);            % [time x 2] -- for fixed delay (1st col) and rand delay (2nd col), store whether ttest accepts (0) or rejects (1) the null at this time point
+% for tt = 1:nWindows
+%     fixedSel = selectivity_AllCtrl(tt,:);
+%     fixH = ttest(fixedSel,0,"Alpha",siglevel);
+%     if fixH ==0
+%         fixH = NaN;
+%     end
+%     zerodif(tt,1) = fixH;
+% 
+%     randSel = selectivity_All(tt,:);
+%     fixR = ttest(randSel,0,"Alpha",siglevel);
+%     if fixR ==0
+%         fixR = NaN;
+%     end
+%     zerodif(tt,2) = fixR;
+% end
+%% Compare the slopes of the two curves
+% smooth = 70;
+% 
+% nTimePts = size(selectivity_AllCtrl,1)-1;
+% nCells = size(selectivity_AllCtrl,2);
+% slope.fixed = NaN(nTimePts,nCells);
+% for cellix = 1:size(selectivity_AllCtrl,2)
+%     tempslope = diff(selectivity_AllCtrl(:,cellix));
+%     slope.fixed(:,cellix) = mySmooth(tempslope,smooth);
+% end
+% 
+% nTimePts = size(selectivity_All,1)-1;
+% nCells = size(selectivity_All,2);
+% slope.rand = NaN(nTimePts,nCells);
+% for cellix = 1:size(selectivity_All,2)
+%     tempslope = diff(selectivity_All(:,cellix));
+%     slope.rand(:,cellix) = mySmooth(tempslope,smooth);
+% end
+% 
+% %% Two-sided t-test to determine whether the slopes of the selectivity curves are different from one another at each time point
+% siglevel = 0.05;
+% nWindows = size(slope.rand,1);   % # of time windows being used for the t-test
+% zerodif = NaN(nWindows,1);            % [time x 1] store whether ttest2 accepts (0) or rejects (1) the null hyp at this time point
+% for tt = 1:nWindows
+%     fixedSel = slope.fixed(tt,:);
+%     randSel = slope.rand(tt,:);
+%     hyp = ttest2(fixedSel,randSel,"Alpha",siglevel);
+%     if hyp == 0
+%         hyp = NaN;
+%     end
+%     zerodif(tt)=hyp;
+% end
+%% Two-sided t-test just comparing the selectivity curves
+siglevel = 0.05;
+nWindows = size(selectivity_All,1);   % # of time windows being used for the t-test
+zerodif = NaN(nWindows,1);            % [time x 1] -- store whether ttest accepts (0) or rejects (1) the null at this time point
+                                      % accepts the null --> rand and fixed distribution of selectivity values at this time 
+                                      % point come from the same distribution
+for tt = 1:nWindows
+    fixedSel = selectivity_AllCtrl(tt,:);
+    randSel = selectivity_All(tt,:);
+    hyp = ttest2(randSel,fixedSel,"Alpha",siglevel);
+    if hyp ==0
+        hyp = NaN;
+    end
+    zerodif(tt,1) = hyp;
+end
+%% Line plot of neural selectivity (Randomized delay vs fixed delay)
+% Line = mean across neurons
+% Shaded CI = standard error of the mean across neurons
+
+clearvars -except zerodif selectivity_All selectivity_AllCtrl obj meta params kin ctrlobj ctrlmeta ctrlparams ctrlkin
+
+colors = getColors;
+ctrlcol = colors.afc;
+hazcol = [0.5 0.5 0.5];
+go = mode(ctrlobj(1).bp.ev.goCue)-mode(ctrlobj(1).bp.ev.(ctrlparams(1).alignEvent));
+ctrlstop = find(ctrlobj(1).time<go,1,'last');
+del2use = 1.2;
+smooth = 70;
+alph = 0.2;
+
+figure();
+toplot = mean(selectivity_All,2,'omitnan');
+%err = 1.96*(std(selectivity_All,0,2,'omitnan')/sqrt(size(selectivity_All,2)));
+err = std(selectivity_All,0,2,'omitnan')/sqrt(size(selectivity_All,2));
+ax = gca;
+shadedErrorBar(obj(1).time, toplot, err ,{'Color',hazcol,'LineWidth',2.5}, alph, ax); hold on;
+% plot(obj(1).time,7.4*zerodif(:,2),'Color',hazcol,'LineWidth',3)
+
+toplot = mean(selectivity_AllCtrl,2,'omitnan');
+%err = 1.96*(std(selectivity_AllCtrl,0,2,'omitnan')/sqrt(size(selectivity_AllCtrl,2)));
+err = std(selectivity_AllCtrl,0,2,'omitnan')/sqrt(size(selectivity_AllCtrl,2));
+ax = gca;
+shadedErrorBar(obj(1).time(1:ctrlstop), toplot(1:ctrlstop), err(1:ctrlstop) ,{'Color',ctrlcol,'LineWidth',2.5}, alph, ax);
+%plot(obj(1).time,toplot,'Color',ctrlcol,'LineStyle','--','LineWidth',1.75)
+plot(obj(1).time,7.4*zerodif(:,1),'Color',[0 0 0],'LineWidth',3)
+
+xline(0,'LineStyle','--','Color','black','LineWidth',1.5)
+xline(go,'LineStyle','--','Color',ctrlcol,'LineWidth',1.5)
+xline(del2use,'LineStyle','--','Color',hazcol,'LineWidth',1.5)
+%xline(-1.3,'LineStyle','-.','Color',[0.75 0.75 0.75],'LineWidth',1.5)
+%legend(' ',' ',' ','Haz',' ',' ',' ','Static','Location','best')
+set(gca,'TickDir','out');
+xlim([-1.3 del2use])
+ylim([0 8])
+xlabel('Time from delay onset (s)')
+ylabel('Selectivity (spks/s)')
+%% Print summary statistics 
+disp('---Summary statistics for Neural Selectivity Rand vs Static---')
+disp(['Random del: Number of selective single units = ' num2str(size(selectivity_All,2))])
+disp(['Fixed del: Number of selective single units = ' num2str(size(selectivity_AllCtrl,2))])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)

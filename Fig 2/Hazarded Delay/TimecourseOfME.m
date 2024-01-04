@@ -180,7 +180,7 @@ ctrlkin(~sess2incl) = [];
 ctrlobj(~sess2incl) = [];
 ctrlmeta(~sess2incl) = [];
 ctrlparams(~sess2incl) = [];
-%% Get avg jaw velocity for all ctrl sessions
+%% Get avg motion energy for all ctrl sessions
 cond2use = [2,3];
 feature = 'motion_energy';
 sm = 100;
@@ -211,7 +211,7 @@ for sessix = 1:length(ctrlmeta)
     end
     ctrlobj(sessix).jawSelectivity = mySmooth(sel,sm);
 end
-%% Get avg jaw velocity for all haz delay sessions
+%% Get avg motion energy for all haz delay sessions
 feature = 'motion_energy';
 del2use = 1.2;
 sm = 100;
@@ -248,7 +248,7 @@ for sessix = 1:length(meta)
     obj(sessix).jawSelectivity = mySmooth(sel,sm);
     obj(sessix).jawvel = mean(tempjaw,2);
 end
-%% Concatenate avg jaw selectivities across all sessions
+%% Concatenate avg motion energy across all ctrl sessions
 smooth = 41;
 temp1 = [];
 blah1 = [];
@@ -264,7 +264,7 @@ for sessix = 1:length(ctrlmeta)
     
 end
 jv.ctrl = temp1;
-%%
+%% Concatenate avg motion energy across all rand sessions
 delay = 0;
 go = del2use;
 startix = find(obj(1).time>delay,1,'first');
@@ -279,7 +279,7 @@ end
 jv.haz = temp2;
 
 clear temp1; clear temp2
-%%
+%% Baseline subtract  Motion energy values to presample
 delay = 0;
 start = params(1).tmin;
 startix = find(obj(1).time>start,1,'first');

@@ -48,8 +48,8 @@ params.smooth = 15;
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
 
-params.traj_features = {{'jaw','tongue'},...
-    {'jaw','tongue'}};
+params.traj_features = {{'jaw'},...
+    {'jaw'}};
 
 params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
 

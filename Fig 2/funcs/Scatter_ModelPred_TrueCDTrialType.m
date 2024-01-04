@@ -22,9 +22,11 @@ R = R(2);                                             % Get the correct value fr
 R2 = R^2;                                             % Want to report the R^2 value instead of the correlation value
 coeff = polyfit(modeldat,truedat,1);                  % Find the line of best fit
 sesstitle = strcat(meta(sessix).anm, {' '},meta(sessix).date);
-%scatter(modeldat,truedat,20,'filled','black')
+cols = getColors();
 scatter(modL,trueL,20,'filled','red'); hold on
 scatter(modR,trueR,20,'filled','blue')
+% scatter(modL,trueL,20,cols.afc,'filled'); hold on
+% scatter(modR,trueR,20,cols.afc,'filled')
 hline = refline(coeff);
 hline.LineStyle = '--';
 hline.Color = 'k';
