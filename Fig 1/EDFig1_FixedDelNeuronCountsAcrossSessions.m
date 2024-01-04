@@ -1,4 +1,4 @@
-% ED Figure 1 -- Counts of single and multi-units across sessions
+% ED Figure 1 -- Counts of single and multi-units across fixed delay sessions
 clear,clc,close all
 
 whichcomp = 'LabPC';                                                % LabPC or Laptop

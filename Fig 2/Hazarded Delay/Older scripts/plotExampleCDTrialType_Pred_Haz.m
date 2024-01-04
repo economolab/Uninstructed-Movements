@@ -53,6 +53,6 @@ sesstitle = [meta(sessix).anm ' ' meta(sessix).date ';'];
 sesstit = [sesstitle];
 title(sesstit)
 %set(gca, 'YDir','reverse')
-xlim([-2.5 0])
+xlim([-2.25 0])
 hold off;
 end
