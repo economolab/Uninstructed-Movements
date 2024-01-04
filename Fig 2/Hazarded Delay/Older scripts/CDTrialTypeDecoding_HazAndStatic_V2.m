@@ -233,7 +233,7 @@ par.feats = cat(1, temp{:});
 par.cond2use = [2 3];
 par.dels2use = 1:4;
 
-par.regularize = 1; % if 0, linear regression. if 1, ridge regression
+par.regularize = 0; % if 0, linear regression. if 1, ridge regression
 %% DECODING
 
 close all

@@ -30,14 +30,14 @@ params.nLicks              = 20; % number of post go cue licks to calculate medi
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'(hit|miss|no)'};                             % all trials
-params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % right hits, no stim, aw off
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % left hits, no stim, aw off
-params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % error right, no stim, aw off
-params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % error left, no stim, aw off
-params.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % no right, no stim, aw off
-params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % no left, no stim, aw off
-params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % all hits, no stim, aw off
+params.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % (2) right hits, no stim, aw off
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % (3) left hits, no stim, aw off
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % (4) error right, no stim, aw off
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % (5) error left, no stim, aw off
+params.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % (6) no right, no stim, aw off
+params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % (7) no left, no stim, aw off
+params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % (8) all hits, no stim, aw off
 
 
 params.tmin = -2.5;
@@ -70,17 +70,17 @@ end
 
 meta = [];
 
-% --- ALM ---
-meta = loadJEB13_ALMVideo(meta,datapth);    % have indiv sessions  
-meta = loadJEB6_ALMVideo(meta,datapth);
-meta = loadJEB7_ALMVideo(meta,datapth);     % have indiv sessions    
-meta = loadEKH1_ALMVideo(meta,datapth);     % have indiv sessions
-%meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);     % have indiv sessions
-meta = loadJGR3_ALMVideo(meta,datapth);     % have indiv sessions
+% --- ALM ---    
+meta = loadJEB6_ALMVideo(meta,datapth);     
+meta = loadJEB7_ALMVideo(meta,datapth);              
+meta = loadEKH1_ALMVideo(meta,datapth);     
+meta = loadEKH3_ALMVideo(meta,datapth);
+meta = loadJGR2_ALMVideo(meta,datapth);     
+meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB13_ALMVideo(meta,datapth);  
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -105,7 +105,7 @@ end
 clearvars -except obj meta params me sav kin
 
 disp('----Calculating coding dimensions----')
-cond2use = [2 3 6 7]; % right hits, left hits (corresponding to PARAMS.CONDITION)
+cond2use = [2 3]; % right hits, left hits (corresponding to PARAMS.CONDITION)
 inclramp = 'yes';
 rampcond = 8;
 cond2proj = 2:7;  % right hits, left hits, right miss, left miss, right no, left no (corresponding to null/potent psths in rez)
@@ -114,7 +114,8 @@ regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
 
 disp('----Projecting single trials onto CDlate----')
 cd = 'late';
-regr = getSingleTrialProjs(regr,obj,cd);
+smooth = 60;
+regr = getSingleTrialProjs(regr,obj,cd,smooth);
 %% Load kinematic data
 nSessions = numel(meta);
 for sessix = 1:numel(meta)
@@ -122,13 +123,30 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%%
-figure()
-for sessix = 1:length(meta)
-    plot(obj(sessix).time,regr(sessix).cd_proj(:,1)); hold on;
-     plot(obj(sessix).time,regr(sessix).cd_proj(:,2)); hold off;
-     pause
-end
+%% Sanity check -- why do averages of single trial projections onto CDChoice look so much smaller than the projection of the cond avg PSTHs?
+% figure()
+% for sessix = 1:length(meta)
+%     subplot(1,3,1)
+%     plot(obj(sessix).time,regr(sessix).cd_proj(:,1),'r'); hold on;
+%     plot(obj(sessix).time,regr(sessix).cd_proj(:,2),'b'); hold off;
+% 
+%     subplot(1,3,2)
+%     temptrix = params(sessix).trialid{2};
+%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'r'); hold on;
+% 
+%     temptrix = params(sessix).trialid{3};
+%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'b'); hold off;
+% 
+%     subplot(1,3,3)
+%     temptrix = params(sessix).trialid{2};
+%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'r'); hold on;
+% 
+%     temptrix = params(sessix).trialid{3};
+%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'b'); hold off;
+% 
+%     sgtitle([meta(sessix).anm ' ; ' meta(sessix).date])
+%     pause
+% end
 %% Predict CDTrialType from DLC features
 %%% DECODING PARAMETERS %%%
 
@@ -236,76 +254,6 @@ nTestTrix = NaN(length(meta),2);
 for sessix = 1:length(meta)
     nTestTrix(sessix,:)=[size(trueVals.Rhit{sessix},2),size(trueVals.Lhit{sessix},2)];
 end
-%% Show how the movements of different body parts are driving the potent space
-% binWidth = par.pre-par.post;
-% featid =[];
-% for ff = 1:numel(par.feats)
-%     temp = cell(1,binWidth);
-%     for bb = 1:binWidth
-%         temp{bb} = par.feats{ff};
-%     end
-%     featid = [featid,temp];
-% end
-% 
-% 
-% del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);
-% start = find(obj(1).time>del,1,'first');
-% resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
-% stop = find(obj(1).time<resp,1,'last');
-% resp2 = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))+2;
-% stop2 = find(obj(1).time<resp2,1,'last');
-% 
-% epochfns = {'delay'};
-% %% Normalize all of the beta coefficients to be a fraction of 1
-% clear temp
-% featgroups = {'nos','jaw','motion_energy'};
-% epochfns = {'delay'};
-% totalnormfeats = NaN(length(meta),length(featgroups));
-% for sessix = 1:length(meta)
-%     totalbeta = sum(abs(loadings(:,sessix)));
-%     allLoadings(sessix).totalbeta = totalbeta;
-%     for group = 1:length(featgroups)
-%         temp = zeros(1,length(featid));
-%         currgroup = featgroups{group};
-%         for feat = 1:length(featid)
-%             currfeat = featid{feat};
-%             temp(feat) = contains(currfeat,currgroup);
-%         end
-%         groupixs = find(temp);
-%         allLoadings(sessix).(currgroup) = abs(loadings(groupixs, sessix));
-%     end
-% end
-% 
-% totalnormfeats = NaN(length(meta),length(featgroups));
-% for group = 1:length(featgroups)
-%     currgroup = featgroups{group};
-%     for sessix = 1:length(meta)
-%         groupLoad = allLoadings(sessix).(currgroup);
-%         grouptotal = sum(groupLoad,'omitnan');
-%         grouprelative = grouptotal / allLoadings(sessix).totalbeta;
-%         grouprelative = grouprelative/(length(groupLoad));
-%         totalnormfeats(sessix,group) = grouprelative;
-%     end
-% end
-% 
-% for sessix = 1:length(meta)
-%     currsess = totalnormfeats(sessix,:);
-%     tot = sum(currsess,'omitnan');
-%     totalnormfeats(sessix,:) = currsess./tot;
-% end
-% 
-% 
-% % Get all ME vals
-% MEix = find(strcmp(featgroups,'motion_energy'));
-% MEvals = totalnormfeats(:,MEix);
-% [~,sortix] = sort(MEvals,'descend');
-% totalnormfeats = totalnormfeats(sortix,:);
-% %% Make a stacked bar plot to show across sessions that it varies which feature group contributes most to predicting CDTrialType
-% bar(totalnormfeats,'stacked')
-% legend(featgroups,'Location','best')
-% xlabel('Session #')
-% ylabel('Sum of beta coefficients for each feature group')
-% ylim([0 1])
 %% Baseline subtract CDTrialType
 % Times that you want to use to baseline normalize CDTrialType
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
@@ -358,7 +306,7 @@ end
 % end
 %% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
 plotheatmap = 'yes';
-sm = 30;
+sm = 20;
 invertCD = 'invert';                    % 'Invert' or 'no' for whether or not you want to flip the sign of the CD projection
 
 load('C:\Code\Uninstructed-Movements\LeftRightDiverging_Colormap.mat')
@@ -400,17 +348,17 @@ if strcmp(plotheatmap,'yes')
         
 
         ax2 = subplot(1,2,2);
-%         if strcmp(invertCD,'invert')
-%             imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm)'); hold on
-%         else
-%             imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(tempPred,sm)'); hold on
-%         end
-
         if strcmp(invertCD,'invert')
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,-1*tempPred'); hold on
+            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm)'); hold on
         else
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,tempPred'); hold on
+            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(tempPred,sm)'); hold on
         end
+% 
+%         if strcmp(invertCD,'invert')
+%             imagesc(obj(sessix).time(par.timerange),1:nTrials,-1*tempPred'); hold on
+%         else
+%             imagesc(obj(sessix).time(par.timerange),1:nTrials,tempPred'); hold on
+%         end
         line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','black','LineStyle','--')
         title(ax1,'CDTrialType - data')
         colorbar(ax1)
@@ -431,7 +379,7 @@ if strcmp(plotheatmap,'yes')
         colorbar(ax2)
         colormap(LeftRightDiverging_Colormap)
         xlim(ax2,[-2.5 0])
-        clim(ax2,[-2 2])
+        clim(ax2,[-1.5 1.5])
         set(gca,'TickDir','out');
 
         sgtitle(['Example session:  ' meta(sessix).anm ' ' meta(sessix).date])
@@ -478,39 +426,41 @@ for sessix = plotrange
     %     end
 end
 %% Plot bar plot to show average R2 values across sessions
-% colors = getColors();
-% delR2_ALL = abs(delR2_ALL);
-% 
-% nSessions =length(meta);
-% 
-% % The index of the session that you want to be highlighted
-% markerSize = 60;
-% figure();
-% b = bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
-% ix2plot = 1:nSessions;
-% ix2plot(exsess) = [];
-% scatter(ones(nSessions-1,1),delR2_ALL(ix2plot),markerSize,'filled','o','MarkerFaceColor',...,
-%     'k','XJitter','randn','XJitterWidth',0.25); hold on;
-% scatter(1,delR2_ALL(exsess),markerSize,'o','MarkerEdgeColor',colors.afc)
-% errorbar(b.XEndPoints,mean(delR2_ALL,'omitnan'),std(delR2_ALL,'omitnan'),'LineStyle','none','Color','k','LineWidth',1)
-% ylim([0 0.8])
-% set(gca,'TickDir','out');
-% ax = gca;
-% ax.FontSize = 16;
-% title(['CDChoice: Ex session = ' meta(exsess).anm meta(exsess).date])
-% %% Print summary statistics 
-% disp('---Summary statistics for CDChoice prediction---')
-% disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])
-% disp(['Standard deviation across all sessions = ' num2str(std(delR2_ALL))])
-% if par.regularize==1
-%     regtype = 'Ridge';
-% else
-%     regtype = 'Linear; No regularization';
-% end
-% disp(['Regularization type: ' regtype])
-% disp(['Train percentage: ' num2str(100*par.train) ' %'])
-% t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
-% disp(t)
+exsess = 3;
+
+colors = getColors();
+delR2_ALL = abs(delR2_ALL);
+
+nSessions =length(meta);
+
+% The index of the session that you want to be highlighted
+markerSize = 60;
+figure();
+b = bar(mean(delR2_ALL),'FaceColor',colors.afc); hold on;                   % Plot the average R2 value across all sessions
+ix2plot = 1:nSessions;
+ix2plot(exsess) = [];
+scatter(ones(nSessions-1,1),delR2_ALL(ix2plot),markerSize,'filled','o','MarkerFaceColor',...,
+    'k','XJitter','randn','XJitterWidth',0.25); hold on;
+scatter(1,delR2_ALL(exsess),markerSize,'o','MarkerEdgeColor',colors.afc)
+errorbar(b.XEndPoints,mean(delR2_ALL,'omitnan'),std(delR2_ALL,'omitnan'),'LineStyle','none','Color','k','LineWidth',1)
+ylim([0 0.8])
+set(gca,'TickDir','out');
+ax = gca;
+ax.FontSize = 16;
+title(['CDChoice: Ex session = ' meta(exsess).anm meta(exsess).date])
+%% Print summary statistics 
+disp('---Summary statistics for CDChoice prediction---')
+disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])
+disp(['Standard deviation across all sessions = ' num2str(std(delR2_ALL))])
+if par.regularize==1
+    regtype = 'Ridge';
+else
+    regtype = 'Linear; No regularization';
+end
+disp(['Regularization type: ' regtype])
+disp(['Train percentage: ' num2str(100*par.train) ' %'])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 
 %% FUNCTIONS
 function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)

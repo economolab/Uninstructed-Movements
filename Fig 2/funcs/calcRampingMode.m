@@ -5,13 +5,13 @@ function cd = calcRampingMode(psth,times,rampcond)
 %           specifies time points to use when calculating CD
 % psthdims - which of size(psth,3)=conditions to use when calculating CD
 
-    tempdat = psth(:,:,rampcond);                                           % PSTH on all hit trials
+    tempdat = psth(:,:,rampcond);                                           % PSTH on all hit trials [time x neurons]
     
-    mu_lateDel = squeeze(mean(tempdat(times.ramp_lateDel,:,:),1));          % Avg FR for all neurons during the late delay
-    sd_lateDel = squeeze(std(tempdat(times.ramp_lateDel,:,:),[],1));
+    mu_lateDel = squeeze(mean(tempdat(times.ramp_lateDel,:,:),1))';          % Avg FR for all neurons during the late delay [neurons x 1]
+    sd_lateDel = squeeze(std(tempdat(times.ramp_lateDel,:,:),[],1))';        % Std dev in FR for all neurons during the late delay [neurons x 1]
 
-    mu_lateSamp = squeeze(mean(tempdat(times.ramp_lateSamp,:,:),1));        % Avg FR for all neurons during the late sample
-    sd_lateSamp = squeeze(std(tempdat(times.ramp_lateSamp,:,:),[],1));
+    mu_lateSamp = squeeze(mean(tempdat(times.ramp_lateSamp,:,:),1))';        % Avg FR for all neurons during the late sample [neurons x 1]
+    sd_lateSamp = squeeze(std(tempdat(times.ramp_lateSamp,:,:),[],1))';      % Std dev in FR for all neurons during the late sample [neurons x 1]
 
     sd = [sd_lateDel,sd_lateSamp];
 

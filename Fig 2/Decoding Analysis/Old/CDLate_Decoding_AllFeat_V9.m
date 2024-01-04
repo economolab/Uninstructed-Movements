@@ -71,16 +71,16 @@ end
 meta = [];
 
 % --- ALM ---
-meta = loadJEB13_ALMVideo(meta,datapth);    % have indiv sessions  
+meta = loadJEB13_ALMVideo(meta,datapth);      
 meta = loadJEB6_ALMVideo(meta,datapth);
-meta = loadJEB7_ALMVideo(meta,datapth);     % have indiv sessions    
-meta = loadEKH1_ALMVideo(meta,datapth);     % have indiv sessions
-%meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);     % have indiv sessions
-meta = loadJGR3_ALMVideo(meta,datapth);     % have indiv sessions
+meta = loadJEB7_ALMVideo(meta,datapth);         
+meta = loadEKH1_ALMVideo(meta,datapth);     
+meta = loadEKH3_ALMVideo(meta,datapth);
+meta = loadJGR2_ALMVideo(meta,datapth);     
+meta = loadJGR3_ALMVideo(meta,datapth);     
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -114,38 +114,39 @@ regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
 
 disp('----Projecting single trials onto CDlate----')
 cd = 'late';
-regr = getSingleTrialProjs(regr,obj,cd);
+smooth = 80;
+regr = getSingleTrialProjs(regr,obj,cd,smooth);
 %% Load kinematic data
-% nSessions = numel(meta);
-% for sessix = 1:numel(meta)
-%     message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
-%     disp(message)
-%     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
-% end
-%% Sanity check -- why do averages of single trial projections onto CDChoice look so much smaller than the projection of the cond avg PSTHs?
-figure()
-for sessix = 1:length(meta)
-    subplot(1,3,1)
-    plot(obj(sessix).time,regr(sessix).cd_proj(:,1)); hold on;
-    plot(obj(sessix).time,regr(sessix).cd_proj(:,2)); hold off;
-
-    subplot(1,3,2)
-
-    temptrix = params(sessix).trialid{2};
-    plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'r'); hold on;
-
-    temptrix = params(sessix).trialid{3};
-    plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'b'); hold off;
-
-    subplot(1,3,3)
-    temptrix = params(sessix).trialid{2};
-    plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'r'); hold on;
-
-    temptrix = params(sessix).trialid{3};
-    plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'b'); hold off;
-
-    pause
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
+%% Sanity check -- why do averages of single trial projections onto CDChoice look so much smaller than the projection of the cond avg PSTHs?
+% figure()
+% for sessix = 1:length(meta)
+%     subplot(1,3,1)
+%     plot(obj(sessix).time,regr(sessix).cd_proj(:,1),'r'); hold on;
+%     plot(obj(sessix).time,regr(sessix).cd_proj(:,2),'b'); hold off;
+% 
+%     subplot(1,3,2)
+%     temptrix = params(sessix).trialid{2};
+%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'r'); hold on;
+% 
+%     temptrix = params(sessix).trialid{3};
+%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'b'); hold off;
+% 
+%     subplot(1,3,3)
+%     temptrix = params(sessix).trialid{2};
+%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'r'); hold on;
+% 
+%     temptrix = params(sessix).trialid{3};
+%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'b'); hold off;
+% 
+%     sgtitle([meta(sessix).anm ' ; ' meta(sessix).date])
+%     pause
+% end
 %% Predict CDTrialType from DLC features
 %%% DECODING PARAMETERS %%%
 
