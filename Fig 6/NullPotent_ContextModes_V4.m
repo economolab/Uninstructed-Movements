@@ -116,6 +116,8 @@ clearvars -except obj meta params me sav
 % -----------------------------------------------------------------------
 
 for sessix = 1:numel(meta)
+    [blockid,nBlocks] = getBlockNum_AltContextTask(sessix,obj);
+    
     % -- input data
      trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix));
     zscored(sessix).trialdat =  trialdat_zscored;
@@ -132,8 +134,11 @@ for sessix = 1:numel(meta)
     cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
     cond2proj = [1 2];           % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
     cond2use_trialdat = [2 3];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    cd_null(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.null,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
-    cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.potent,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+    cd_null(sessix) = getCodingDimensions_Context_NonStation(rez(sessix).recon_psth.null,...
+        rez(sessix).recon.null,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj,nBlocks,blockid);
+    
+    cd_potent(sessix) = getCodingDimensions_Context_NonStation(rez(sessix).recon_psth.potent,...
+        rez(sessix).recon.potent,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj,nBlocks,blockid);
 
 end
 %% Project single trials onto Null and Potent CDs

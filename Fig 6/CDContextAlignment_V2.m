@@ -1,7 +1,8 @@
 % Finding alignment of single cells to CDContext in the null or potent subspaces from neural activity that resides within the Null and Potent spaces
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%--- CDContext found usual way (all DR - WC trials used and averaged together) ---
+%----- CDContext found in way to account for non-stationarity in firing rate -----
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 clear,clc,close all
 
 whichcomp = 'LabPC';                                                % LabPC or Laptop
@@ -107,7 +108,7 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 % me (struct array) - one entry per session
 % ------------------------------------------
 for sessix = 1:numel(meta)
-   me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
+    me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
 end
 %% Null and Potent Space
 
@@ -142,13 +143,39 @@ for sessix = 1:numel(meta)
     cond2use_trialdat = [2 3];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
     cd_null(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.null,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
     cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.potent,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
-
 end
 %% Project single trials onto Null and Potent CDs
 disp('----Projecting single trials onto CDContext----')
 cd = 'context';
 
 [cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
+%% Single session examples of CDContext projections in the null and potent spaces
+load('C:\Code\Uninstructed-Movements\ContextColormap.mat')
+for sessix = 1:numel(obj)
+    sessname = [meta(sessix).anm ' ; ' meta(sessix).date];
+
+    figure();
+    nTrials = size(cd_null(sessix).singleProj,2);
+    subplot(1,2,1)
+    imagesc(obj(sessix).time,1:nTrials,cd_null(sessix).singleProj.context')
+    title('Null')
+    xlabel('Time from go cue/water drop')
+    ylabel('Trials')
+    xlim([-3 -2])
+    colorbar
+    colormap(ContextColormap)
+
+    subplot(1,2,2)
+    imagesc(obj(sessix).time,1:nTrials,cd_potent(sessix).singleProj.context')
+    title('Potent')
+    xlabel('Time from go cue/water drop')
+    ylabel('Trials')
+    xlim([-3 -2])
+    colorbar
+    colormap(ContextColormap)
+
+    sgtitle(sessname)
+end
 %% find DR/WC selective cells per session
 % only using cells with significant selectivity in this analysis
 trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
@@ -158,17 +185,56 @@ cond2use = [6 7];
 for i = 1:numel(obj)
     cluix{i} = findSelectiveCells(obj(i),params(i),edges,cond2use);
 end
+%% Account for cells that are only context-selective due to non-stationarity in FR
+colors = getColors();
 
+times.start = find(obj(1).time>edges(1),1,'first');
+times.stop = find(obj(1).time<edges(2),1,'last');
+for sessix = 1:numel(obj)
+    [blockid,nBlocks] = getBlockNum_AltContextTask(sessix,obj);
+    [tempblockpsth, goodcell] = excludeNonStationaryContextCells(sessix, obj, nBlocks,times);
+    SelectiveCellix{sessix} = find(cluix{sessix}&goodcell);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Sanity check %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     figure();
+%     for cc = 1:nCells
+%         subplot(1,2,1)
+%         imagesc(squeeze(obj(sessix).trialdat(:,cc,:))')
+%         if goodcell(cc)==1
+%             sgtitle('Good cell')
+%         else
+%             sgtitle('Non-stationary cell')
+%         end
+% 
+%         subplot(1,2,2)
+%         for bb = 1:nBlocks
+%             if rem(bb,2)>0
+%                 col = colors.afc;
+%             else
+%                 col = colors.aw;
+%             end
+%             temp = tempblockpsth(:,cc,bb);
+%             temp = mySmooth(temp,31,'reflect');
+%             plot(obj(1).time,temp,'Color',col); hold on;
+%         end
+%         hold off
+%         legend()
+%         xlim([-3 0])
+%         pause
+%     end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
 %% reconstruct single cell activity from CDcontext projs in either null or potent space
 
-cdix = 1; % index of cdchoice in the projs
+cdix = 1; % index of cdcontext in the projs
 cond2use = {'hit|miss'}; % specifying which trials 
 for sessix = 1:numel(meta)
     clear trialdat W proj 
     disp(['Session ' num2str(sessix) '/' num2str(numel(meta))])
     trix = findTrials(obj(sessix), cond2use);
     trix = trix{1};
-    clus = find(cluix{sessix});
+%     clus = find(cluix{sessix});
+    clus = find(SelectiveCellix{sessix});
 
     % get full single trial data (will compare reconstructed against this)
 %     trialdat.full = zscore_singleTrialNeuralData(obj(sessix));
@@ -204,8 +270,6 @@ for sessix = 1:numel(meta)
         end
     end
 end
-
-
 %% plot
 close all
 
@@ -223,7 +287,8 @@ for sessix = 1:numel(meta)
     trix = trix{1};
     trialdat.full = permute(obj(sessix).trialdat(:,:,trix),[1 3 2]);
 
-    clus = find(cluix{sessix});
+%     clus = find(cluix{sessix});
+    clus = find(SelectiveCellix{sessix});
     %%%%%%%%---------------SANITY CHECK------------------%%%%%%%%%%%%%%%%
     for k = 1:numel(clus) % for each cell
         thisclu = clus(k);
@@ -256,12 +321,28 @@ alignment = (alln - allp) ./ (allp + alln); % calculate alignment index
 % ax = prettifyPlot(ax);
 hold on;
 
-h = histogram(alignment,40,'edgecolor','none','Normalization','count');
+nalign = alignment(alignment>0);
+palign = alignment(alignment<0);
+h = histogram(nalign,20,'edgecolor','none','Normalization','count'); hold on
+h = histogram(palign,20,'edgecolor','none','Normalization','count'); hold on
 ylabel('# Neurons')
 xlabel('CDContext alignment')
 xline(0,'k--')
+set(gca,"TickDir",'out')
 
+% 
+% h = histogram(alignment,40,'edgecolor','none','Normalization','count');
+% ylabel('# Neurons')
+% xlabel('CDContext alignment')
+% xline(0,'k--')
+%% Test distribution of alignment values for unimodality
+% Hartigan's dip test of unimodality
 
+[p,dip,xl,xu]=dipTest(alignment);
+
+disp(['Number of context-selective, single units = ' num2str(length(alignment))])
+disp(['Number of sessions = ' numstr(numel(obj))])
+disp(['Hartigans dip test of unimodality: dip = ' num2str(dip) ' ; p-val = ' num2str(p)])
 
 
 
