@@ -1,0 +1,564 @@
+% Find time within trial for each session that CD and motion energy reach
+% their peak
+clear,clc,close all
+
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
+addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
+addpath(genpath(fullfile(utilspth,'funcs')));
+addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
+addpath(genpath(fullfile(figpth,'Hazarded Delay')));
+figpth = [basepth  '\Uninstructed-Movements\functions'];
+addpath(genpath(fullfile(figpth,'HazDel funcs')));
+%% PARAMETERS
+randparams.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+randparams.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+randparams.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+randparams.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+randparams.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
+randparams.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % (2) right hits, no stim, aw off
+randparams.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % (3) left hits, no stim, aw off
+randparams.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % (4) error right, no stim, aw off
+randparams.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % (5) error left, no stim, aw off
+randparams.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % (6) no right, no stim, aw off
+randparams.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % (7) no left, no stim, aw off
+randparams.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % (8) all hits, no stim, aw off
+
+randparams.tmin = -2.7;
+randparams.tmax = 2.5;
+randparams.dt = 1/100;
+
+% smooth with causal gaussian kernel
+randparams.smooth = 15;
+
+% cluster qualities to use
+randparams.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+
+randparams.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+randparams.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+randparams.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+
+randparams.advance_movement = 0;
+randparams.bctype = 'reflect'; % options are : reflect  zeropad  none
+
+% Haz delay randparams (delay lengths that were used in the session)
+randparams.delay(1) = 0.3000;
+randparams.delay(2) = 0.6000;
+randparams.delay(3) = 1.2000;
+randparams.delay(4) = 1.8000;
+randparams.delay(5) = 2.4000;
+randparams.delay(6) = 3.6000;
+%% SPECIFY DATA TO LOAD
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+randmeta = [];
+
+% --- ALM ---
+randmeta = loadJEB11_ALMVideo(randmeta,datapth);
+randmeta = loadJEB12_ALMVideo(randmeta,datapth);
+randmeta = loadJEB23_ALMVideo(randmeta,datapth);
+randmeta = loadJEB24_ALMVideo(randmeta,datapth);
+
+randparams.probe = {randmeta.probe}; % put probe numbers into params, one entry for element in randmeta, just so i don't have to change code i've already written
+
+%% LOAD DATA
+
+% ----------------------------------------------
+% -- Neural Data --
+% randobj (struct array) - one entry per session
+% params (struct array) - one entry per session
+% ----------------------------------------------
+[randobj,randparams] = loadSessionData(randmeta,randparams);
+%%
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(randmeta)
+    disp(['Loading ME for session ' num2str(sessix)])
+    randme(sessix) = loadMotionEnergy(randobj(sessix), randmeta(sessix), randparams(sessix), datapth);
+end
+%% Load kinematic data
+nSessions = numel(randmeta);
+for sessix = 1:numel(randmeta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    randkin(sessix) = getKinematics(randobj(sessix), randme(sessix), randparams(sessix));
+end
+%% For each session--Trials separated by delay length
+% Get the trialIDs corresponding to each delay length
+% Find the PSTH for R and L trials of each delay length
+% Find the jaw velocities for R and L trials of each delay length
+conditions = [2,3];
+condfns = {'Rhit','Lhit'};
+for sessix = 1:length(randmeta)
+    del(sessix).delaylen = randobj(sessix).bp.ev.goCue - randobj(sessix).bp.ev.delay;       % Find the delay length for all trials
+    del(sessix).del_trialid = getDelayTrix(randparams(sessix),conditions,del(sessix));  % Group the trials in each condition based on their delay length
+    del(sessix).delPSTH = getPSTHbyDel(randparams(sessix),del(sessix),randobj(sessix), condfns, conditions);             % Get avg PSTH for each delay length
+end
+%% Find CDLate the way that Inagaki et al., 2019, Nature does it (slight variation)
+% cd late mode found using delay lengths of 0.3, 0.6, 1.2, and 1.8
+dels4mode = [1,2,4];        % Relative to randparams.delay
+conds4mode = [1,2];         % Relative to condfns
+dels4proj = [2,3,4];        % Relative to randparams.delay
+conds4proj = [1,2];         % Relative to condfns
+cd_labels = 'late';
+cd_epochs = 'goCue';
+cd_times = [-0.6 -0.02]; % in seconds, relative to respective epochs
+
+sm = 81;
+for sessix = 1:length(randmeta)
+    psth2use = [];
+    % Get cond avg psth for the delay lengths that you want to use to calculate mode
+    for c = 1:length(condfns)
+        condpsth = del(sessix).delPSTH.trialPSTH.(condfns{c});
+        temp = [];
+        for dd = 1:length(dels4mode)
+            currdel = dels4mode(dd);
+            temp = cat(3,temp,condpsth{currdel});
+        end
+        avgcondps = mean(temp,3,'omitnan');
+        psth2use = cat(3,psth2use,avgcondps);
+    end
+    del(sessix).cdlate_mode = calcCD_Haz(psth2use,cd_times,cd_epochs,cd_labels,del(sessix),randobj(sessix),randparams(sessix));
+
+    %%%% Project single trials onto the coding dimension that you
+    %%%% specified
+    nTrials = size(randobj(sessix).trialdat,3);
+    TrixProj = NaN(length(randobj(sessix).time),nTrials);   % time x nTrials
+    mode = del(sessix).cdlate_mode;
+    for trix = 1:nTrials                                % For each trial...
+        temp = randobj(sessix).trialdat(:,:,trix);          % Get the PSTH for all cells on that trial
+        TrixProj(:,trix) = mySmooth((temp*mode),sm);    % Project the trial PSTH onto the mode that you specified
+    end
+    del(sessix).singleProj = TrixProj;
+
+    %%%% Condition-averaged projections onto coding dimension
+    condproj = cell(1,length(dels4proj));
+    temp = NaN(length(randobj(sessix).time),length(conds4proj));
+    for dd = 1:length(dels4proj)
+        currdel = dels4proj(dd);
+        for c = 1:length(conds4proj)
+            currcond = conds4proj(c);
+            condpsth = del(sessix).delPSTH.(condfns{currcond});
+            currpsth = condpsth{currdel};
+            temp(:,c) = mySmooth((currpsth*mode),sm);
+        end
+        condproj{dd} = temp;
+    end
+    del(sessix).condProj = condproj;
+end
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%----------STATIC DELAY DATA---------------%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% PARAMETERS
+fixparams.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+fixparams.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+fixparams.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+fixparams.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+fixparams.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
+fixparams.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % (2) right hits, no stim, aw off
+fixparams.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % (3) left hits, no stim, aw off
+fixparams.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % (4) error right, no stim, aw off
+fixparams.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % (5) error left, no stim, aw off
+fixparams.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % (6) no right, no stim, aw off
+fixparams.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % (7) no left, no stim, aw off
+fixparams.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % (8) all hits, no stim, aw off
+
+
+fixparams.tmin = -2.5;
+fixparams.tmax = 2.5;
+fixparams.dt = 1/100;
+
+% smooth with causal gaussian kernel
+fixparams.smooth = 15;
+
+% cluster qualities to use
+fixparams.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+
+fixparams.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+fixparams.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+fixparams.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+
+fixparams.advance_movement = 0;
+fixparams.bctype = 'reflect'; % options are : reflect  zeropad  none
+%% SPECIFY DATA TO LOAD
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+fixmeta = [];
+
+% --- ALM ---    
+fixmeta = loadJEB6_ALMVideo(fixmeta,datapth);     
+fixmeta = loadJEB7_ALMVideo(fixmeta,datapth);              
+fixmeta = loadEKH1_ALMVideo(fixmeta,datapth);     
+fixmeta = loadEKH3_ALMVideo(fixmeta,datapth);
+fixmeta = loadJGR2_ALMVideo(fixmeta,datapth);     
+fixmeta = loadJGR3_ALMVideo(fixmeta,datapth);
+fixmeta = loadJEB13_ALMVideo(fixmeta,datapth);  
+fixmeta = loadJEB14_ALMVideo(fixmeta,datapth);
+fixmeta = loadJEB15_ALMVideo(fixmeta,datapth);
+fixmeta = loadJEB19_ALMVideo(fixmeta,datapth);
+
+fixparams.probe = {fixmeta.probe}; % put probe numbers into fixparams, one entry for element in fixmeta, just so i don't have to change code i've already written
+
+%% LOAD DATA
+
+% ----------------------------------------------
+% -- Neural Data --
+% fixobj (struct array) - one entry per session
+% fixparams (struct array) - one entry per session
+% ----------------------------------------------
+[fixobj,fixparams] = loadSessionData(fixmeta,fixparams);
+%%
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(fixmeta)
+    disp(['Loading ME for session ' num2str(sessix)])
+    fixme(sessix) = loadMotionEnergy(fixobj(sessix), fixmeta(sessix), fixparams(sessix), datapth);
+end
+%% Calculate all CDs and find single trial projections
+
+disp('----Calculating coding dimensions----')
+cond2use = [2 3]; % right hits, left hits (corresponding to fixparams.CONDITION)
+inclramp = 'yes';
+rampcond = 8;
+cond2proj = 2:7;  % right hits, left hits, right miss, left miss, right no, left no (corresponding to null/potent psths in rez)
+cond2use_trialdat = [2 3]; % for calculating selectivity explained in full neural pop
+regr = getCodingDimensions_2afc(fixobj,fixparams,cond2use,cond2proj);
+
+disp('----Projecting single trials onto CDlate----')
+cd = 'late';
+smooth = 60;
+regr = getSingleTrialProjs(regr,fixobj,cd,smooth);
+%% Load kinematic data
+nSessions = numel(fixmeta);
+for sessix = 1:numel(fixmeta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    fixkin(sessix) = getKinematics(fixobj(sessix), fixme(sessix), fixparams(sessix));
+end
+
+clearvars -except randobj randparams randmeta randkin fixobj fixparams fixmeta fixkin del regr
+%% Get the time within the trial that ME reaches peak in randomized delay task
+kinfeat = 'motion_energy';
+featix = find(strcmp(fixkin(1).featLeg,kinfeat));
+
+del2use = 1.2000;
+
+% Times aligned to go cue
+t1 = -2;
+t1ix = find(randobj(1).time>t1,1,'first');
+t2 = 0;
+t2ix = find(randobj(1).time<t2,1,'last');
+timeix = t1ix:t2ix;
+restrictedTimeAx = randobj(1).time(timeix);
+
+sm = 80;
+
+pct2use = 90;
+pctofmax = 0.9;
+
+MElat.rand = NaN(1,length(randmeta));           
+for sessix = 1:length(randmeta)
+       deltrix = find(del(sessix).delaylen<(del2use+0.1)&del(sessix).delaylen>(del2use-0.1));
+       delkin = squeeze(randkin(sessix).dat(timeix,deltrix,featix));
+       delkin = mySmooth(delkin,sm,'reflect');
+       avgkin = mean(delkin,2,'omitnan');
+       maxkin = max(avgkin); max90kin = pctofmax*maxkin;
+       max90ix = find(avgkin>max90kin,1,'first');
+       timemax90 = restrictedTimeAx(max90ix)+del2use;           % Time now relative to delay onset
+       MElat.rand(sessix) = timemax90;
+%        ptile = prctile(avgkin,pct2use);
+%        thresh = find(avgkin>ptile,1,'first');
+%        plot(avgkin); hold on; yline(ptile,'k'); xline(thresh,'Color','r');
+
+%        plot(restrictedTimeAx+del2use,avgkin); hold on;
+%        yline(max90kin,'k--'); xline(timemax90,'Color','r','LineStyle','--')
+%        hold off;
+%        pause
+end
+%% Get the time within the trial that ME reaches peak in randomized delay task
+del2use = 0.9;
+cond2use = 8;       % all hits
+
+t1 = -1.5;
+t2 = 0;
+
+sm = 80;
+
+pct2use = 90;
+pctofmax = 0.9;
+
+MElat.fix = NaN(1,length(fixmeta));           
+for sessix = 1:length(fixmeta)
+    anm = fixmeta(sessix).anm;
+    if strcmp(anm,'JEB19')        % Have to account for 0.5 s shift in JEB19 data
+        t1ix = find(fixobj(1).time>t1+0.5,1,'first');
+        t2ix = find(fixobj(1).time<t2+0.5,1,'last');
+    else
+        t1ix = find(fixobj(1).time>t1,1,'first');
+        t2ix = find(fixobj(1).time<t2,1,'last');
+    end
+    timeix = t1ix:t2ix;
+    restrictedTimeAx = fixobj(1).time(timeix);
+
+    condtrix = fixparams(sessix).trialid{cond2use};
+    kin2use = squeeze(fixkin(sessix).dat(timeix,condtrix,featix));
+%     kin2use = squeeze(fixkin(sessix).dat(:,condtrix,featix));
+    kin2use = mySmooth(kin2use,sm,'reflect');
+
+    avgkin = mean(kin2use,2,'omitnan');
+
+    maxkin = max(avgkin); max90kin = pctofmax*maxkin;
+    max90ix = find(avgkin>max90kin,1,'first');
+    if strcmp(anm,'JEB19')
+        timemax90 = restrictedTimeAx(max90ix)+del2use-0.5;
+    else
+        timemax90 = restrictedTimeAx(max90ix)+del2use;
+    end
+    %        timemax90 = restrictedTimeAx(max90ix);
+    
+    MElat.fix(sessix) = timemax90;
+    %        ptile = prctile(avgkin,pct2use);
+    %        thresh = find(avgkin>ptile,1,'first');
+    %        plot(avgkin); hold on; yline(ptile,'k'); xline(thresh,'Color','r');
+
+%     plot(restrictedTimeAx+del2use,avgkin); hold on;
+%     yline(max90kin,'k--'); xline(timemax90,'Color','r','LineStyle','--')
+%     hold off;
+%     title(anm)
+%     pause
+end
+%% Plot ME
+plottype = 'boxchart';          % 'jitter+errorbars' OR 'boxchart'
+
+cols = getColors();
+fcol = cols.afc;
+rcol = [0.5 0.5 0.5];
+
+figure()
+if strcmp(plottype,'boxchart')
+    c_1=MElat.rand;
+    c_2=MElat.fix;
+    C = [c_1 c_2];
+    grp = [zeros(1,length(MElat.rand)),ones(1,length(MElat.fix))];
+    boxplot(C,grp,'Symbol','o'); hold on
+
+    xr = ones(1,length(MElat.rand));
+    xf = 2*ones(1,length(MElat.fix));
+    scatter(xr,MElat.rand,15,'filled','MarkerEdgeColor','black','MarkerFaceColor',rcol,'XJitter','randn','XJitterWidth',0.25)
+    scatter(xf,MElat.fix,15,'filled','MarkerEdgeColor','black','MarkerFaceColor',fcol,'XJitter','randn','XJitterWidth',0.25)
+else
+    xr = ones(1,length(MElat.rand));
+    xf = 1.5*ones(1,length(MElat.fix));
+    scatter(xr,MElat.rand,15,'filled','MarkerEdgeColor',rcol,'MarkerFaceColor',rcol,'XJitter','randn','XJitterWidth',0.25); hold on;
+    scatter(xf,MElat.fix,15,'filled','MarkerEdgeColor',fcol,'MarkerFaceColor',fcol,'XJitter','randn','XJitterWidth',0.25)
+
+    errorbar(0.7,mean(MElat.rand),std(MElat.rand),'Marker','.','Color',rcol)
+    errorbar(1.8,mean(MElat.fix),std(MElat.fix),'Marker','.','Color',fcol)
+    xticks([1 1.5])
+
+end
+xticklabels({'Randomized','Fixed'})
+ylabel('Time from delay onset (s)')
+set(gca,'TickDir','out')
+
+title('Time where 90% of max Motion Energy is reached')
+%% Get the time within the trial where selectivity in CD reaches 90% of max
+
+% Times aligned to go cue
+t1 = -2;
+t1ix = find(randobj(1).time>t1,1,'first');
+t2 = 0;
+t2ix = find(randobj(1).time<t2,1,'last');
+timeix = t1ix:t2ix;
+restrictedTimeAx = randobj(1).time(timeix);
+
+pct2use = 90;
+pctofmax = 0.9;
+
+delix = 2;
+del2use = 1.2;
+sm = 20;
+
+CDlat.rand = NaN(1,length(randmeta));           
+for sessix = 1:length(randmeta)
+       cdproj = mySmooth(del(sessix).condProj{2}(timeix,:),sm,'reflect');
+%        cdproj = del(sessix).condProj{2}(timeix,:);
+       sel = cdproj(:,1)-cdproj(:,2);
+       maxsel = max(sel); max90sel = pctofmax*maxsel;
+       max90ix = find(sel>max90sel,1,'first');
+       timemax90 = restrictedTimeAx(max90ix)+del2use;           % Time now relative to delay onset
+       CDlat.rand(sessix) = timemax90;
+%        ptile = prctile(avgkin,pct2use);
+%        thresh = find(avgkin>ptile,1,'first');
+%        plot(avgkin); hold on; yline(ptile,'k'); xline(thresh,'Color','r');
+       
+% subplot(2,1,1)
+%        plot(restrictedTimeAx+del2use,sel); hold on;
+%        yline(max90sel,'k--'); xline(timemax90,'Color','r','LineStyle','--')
+%        hold off;
+%        subplot(2,1,2)
+%        plot(restrictedTimeAx+del2use,cdproj)
+%        pause
+end
+%% Get the time within the trial that ME reaches peak in randomized delay task
+% Times aligned to go cue
+t1 = -2;
+t2 = 0;
+
+pct2use = 90;
+pctofmax = 0.9;
+
+del2use = 0.9;
+cond2use = [1,2];
+
+CDlat.fix = NaN(1,length(fixmeta));           
+for sessix = 1:length(fixmeta)
+       
+    anm = fixmeta(sessix).anm;
+    if strcmp(anm,'JEB19')        % Have to account for 0.5 s shift in JEB19 data
+        t1ix = find(fixobj(1).time>t1+0.5,1,'first');
+        t2ix = find(fixobj(1).time<t2+0.5,1,'last');
+    else
+        t1ix = find(fixobj(1).time>t1,1,'first');
+        t2ix = find(fixobj(1).time<t2,1,'last');
+    end
+    timeix = t1ix:t2ix;
+    restrictedTimeAx = fixobj(1).time(timeix);
+
+    cdproj = mySmooth(squeeze(regr(sessix).cd_proj(timeix,cond2use,1)),sm,'reflect');
+%     cdproj = squeeze(regr(sessix).cd_proj(timeix,cond2use,1));
+       sel = cdproj(:,1)-cdproj(:,2);
+       maxsel = max(sel); max90sel = pctofmax*maxsel;
+       max90ix = find(sel>max90sel,1,'first');
+       if strcmp(anm,'JEB19')
+           timemax90 = restrictedTimeAx(max90ix)+del2use-0.5;
+       else
+           timemax90 = restrictedTimeAx(max90ix)+del2use;
+       end
+       CDlat.fix(sessix) = timemax90;
+%        ptile = prctile(avgkin,pct2use);
+%        thresh = find(avgkin>ptile,1,'first');
+%        plot(avgkin); hold on; yline(ptile,'k'); xline(thresh,'Color','r');
+       
+% subplot(2,1,1)
+%        plot(restrictedTimeAx+del2use,sel); hold on;
+%        yline(max90sel,'k--'); xline(timemax90,'Color','r','LineStyle','--')
+%        hold off;
+%        subplot(2,1,2)
+%        plot(restrictedTimeAx+del2use,cdproj)
+%        pause
+end
+%% Plot CD
+plottype = 'boxchart';          % 'jitter+errorbars' OR 'boxchart'
+
+cols = getColors();
+fcol = cols.afc;
+rcol = [0.5 0.5 0.5];
+
+figure()
+if strcmp(plottype,'boxchart')
+    c_1=CDlat.rand;
+    c_2=CDlat.fix;
+    C = [c_1 c_2];
+    grp = [zeros(1,length(CDlat.rand)),ones(1,length(CDlat.fix))];
+    boxplot(C,grp,'Symbol','o'); hold on
+
+    xr = ones(1,length(CDlat.rand));
+    xf = 2*ones(1,length(CDlat.fix));
+    scatter(xr,CDlat.rand,15,'filled','MarkerEdgeColor','black','MarkerFaceColor',rcol,'XJitter','randn','XJitterWidth',0.25)
+    scatter(xf,CDlat.fix,15,'filled','MarkerEdgeColor','black','MarkerFaceColor',fcol,'XJitter','randn','XJitterWidth',0.25)
+else
+    xr = ones(1,length(CDlat.rand));
+    xf = 1.5*ones(1,length(CDlat.fix));
+    scatter(xr,CDlat.rand,15,'filled','MarkerEdgeColor',rcol,'MarkerFaceColor',rcol,'XJitter','randn','XJitterWidth',0.25); hold on;
+    scatter(xf,CDlat.fix,15,'filled','MarkerEdgeColor',fcol,'MarkerFaceColor',fcol,'XJitter','randn','XJitterWidth',0.25)
+
+    errorbar(0.7,mean(CDlat.rand),std(CDlat.rand),'Marker','.','Color',rcol)
+    errorbar(1.8,mean(CDlat.fix),std(CDlat.fix),'Marker','.','Color',fcol)
+    xticks([1 1.5])
+
+end
+xticklabels({'Randomized','Fixed'})
+ylabel('Time from delay onset (s)')
+set(gca,'TickDir','out')
+
+title('Time where 90% of max CDselectivity is reached')
+%% Two-sided t-test to determine whether the latencies to reach max ME or CDselectivity
+% are different between randomized delay and fixed delay
+siglevel = 0.05;
+[hyp.ME, pval.ME] = ttest2(MElat.rand,MElat.fix,"Alpha",siglevel);
+[hyp.CD, pval.CD] = ttest2(CDlat.rand,CDlat.fix,"Alpha",siglevel);
+
+disp('--------Summary statistics---------')
+disp(['Two-sided t-test (ttest2 MATLAB function); Alpha level = ' num2str(siglevel)])
+disp(['Motion energy: hyp = ' num2str(hyp.ME) ' ; pval = ' num2str(pval.ME)])
+disp(['CDChoice Sel: hyp = ' num2str(hyp.CD) ' ; pval = ' num2str(pval.CD)])
+
+clearvars -except cols del fixkin fixmeta fixobj fixparams randkin randmeta randobj randparams rcol fcol
+%% Scatter plot of latency for ME and CDselectivity on session by session basis (DIDN"T LOOK GOOD)
+% subplot(1,2,1)
+% scatter(MElat.fix,CDlat.fix)
+% xlabel('Motion energy')
+% ylabel('CDchoice selectivity')
+% title('Fixed delay')
+% 
+% subplot(1,2,2)
+% scatter(MElat.rand,CDlat.rand)
+% xlabel('Motion energy')
+% title('Randomized delay')
+% ylabel('CDchoice selectivity')
+%%
+CDsel.rand = NaN(length(randobj(1).time),length(randobj));
+CDsel.fix = NaN(length(fixobj(1).time),length(fixobj));
+
+for sessix = 1:length(randobj)
+    
+end
