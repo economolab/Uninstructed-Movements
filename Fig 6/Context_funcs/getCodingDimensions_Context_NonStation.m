@@ -48,14 +48,27 @@ for ss = 1:nSwitches2use
         psth_a = temppsth(:,:,2);
         psth_b = temppsth(:,:,1);
     end
+    psth2use = cat(3,psth_a,psth_b);
     % find time points to use
     e1 = mode(rez.ev.(cd_epochs{1})) + cd_times{1}(1) - rez.align;
     e2 = mode(rez.ev.(cd_epochs{1})) + cd_times{1}(2) - rez.align;
     times.(cd_labels{1}) = rez.time>e1 & rez.time<e2;
     % calculate coding direction
-    rez.cd_mode(:,ix) = calcCD(psth2use,times.(cd_labels{1}),cond2use);
-
+    blockCDs(:,ss) = calcCD(psth2use,times.(cd_labels{1}),[1 2]);
 end
+rez.cd_mode = mean(blockCDs,2,'omitnan');
+
+%%% Sanity check %%%
+% cd = rez.cd_mode;
+% [~,sortix] = sort(cd,1,'descend');
+% figure()
+% for cc = 1:length(cd)
+%     imagesc(rez.time,1:(size(trialdat_recon,2)),trialdat_recon(:,:,sortix(cc))'); hold off;
+%     title(['Cell rank in CD: ' num2str(cc)])
+%     xline(-2.3,'k--')
+%     colorbar
+%     pause
+% end
 
 % rez.cd_mode = zeros(size(rez.psth,2),numel(cd_labels)); % (neurons,numCDs)
 % for ix = 1:numel(cd_labels)

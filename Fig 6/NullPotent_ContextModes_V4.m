@@ -1,13 +1,13 @@
 % Finding CDContext from neural activity that resides within the Null and Potent spaces
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
     basepth = 'C:\Code';
 elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+    basepth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab\Code';
 end
 
 % add paths
@@ -71,7 +71,7 @@ params.bctype = 'reflect'; % options are : reflect  zeropad  none
 if strcmp(whichcomp,'LabPC')
     datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
 elseif strcmp(whichcomp,'Laptop')
-    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+    datapth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab';
 end
 
 meta = [];
@@ -83,7 +83,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB19_ALMVideo(meta,datapth);
+% meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -104,7 +104,7 @@ for sessix = 1:numel(meta)
 end
 %% Null and Potent Space
 
-clearvars -except obj meta params me sav
+clearvars -except obj meta params me sav ContextColormap
 
 % -----------------------------------------------------------------------
 % -- Curate Input Data --
@@ -147,12 +147,12 @@ cd = 'context';
 
 [cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
 %% Plot heatmap of single trialCDContext Null and Potent over the course of a session
-% tmax = 0;                               % what you want max of xlim to be
-% for sessix = 1:length(meta)%sessrange
-%     plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax)
-% end
-% 
-% %% Find trials in which the animal switches between contexts
+tmax = 0;                               % what you want max of xlim to be
+cols = getColors();
+for sessix = 1:length(meta)%sessrange
+    plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax,ContextColormap,cols)
+end
+%% Find trials in which the animal switches between contexts
 % for sessix = 1:numel(meta)
 %     bp = obj(sessix).bp;
 %     [toAW_ix, toAFC_ix] = findSwitchTrials(bp);

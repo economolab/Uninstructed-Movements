@@ -2,7 +2,7 @@ function plotCDProj_Context(allrez,rez,sav,spacename,plotmiss)
 
 pptx.newVersions = [1 0 0]; % 1 - creates new version of pptx, 0 - add to existing if already exists, 1 entry for each figure created here
 
-clrs = getColors_Updated();
+clrs = getColors();
 
 lw = 3.5;
 alph = 0.5;

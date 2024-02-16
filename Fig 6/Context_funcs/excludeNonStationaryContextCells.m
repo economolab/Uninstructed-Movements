@@ -1,4 +1,4 @@
-function [tempblockpsth, goodcell] = excludeNonStationaryContextCells(sessix, obj, nBlocks,times)
+function [tempblockpsth, goodcell] = excludeNonStationaryContextCells(sessix, obj, nBlocks,blockid,times)
 tempblockpsth = NaN(size(obj(sessix).psth,1),size(obj(sessix).psth,2),nBlocks);
 for bb = 1:nBlocks
     blockix = find(blockid==bb);
