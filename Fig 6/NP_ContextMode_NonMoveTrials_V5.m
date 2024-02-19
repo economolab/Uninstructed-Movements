@@ -144,17 +144,8 @@ trials2cutoff = 40;                                                         % Tr
 % Each field has subfields 'afc' and 'aw'
 % 'afc' and 'aw' are (n x 1) where 'n' = the number of move or non-move trials in that context
 MoveNonMove = findMoveNonMoveTrix(meta, obj, trials2cutoff, cond2use, params, me, times);
-  %% Get train/test split for data
+
 clearvars -except obj meta params rez zscored me MoveNonMove times
-
-% Store indices for train and test trials in variable called 'testsplit'
-trainPct = 0.5;     % Percentage of trials being used for train vs test
-condfns = {'afc','aw'};
-movefns = {'noMove','Move','all'};
-
-testsplit = getTestTrials_MnM(condfns,movefns,trainPct,MoveNonMove);
-
-%testsplit = getTestTrials(params,cond2use,trainPct);
 %% Find CDContext using training data (all trials, not separated by move/non-move)
 % Projections are only for test data (all trials and also separated by Move/NonMove)
 condfns = {'afc','aw'};
