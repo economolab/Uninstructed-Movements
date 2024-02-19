@@ -1,5 +1,5 @@
-function rez = getCodingDimensions_Context_NonStation(input_data,trialdat_recon,obj,params,...
-                cond2use,cond2use_trialdat,cond2proj,nBlocks,blockid, MnMpsth)
+function rez = getCodingDimensions_Context_NonStation_AllTrix(input_data,trialdat_recon,obj,params,...
+                cond2use,cond2use_trialdat,cond2proj,nBlocks,blockid)
 
 blockpsth = NaN(size(obj.psth,1),size(obj.psth,2),nBlocks);     % [time x neurons x nContextBlocks]
 tempReconDat = permute(trialdat_recon,[1,3,2]);                 % change trial data to [time x neurons x trials]
@@ -83,12 +83,6 @@ rez.cd_mode_orth = gschmidt(rez.cd_mode);
 % Condition-averaged
 temp = permute(rez.psth(:,:,cond2proj),[1 3 2]); % (time,cond,neurons), permuting to use tensorprod() on next line for the projection
 rez.cd_proj = tensorprod(temp,rez.cd_mode_orth,3,1); % (time,cond,cd), cond is in same order as con2use variable defined at the top of this function
-
-% ------------------------------------------
-% --test projections (single trial proj)--
-% ------------------------------------------
-touse = MnMpsth;
-rez.testsingleproj = getSingleTrialProjs_TTSplit(rez.cd_mode,touse);
 
 % ------------------------------------------
 % --variance explained--

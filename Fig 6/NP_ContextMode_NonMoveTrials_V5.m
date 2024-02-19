@@ -3,7 +3,7 @@
 % CDContext found from null/potent reconstructions
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -86,7 +86,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -156,7 +156,7 @@ movefns = {'noMove','Move','all'};
 % testsingleproj has fields 'noMove', 'Move', 'all' indicating whether these single trial projections are from noMove trials, move trials, or all trials
 % Each field then has a (1 x 2) cell array.  First cell contains single test trial projections from the 2AFC context. 
 % Second cell contains projections from AW context
-[cd_null, cd_potent, cd_context] = CDContext_AllSpaces_MnM(obj,meta,rez,popfns,condfns,movefns,testsplit,params,zscored);
+[cd_null, cd_potent, cd_context] = CDContext_AllSpaces_NonStation(obj,meta,rez,popfns,condfns,movefns,MoveNonMove,params,zscored);
 
 clearvars -except cd_context cd_null cd_potent obj params meta me rez zscored testsplit nSplits times
 %% Reorganize into a simpler structure
@@ -196,7 +196,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -218,7 +219,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.null.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -241,7 +243,8 @@ for cond = 1:length(condfns)
     end
     ax = gca;
     toplot = mean(mySmooth(all_grouped.potent.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
 xline(-2.2,'k--')
@@ -278,18 +281,40 @@ for ii = 1:length(popfns)
     presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;   % Normalize all presamp avgs from this condition to this value 
     presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
-%% Do all t-tests (paired)
+%% Do all t-tests (paired) -- between Move and non-move of the same population 
 sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
 for ii = 1:length(popfns)
     cont = popfns{ii};  
     [hyp.(cont),pval.(cont)] = ttest(presampavg.(cont).noMove,presampavg.(cont).Move,'Alpha',sigcutoff);
-    [hyp.(cont),pval.(cont)] = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
+%     [hyp.(cont),pval.(cont)] = ttest(presampavgnorm.(cont).noMove,presampavgnorm.(cont).Move,'Alpha',sigcutoff);
 end
 disp('---Summary Statistics for average ITI context selectivity---')
 disp(['For significance cutoff ' num2str(sigcutoff) ' :'])
 %hypS
 pval
+disp(['Nsessions = ' num2str(length(meta))])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+%% Do all t-tests (paired) -- between Move and move of all population pairs
+sigcutoff = 0.01;
+allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
+
+for ii = 1:2
+    if ii ==1
+        mo = 'Move';
+    else
+        mo = 'noMove';
+    end
+    [hyp.(mo).fullNull,pval.(mo).fullNull] = ttest(presampavg.fullpop.(mo),presampavg.null.(mo),'Alpha',sigcutoff);
+    [hyp.(mo).fullPot,pval.(mo).fullPot] = ttest(presampavg.fullpop.(mo),presampavg.potent.(mo),'Alpha',sigcutoff);
+    [hyp.(mo).nullPot,pval.(mo).nullPot] = ttest(presampavg.null.(mo),presampavg.potent.(mo),'Alpha',sigcutoff);
+end
+disp('---Summary Statistics for average ITI context selectivity---')
+disp(['For significance cutoff ' num2str(sigcutoff) ' :'])
+%hypS
+Movepvals = pval.Move
+NoMovepvals = pval.noMove
 disp(['Nsessions = ' num2str(length(meta))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
@@ -348,20 +373,20 @@ for po = 1:length(popfns)
     cont = popfns{po};
     switch cont
         case 'fullpop'
-        yl = [0 0.55];
+        yl = [-0.05 0.255];
         col = [0.25 0.25 0.25];
         case 'null'
-        yl = [0 0.55];
+        yl = [-0.05 0.255];
         col = colors.null;
         case 'potent'
-        yl = [0 0.55];
+        yl = [-0.05 0.255];
         col = colors.potent;
     end
     subplot(3,2,cnt)
     ax = gca;
     toplot = mean(all_grouped.(cont).all.selectivity,2,'omitnan');
-%     err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
-    err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
+    err = std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions);
+%     err = 1.96*(std(all_grouped.(cont).all.selectivity,0,2,'omitnan')./sqrt(nSessions));
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
     ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
@@ -383,8 +408,8 @@ for po = 1:length(popfns)
         subplot(3,2,cnt)
         ax = gca;
         toplot = mean(all_grouped.(cont).(movefns{gg}).selectivity,2,'omitnan');
-%         err = std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions);
-        err = 1.96*(std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions));
+        err = std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions);
+%         err = 1.96*(std(all_grouped.(cont).(movefns{gg}).selectivity,0,2,'omitnan')./sqrt(nSessions));
         shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2,'LineStyle',style},alp,ax);
         hold on;
 
@@ -469,7 +494,7 @@ for ii = 1:length(popfns)
         for sessix = 1:length(meta)
             tempafc = mySmooth(mean(grouped(sessix).(cont).(movefns{mo}){1},2,'omitnan'),sm);
             tempaw = mySmooth(mean(grouped(sessix).(cont).(movefns{mo}){2},2,'omitnan'),sm);
-            sel = tempafc-tempaw;
+            sel = abs(tempafc-tempaw);
             temp = [temp,sel];
         end
         all_grouped.(cont).(movefns{mo}).selectivity = temp;

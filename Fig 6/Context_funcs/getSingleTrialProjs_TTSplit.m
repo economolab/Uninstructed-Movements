@@ -1,4 +1,6 @@
-function testsingleproj = getSingleTrialProjs_TTSplit(mode,touse,movefns)
+function testsingleproj = getSingleTrialProjs_TTSplit(mode,touse)
+
+movefns = {'noMove','Move','all'};
 
 %%%% Project single trials onto the coding dimension that you
 %%%% specified

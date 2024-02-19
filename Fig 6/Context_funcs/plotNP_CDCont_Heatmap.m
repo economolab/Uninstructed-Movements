@@ -10,7 +10,7 @@ for s = 1:2
         spacename = 'Potent';
     end
     nTrials = size(space.singleProj.context,2);
-    imagesc(obj(1).time,1:nTrials,space.singleProj.context'); c = colorbar; colormap(cmap2use)
+    imagesc(obj(1).time,1:nTrials,space.singleProj.context'); c = colorbar; colormap(flipud(cmap2use))
     clim([-2 2])
     ylabel(c,'CDContext','FontSize',10,'Rotation',90);
     xlim([-2.5, tmax])

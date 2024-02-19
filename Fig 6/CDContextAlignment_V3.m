@@ -5,7 +5,7 @@
 
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
@@ -91,7 +91,7 @@ meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
 meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -142,10 +142,10 @@ for sessix = 1:numel(meta)
     cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
     cond2proj = [1 2];           % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
     cond2use_trialdat = [2 3];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
-    cd_null(sessix) = getCodingDimensions_Context_NonStation(rez(sessix).recon_psth.null,...
+    cd_null(sessix) = getCodingDimensions_Context_NonStation_AllTrix(rez(sessix).recon_psth.null,...
         rez(sessix).recon.null,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj,nBlocks,blockid);
     
-    cd_potent(sessix) = getCodingDimensions_Context_NonStation(rez(sessix).recon_psth.potent,...
+    cd_potent(sessix) = getCodingDimensions_Context_NonStation_AllTrix(rez(sessix).recon_psth.potent,...
         rez(sessix).recon.potent,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj,nBlocks,blockid);
 end
 %% Project single trials onto Null and Potent CDs
@@ -154,32 +154,41 @@ cd = 'context';
 
 [cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
 %% Single session examples of CDContext projections in the null and potent spaces
-% load('C:\Code\Uninstructed-Movements\ContextColormap.mat')
-% for sessix = 1:numel(obj)
-%     sessname = [meta(sessix).anm ' ; ' meta(sessix).date];
-% 
-%     figure();
-%     nTrials = size(cd_null(sessix).singleProj,2);
-%     subplot(1,2,1)
-%     imagesc(obj(sessix).time,1:nTrials,cd_null(sessix).singleProj.context')
-%     title('Null')
-%     xlabel('Time from go cue/water drop')
-%     ylabel('Trials')
-%     xlim([-3 -2])
-%     colorbar
-%     colormap(ContextColormap)
-% 
-%     subplot(1,2,2)
-%     imagesc(obj(sessix).time,1:nTrials,cd_potent(sessix).singleProj.context')
-%     title('Potent')
-%     xlabel('Time from go cue/water drop')
-%     ylabel('Trials')
-%     xlim([-3 -2])
-%     colorbar
-%     colormap(ContextColormap)
-% 
-%     sgtitle(sessname)
-% end
+load('C:\Code\Uninstructed-Movements\ContextColormap.mat')
+for sessix = 1:numel(obj)
+    sessname = [meta(sessix).anm ' ; ' meta(sessix).date];
+
+    figure();
+    nTrials = size(cd_null(sessix).singleProj,2);
+    subplot(1,2,1)
+    imagesc(obj(sessix).time,1:nTrials,cd_null(sessix).singleProj.context')
+    title('Null')
+    xlabel('Time from go cue/water drop')
+    ylabel('Trials')
+    xlim([-3 -2])
+    colorbar
+    colormap(ContextColormap)
+
+    subplot(1,2,2)
+    imagesc(obj(sessix).time,1:nTrials,cd_potent(sessix).singleProj.context')
+    title('Potent')
+    xlabel('Time from go cue/water drop')
+    ylabel('Trials')
+    xlim([-3 -2])
+    colorbar
+    colormap(ContextColormap)
+
+    sgtitle(sessname)
+end
+%% Example heatmaps of CDContext in null and potent spaces
+tmax = 0;                               % what you want max of xlim to be
+cols = getColors();
+sessrange = [2,3,5];
+for sessix = sessrange %1:length(meta)
+    sessname = [meta(sessix).anm ' ; ' meta(sessix).date];
+    plotNP_CDCont_Heatmap(sessix, cd_null, cd_potent,obj,tmax,ContextColormap,cols)
+    sgtitle(sessname)
+end
 %% find DR/WC selective cells per session
 % only using cells with significant selectivity in this analysis
 trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
@@ -294,26 +303,26 @@ for sessix = 1:numel(meta)
 %     clus = find(cluix{sessix});
     clus = find(SelectiveCellix{sessix});
     %%%%%%%%---------------SANITY CHECK------------------%%%%%%%%%%%%%%%%
-    for k = 1:numel(clus) % for each cell
-        thisclu = clus(k);
-        % calculcate variance explained by CD context
-        
-        orig = trialdat.full(:,:,thisclu); % (time,trials)
-
-        tempAL = (n(k) - p(k)) ./ (p(k) + n(k)); % calculate alignment index
-        subplot(1,2,1)
-        imagesc(orig');
-        ylabel('Trials')
-        subplot(1,2,2)
-        plot(obj(sessix).time, mySmooth(obj(sessix).psth(:,thisclu,6),31)); hold on; plot(obj(sessix).time,mySmooth(obj(sessix).psth(:,thisclu,7),31)); hold off; 
-        xline(0,'k--')
-        xlabel('Time from go cue')
-        ylabel('FR')
-        legend('DR','WC')
-        sgtitle(num2str(tempAL))
-        pause
+%     for k = 1:numel(clus) % for each cell
+%         thisclu = clus(k);
+%         % calculcate variance explained by CD context
+%         
+%         orig = trialdat.full(:,:,thisclu); % (time,trials)
+% 
+%         tempAL = (n(k) - p(k)) ./ (p(k) + n(k)); % calculate alignment index
+%         subplot(1,2,1)
+%         imagesc(orig');
+%         ylabel('Trials')
+%         subplot(1,2,2)
+%         plot(obj(sessix).time, mySmooth(obj(sessix).psth(:,thisclu,6),31)); hold on; plot(obj(sessix).time,mySmooth(obj(sessix).psth(:,thisclu,7),31)); hold off; 
+%         xline(0,'k--')
+%         xlabel('Time from go cue')
+%         ylabel('FR')
+%         legend('DR','WC')
+%         sgtitle(num2str(tempAL))
+%         pause
     %%%%%%%%%%-------------------------------------------%%%%%%%%%%%%%%%%%%%
-    end
+%     end
 end
 alignment = (alln - allp) ./ (allp + alln); % calculate alignment index
 

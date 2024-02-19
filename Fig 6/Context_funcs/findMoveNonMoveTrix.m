@@ -24,5 +24,7 @@ for sessix = 1:length(meta)         % For each session...
         % Do same thing for move trials
         MoveTrix = find(avgME>me(sessix).moveThresh);
         MoveNonMove(sessix).Move.(trialContext) = condtrix(MoveTrix);
+
+        MoveNonMove(sessix).all.(trialContext) = condtrix;
     end
 end
