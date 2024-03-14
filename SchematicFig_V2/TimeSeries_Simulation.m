@@ -62,7 +62,7 @@ stopIX = onIX(end);
 dur = linspace(0,1,length(startIX:stopIX));
 
 % Motor process (M)
-Fr = 104.5;        % Change this param to alter frequency of sine wave in "on" periods of motor process
+Fr = 103.5;        % Change this param to alter frequency of sine wave in "on" periods of motor process
 len = linspace(0,Fr,length(dur));
 motInd(startIX:stopIX) = sin(len);
 
@@ -88,7 +88,7 @@ stopIX = onIX(end);
 dur = linspace(0,1,length(startIX:stopIX));
 
 motDep = motInd;
-Fr = 104.5;        % Change this param to alter frequency of sine wave in "on" periods of motor process
+Fr = 103.5;        % Change this param to alter frequency of sine wave in "on" periods of motor process
 len = linspace(0,Fr,length(dur));
 motDep(startIX:stopIX) = 0.5*sin(len);
 clear dur
@@ -114,7 +114,7 @@ for ss = 1:length(start)
 
     % Generate Motor process (M)
     dur = ix1:ix2;
-    Fr = 25;        % Change this param to alter frequency of sine wave in "on" periods of motor process
+    Fr = 24;        % Change this param to alter frequency of sine wave in "on" periods of motor process
     len = linspace(0,Fr,length(dur));
     motDep(ix1:ix2) = sin(len);
     

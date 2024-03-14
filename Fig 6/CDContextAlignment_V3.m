@@ -61,8 +61,8 @@ params.dt = 1/200;
 params.smooth = 15;
 
 % cluster qualities to use
-params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
-
+% params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+params.quality = {'good','fair','great','excellent'};
 
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
     {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
@@ -85,13 +85,13 @@ end
 meta = [];
 
 % --- ALM --- 
-meta = loadJEB6_ALMVideo(meta,datapth);
+% meta = loadJEB6_ALMVideo(meta,datapth);
 meta = loadJEB7_ALMVideo(meta,datapth);
 meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB19_ALMVideo(meta,datapth);
+% meta = loadJEB19_ALMVideo(meta,datapth);
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 %% LOAD DATA
@@ -165,7 +165,7 @@ for sessix = 1:numel(obj)
     title('Null')
     xlabel('Time from go cue/water drop')
     ylabel('Trials')
-    xlim([-3 -2])
+    xlim([-3 2])
     colorbar
     colormap(ContextColormap)
 
@@ -174,7 +174,7 @@ for sessix = 1:numel(obj)
     title('Potent')
     xlabel('Time from go cue/water drop')
     ylabel('Trials')
-    xlim([-3 -2])
+    xlim([-3 2])
     colorbar
     colormap(ContextColormap)
 
@@ -197,6 +197,12 @@ edges = [trialstart samp];
 cond2use = [6 7];
 for i = 1:numel(obj)
     cluix{i} = findSelectiveCells(obj(i),params(i),edges,cond2use);
+end
+%%
+all = [];
+for ii = 1:12
+    temp = numel(cluix{ii});
+    all = [all,temp];
 end
 %% Account for cells that are only context-selective due to non-stationarity in FR
 colors = getColors();

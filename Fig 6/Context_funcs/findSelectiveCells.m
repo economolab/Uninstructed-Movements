@@ -4,7 +4,7 @@ function cluix = findSelectiveCells(obj,params,edges,cond2use)
 subTrials = 30;
 
 % The p-value that you want to perform the ranksum test at
-sig = 0.001;
+sig = 0.05;
 
 ix(1) = find(obj(1).time>edges(1),1,'first');
 ix(2) = find(obj(1).time<edges(2),1,'last');

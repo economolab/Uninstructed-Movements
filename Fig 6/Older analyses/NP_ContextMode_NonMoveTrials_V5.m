@@ -105,6 +105,13 @@ params.probe = {meta.probe}; % put probe numbers into params, one entry for elem
 for sessix = 1:numel(meta)
     me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
 end
+%% Load kinematic data
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
+end
 %% Find Null and Potent Spaces using all trials (no train/test split yet)
 clearvars -except obj meta params me sav
 
@@ -145,7 +152,123 @@ trials2cutoff = 40;                                                         % Tr
 % 'afc' and 'aw' are (n x 1) where 'n' = the number of move or non-move trials in that context
 MoveNonMove = findMoveNonMoveTrix(meta, obj, trials2cutoff, cond2use, params, me, times);
 
-clearvars -except obj meta params rez zscored me MoveNonMove times
+clearvars -except obj meta params rez zscored me MoveNonMove times kin
+%% Get motion energy on move vs non-Move trials
+% Show one plot separating DR and WC; another plot where they're lumped
+sm = 30;
+kinfeat = "motion_energy";
+featix = find(strcmp(kin(1).featLeg,kinfeat));
+% Separated by DR and WC
+% Trials at end of session are already cut off so don't have to do that
+% again
+avgME.noMove.afc = NaN(length(obj(1).time),length(obj));
+avgME.noMove.aw = NaN(length(obj(1).time),length(obj));
+avgME.Move.afc = NaN(length(obj(1).time),length(obj));
+avgME.Move.aw = NaN(length(obj(1).time),length(obj));
+
+contexts = {'afc','aw'};
+movecont = {'noMove','Move'};
+for sessix = 1:length(meta)
+    for cc = 1:numel(contexts)
+        currcont = contexts{cc};
+        for mm = 1:numel(movecont)
+            currmove = movecont{mm};
+            currtrix = MoveNonMove(sessix).(currmove).(currcont);
+            currME = squeeze(kin(sessix).dat(:,currtrix,featix));
+            currME = mean(currME,2,'omitnan');
+            avgME.(currmove).(currcont)(:,sessix) = mySmooth(currME,sm,'reflect');
+        end
+    end
+end
+
+% Lump 'afc' and 'aw' together
+avgME.noMove.both = NaN(length(obj(1).time),length(obj));
+avgME.Move.both = NaN(length(obj(1).time),length(obj));
+
+for sessix = 1:length(meta)
+    for mm = 1:numel(movecont)
+        currmove = movecont{mm};
+        trix2use = [];
+        % Combine trials from afc and aw
+        for cc = 1:numel(contexts)
+            currcont = contexts{cc};
+            currtrix = MoveNonMove(sessix).(currmove).(currcont);
+            trix2use = [trix2use;currtrix];
+        end
+        % Get the avg ME across trials for move vs non-move with contexts lumped
+        % together
+        currME = squeeze(kin(sessix).dat(:,trix2use,featix));
+        currME = mean(currME,2,'omitnan');
+        avgME.(currmove).both(:,sessix) = mySmooth(currME,sm,'reflect');
+
+    end
+end
+%% Plot avg ME on move vs non-move trials
+alph = 0.2;
+xl = [-2.4 0];
+nSessions = length(meta);
+figure();
+%%%% WC and DR on one plot, separate lines %%%%%%%
+subplot(2,1,1)
+for cc = 1:2
+    currcont = contexts{cc};
+    col = colors.(currcont);
+    toplot = mean(avgME.noMove.(currcont),2,'omitnan');
+    err = 1.96*(std(avgME.noMove.(currcont),0,2,'omitnan') ./ sqrt(nSessions));
+    ax = gca;
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',3,'LineStyle','--'},alph,ax); hold on;
+
+    toplot = mean(avgME.Move.(currcont),2,'omitnan');
+    err = 1.96*(std(avgME.Move.(currcont),0,2,'omitnan') ./ sqrt(nSessions));
+    ax = gca;
+    shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+end
+xline(0,'k--')
+xline(-2.2,'k--')
+xline(-0.9,'k--')
+xlim(xl)
+ylim([0 32])
+ylabel('Motion energy (a.u.)')
+set(gca,'TickDir','out')
+title('Separated by context')
+
+%%%% WC and DR on one plot, lumped together %%%%%%%
+subplot(2,1,2)
+col = [0 0 0];
+toplot = mean(avgME.noMove.both,2,'omitnan');
+err = 1.96*(std(avgME.noMove.both,0,2,'omitnan') ./ sqrt(nSessions));
+ax = gca;
+shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2.5,'LineStyle','--'},alph,ax); hold on;
+
+toplot = mean(avgME.Move.both,2,'omitnan');
+err = 1.96*(std(avgME.Move.both,0,2,'omitnan') ./ sqrt(nSessions));
+ax = gca;
+shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
+
+xline(0,'k--')
+xline(-2.2,'k--')
+xline(-0.9,'k--')
+xlim(xl)
+ylim([0 32])
+ylabel('Motion energy (a.u.)')
+set(gca,'TickDir','out')
+title('Contexts lumped')
+%% Get average ME during presample period on move vs non move trials
+ix1 = find(obj(1).time>times.trialstart,1,'first');
+ix2 = find(obj(1).time<times.samp,1,'last');
+temp = mean(avgME.Move.both(ix1:ix2,:),1,'omitnan');
+avgITI_ME.Move = mean(temp,'omitnan');
+
+temp = mean(avgME.noMove.both(ix1:ix2,:),1,'omitnan');
+avgITI_ME.noMove = mean(temp,'omitnan');
+
+MEratio = avgITI_ME.noMove/avgITI_ME.Move;
+MEreduct = 100*(1-MEratio);
+
+disp('---Reduction in Motion energy, Move vs noMove---')
+disp(['Average ITI motion energy on MOVE trials =  ' num2str(avgITI_ME.Move)])
+disp(['Average ITI motion energy on QUIET trials =  ' num2str(avgITI_ME.noMove)])
+disp(['Reduction in ITI motion energy = ' num2str(MEreduct)])
 %% Find CDContext using training data (all trials, not separated by move/non-move)
 % Projections are only for test data (all trials and also separated by Move/NonMove)
 condfns = {'afc','aw'};
@@ -196,8 +319,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),2,'omitnan');
-%     err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-    err = std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+    err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -219,8 +342,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.null.all.(condfns{cond}),60),2,'omitnan');
-%     err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-    err = std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+    err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -243,8 +366,8 @@ for cond = 1:length(condfns)
     end
     ax = gca;
     toplot = mean(mySmooth(all_grouped.potent.all.(condfns{cond}),60),2,'omitnan');
-%     err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-    err = std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+    err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+%     err = std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
 xline(-2.2,'k--')
@@ -281,6 +404,20 @@ for ii = 1:length(popfns)
     presampavgnorm.(cont).noMove = abs(presampavg.(cont).noMove)./maxsel;   % Normalize all presamp avgs from this condition to this value 
     presampavgnorm.(cont).Move = abs(presampavg.(cont).Move)./maxsel;       % For Move as well
 end
+%% Get reduction in Context Selectivity in the potent space
+
+avgITI_SelPot.Move = mean(presampavg.potent.Move,'omitnan');
+avgITI_SelPot.noMove = mean(presampavg.potent.noMove,'omitnan');
+
+SPratio = avgITI_SelPot.noMove/avgITI_SelPot.Move;
+SPreduct = 100*(1-SPratio);
+
+disp('---Reduction in Potent Context selectivity, Move vs noMove---')
+disp(['Average ITI selectivity in potent space on MOVE trials =  ' num2str(avgITI_SelPot.Move)])
+disp(['Average ITI selectivity in potent space on QUIET trials =  ' num2str(avgITI_SelPot.noMove)])
+disp(['Reduction in ITI selectivity in potent space = ' num2str(SPreduct)])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %% Do all t-tests (paired) -- between Move and non-move of the same population 
 sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
@@ -296,7 +433,7 @@ pval
 disp(['Nsessions = ' num2str(length(meta))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
-%% Do all t-tests (paired) -- between Move and move of all population pairs
+%% Do all t-tests (paired) -- between deltas (move vs low move) of all population pairs
 sigcutoff = 0.01;
 allhyp = [];            % (3 x 1).  First row = full pop.  Second row = null. Third row = potent.             
 
@@ -390,7 +527,7 @@ for po = 1:length(popfns)
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax);
     ylim(yl)
     xline(times.samp,'k--','LineWidth',1)
-    xlim([times.trialstart 0])
+    xlim([-2.4 0])
     ylabel(cont)
     set(gca,'TickDir','out');
     title('All trials')
@@ -419,7 +556,7 @@ for po = 1:length(popfns)
 %         end
 %        xline(0,'k--','LineWidth',1)
         xline(times.samp,'k--','LineWidth',1)
-        xlim([times.trialstart 0])
+        xlim([-2.4 0])
         set(gca,'TickDir','out');
         ylabel('Selectivity (a.u.)')
         legend({movefns{1} movefns{2}})
