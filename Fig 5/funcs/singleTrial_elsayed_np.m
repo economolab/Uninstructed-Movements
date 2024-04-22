@@ -79,6 +79,13 @@ else
     N.dims = size(N.full);
     N.full_reshape = reshape(N.full,N.dims(1)*N.dims(2),N.dims(3));
 
+    %%%%% Leave this UNCOMMENTED if you want to mean-center the neural data
+    %%%%% within each stationary bout (in order to ONLY consider variance
+    %%%%% within bouts, and not across bouts of stationarity)
+    N.full_reshape = MeanCenterEachBout(N.full_reshape,mask);
+    disp('----MEAN-CENTERING neural data in each stationary bout!!-----')
+    %%%%%
+
     if nullalltime
         N.null = N.full_reshape(:,:);
     else

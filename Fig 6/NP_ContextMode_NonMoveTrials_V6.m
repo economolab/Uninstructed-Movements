@@ -414,6 +414,11 @@ for ii = 1:length(popfns)
     HLratio = (presampavg.(cont).Move - presampavg.(cont).noMove) ./ presampavg.(cont).Move;
     HLreduct = 100*HLratio;
 
+    meanMove = mean(presampavg.(cont).Move,'omitnan');
+    meannoMove = mean(presampavg.(cont).noMove,'omitnan');
+    meanRatio = (meanMove-meannoMove)/meanMove;
+    meanpctReduct.(cont) = 100*meanRatio;
+
     HLdelt = presampavg.(cont).Move - presampavg.(cont).noMove;
     ReductVals.mean.(cont) = mean(HLdelt,'omitnan');
     ReductVals.std.(cont) = std(HLdelt,'omitnan');
@@ -434,6 +439,13 @@ disp('---Raw reduction vals in selectivity from High to Low move trials---')
 disp(['Full pop =  ' num2str(ReductVals.mean.fullpop) ' +/- ' num2str(ReductVals.std.fullpop)])
 disp(['Null =  ' num2str(ReductVals.mean.null) ' +/- ' num2str(ReductVals.std.null)])
 disp(['Potent =  ' num2str(ReductVals.mean.potent) ' +/- ' num2str(ReductVals.std.potent)])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+
+disp('---Pct reduction in mean vals of selectivity from High to Low move trials---')
+disp(['Full pop =  ' num2str(meanpctReduct.fullpop)])
+disp(['Null =  ' num2str(meanpctReduct.null)])
+disp(['Potent =  ' num2str(meanpctReduct.potent)])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% Do all t-tests (paired) -- between Move and non-move of the same population 

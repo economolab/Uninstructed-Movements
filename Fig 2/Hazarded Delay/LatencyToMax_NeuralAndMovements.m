@@ -375,6 +375,16 @@ for sessix = 1:length(fixmeta)
 %     title(anm)
 %     pause
 end
+%%
+avg.fix = mean(MElat.fix, 'omitnan');
+stdev.fix = std(MElat.fix,0,'omitnan');
+
+avg.rand = mean(MElat.rand, 'omitnan');
+stdev.rand = std(MElat.rand,0,'omitnan');
+
+disp('--- Mean +/- std of ME latency on fixed and rand delay')
+disp(['Fixed delay: ' num2str(avg.fix) ' +/- ' num2str(stdev.fix)])
+disp(['Randomized delay: ' num2str(avg.rand) ' +/- ' num2str(stdev.rand)])
 %% Plot ME
 plottype = 'boxchart';          % 'jitter+errorbars' OR 'boxchart'
 
@@ -448,7 +458,7 @@ for sessix = 1:length(randmeta)
 %        plot(restrictedTimeAx+del2use,cdproj)
 %        pause
 end
-%% Get the time within the trial that ME reaches peak in randomized delay task
+%% Get the time within the trial that CDsel reaches peak in randomized delay task
 % Times aligned to go cue
 t1 = -2;
 t2 = 0;
@@ -496,6 +506,16 @@ for sessix = 1:length(fixmeta)
 %        plot(restrictedTimeAx+del2use,cdproj)
 %        pause
 end
+%%
+avg.fix = mean(CDlat.fix, 'omitnan');
+stdev.fix = std(CDlat.fix,0,'omitnan');
+
+avg.rand = mean(CDlat.rand, 'omitnan');
+stdev.rand = std(CDlat.rand,0,'omitnan');
+
+disp('--- Mean +/- std of CDselectivity latency on fixed and rand delay')
+disp(['Fixed delay: ' num2str(avg.fix) ' +/- ' num2str(stdev.fix)])
+disp(['Randomized delay: ' num2str(avg.rand) ' +/- ' num2str(stdev.rand)])
 %% Plot CD
 plottype = 'boxchart';          % 'jitter+errorbars' OR 'boxchart'
 

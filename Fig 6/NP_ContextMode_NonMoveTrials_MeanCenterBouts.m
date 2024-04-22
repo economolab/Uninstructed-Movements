@@ -321,8 +321,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-%     err = std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+%     err = 1.96*(std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.fullpop.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -331,7 +331,7 @@ xline(-0.9,'k--')
 xline(-0,'k--')
 xlabel('Time from go cue / water drop (s)')
 ylabel('a.u.')
-% ylim(yl)
+ylim([-0.6 0.2])
 title('Full pop')
 xlim([-2.5 2.5])
 set(gca,'TickDir','out');
@@ -344,8 +344,8 @@ for cond = 1:length(condfns)
         col = colors.aw;
     end
     toplot = mean(mySmooth(all_grouped.null.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-%     err = std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+%     err = 1.96*(std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.null.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     ax = gca;
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
@@ -357,7 +357,7 @@ ylabel('a.u.')
 title('Null')
 xlim([-2.5 2.5])
 set(gca,'TickDir','out');
-% ylim(yl)
+ylim([-0.1 0.1])
 
 subplot(3,1,3)
 for cond = 1:length(condfns)
@@ -368,8 +368,8 @@ for cond = 1:length(condfns)
     end
     ax = gca;
     toplot = mean(mySmooth(all_grouped.potent.all.(condfns{cond}),60),2,'omitnan');
-    err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
-%     err = std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
+%     err = 1.96*(std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions));
+    err = std(mySmooth(all_grouped.potent.all.(condfns{cond}),60),0,2,'omitnan') ./ sqrt(nSessions);
     shadedErrorBar(obj(1).time,toplot,err,{'Color',col,'LineWidth',2},alph,ax); hold on;
 end
 xline(-2.2,'k--')
@@ -380,7 +380,7 @@ ylabel('a.u.')
 title('Potent')
 xlim([-2.5 2.5])
 set(gca,'TickDir','out');
-% ylim(yl)
+ylim([-0.6 0.2])
 %% Plot average selectivity in CDContext across all sessions for each context
 % figure();
 % LinePlot_SelGrouped_MoveNonMove_V1(meta,ngroups,all_grouped,trialstart,samp,alph,colors,obj)
@@ -414,9 +414,14 @@ for ii = 1:length(popfns)
     HLratio = (presampavg.(cont).Move - presampavg.(cont).noMove) ./ presampavg.(cont).Move;
     HLreduct = 100*HLratio;
 
-    HLdelt = presampavg.(cont).Move - presampavg.(cont).noMove;
+    meanMove = mean(presampavg.(cont).Move,'omitnan');
+    meannoMove = mean(presampavg.(cont).noMove,'omitnan');
+    meanRatio = (meanMove-meannoMove)/meanMove;
+    meanpctReduct.(cont) = 100*meanRatio;
 
-    Rec
+    HLdelt = presampavg.(cont).Move - presampavg.(cont).noMove;
+    ReductVals.mean.(cont) = mean(HLdelt,'omitnan');
+    ReductVals.std.(cont) = std(HLdelt,'omitnan');
 
     pctReduct.mean.(cont) = mean(HLreduct,'omitnan');
     pctReduct.std.(cont) = std(HLreduct,'omitnan');
@@ -426,6 +431,21 @@ disp('---Percent reduction in selectivity from High to Low move trials---')
 disp(['Full pop =  ' num2str(pctReduct.mean.fullpop) ' +/- ' num2str(pctReduct.std.fullpop)])
 disp(['Null =  ' num2str(pctReduct.mean.null) ' +/- ' num2str(pctReduct.std.null)])
 disp(['Potent =  ' num2str(pctReduct.mean.potent) ' +/- ' num2str(pctReduct.std.potent)])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+
+
+disp('---Raw reduction vals in selectivity from High to Low move trials---')
+disp(['Full pop =  ' num2str(ReductVals.mean.fullpop) ' +/- ' num2str(ReductVals.std.fullpop)])
+disp(['Null =  ' num2str(ReductVals.mean.null) ' +/- ' num2str(ReductVals.std.null)])
+disp(['Potent =  ' num2str(ReductVals.mean.potent) ' +/- ' num2str(ReductVals.std.potent)])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+
+disp('---Pct reduction in mean vals of selectivity from High to Low move trials---')
+disp(['Full pop =  ' num2str(meanpctReduct.fullpop)])
+disp(['Null =  ' num2str(meanpctReduct.null)])
+disp(['Potent =  ' num2str(meanpctReduct.potent)])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% Do all t-tests (paired) -- between Move and non-move of the same population 

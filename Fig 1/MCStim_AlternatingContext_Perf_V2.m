@@ -141,6 +141,34 @@ disp(['Paired t-test; significance cutoff = ' num2str(sigcutoff)])
 disp(['# sessions = ' num2str(size(perf_all, 1)) '; # animals = ' num2str(size(perf_byanm, 1))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
+%% Get percent reduction between each control and stim condition
+disp('---Mean/sd reduction in performance for MC go cue photoinhibition---')
+for tt = 1:(size(perf_all,2)/2)
+    c1 = (2*tt)-1;
+    c2 = c1+1;
+    switch c1
+        case 1
+            comparison = 'DR_all';
+        case 3
+            comparison = 'DR_L';
+        case 5
+            comparison = 'DR_R';
+        case 7
+            comparison = 'WC_all';
+        case 9
+            comparison = 'WC_L';
+        case 11
+            comparison = 'WC_R';
+    end
+    deltas = perf_all(:,c1)-perf_all(:,c2);
+    meandelt.(comparison) = mean(deltas,1,'omitnan'); 
+    stddelt.(comparison) = std(deltas,0,1,'omitnan');
+
+    disp([comparison ' : ' num2str(meandelt.(comparison)) '% +/- ' num2str(stddelt.(comparison)) '%' ])
+end
+
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
 %% Analysis functions
 function perf = findPostGoLicks(sessix, obj, trialCutoff, conds2use,lickCutoff, params)
 lastTrial = obj(sessix).bp.Ntrials-trialCutoff;        % Get rid of the last 'trialCutoff' trials in the session

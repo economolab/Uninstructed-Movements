@@ -91,7 +91,7 @@ for sessix = 1:length(meta)               % For each session...
     rez(sessix).trixWLicks = perf;
 end
 %% Concatenate across sessions
-clearvars -except obj meta rez params lickCutoff 
+clearvars -except obj meta rez params lickCutoff kin
 perf_all = [];
 % 'perf_all' = [nSessions x nConditions]
 for sessix = 1:length(meta)
@@ -126,8 +126,10 @@ perf_all = 100*perf_all;            % [sessions x conditions]
 std_axSessions = std(perf_all,0,1,'omitnan');                       % Standard deviation across sessions
 mean_axSessions = mean(perf_all,1,'omitnan');                       % Mean across sessions across sessions
 
-clearvars -except obj meta rez params perf_all lickCutoff sess2omit std_axSessions mean_axSessions
+clearvars -except obj meta rez params perf_all lickCutoff sess2omit std_axSessions mean_axSessions kin
 %% For supplement: show what tongue looks like during the stim period
+cols = getColors();
+
 sessix = 2;
 
 trix2plot = 10;
@@ -206,7 +208,7 @@ pctTime = 100*pctTime;            % [sessions x conditions]
 std_axSessions = std(pctTime,0,1,'omitnan');                       % Standard deviation across sessions
 mean_axSessions = mean(pctTime,1,'omitnan');                       % Mean across sessions across sessions
 
-clearvars -except obj meta rez params pctTime lickCutoff sess2omit std_axSessions mean_axSessions
+clearvars -except obj meta rez params pctTime lickCutoff sess2omit std_axSessions mean_axSessions kin
 
 %% Get the performance for each animal
 anmNames = cell(length(meta),1);
@@ -239,6 +241,34 @@ disp(['p-values for DR t-tests -- All: ' num2str(AFCpval(1)) ' L: ' num2str(AFCp
 disp(['p-values for WC t-tests -- All: ' num2str(AWpval(1)) ' L: ' num2str(AWpval(2)) ' ; R: ' num2str(AWpval(3))])
 disp(['Paired t-test; significance cutoff = ' num2str(sigcutoff)])
 disp(['# sessions = ' num2str(size(pctTime, 1)) '; # animals = ' num2str(size(perf_byanm, 1))])
+t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
+disp(t)
+%% Get percent reduction between each control and stim condition
+disp('---Mean/sd reduction in performance for MC go cue photoinhibition---')
+for tt = 1:(size(pctTime,2)/2)
+    c1 = (2*tt)-1;
+    c2 = c1+1;
+    switch c1
+        case 1
+            comparison = 'DR_all';
+        case 3
+            comparison = 'DR_L';
+        case 5
+            comparison = 'DR_R';
+        case 7
+            comparison = 'WC_all';
+        case 9
+            comparison = 'WC_L';
+        case 11
+            comparison = 'WC_R';
+    end
+    deltas = pctTime(:,c1)-pctTime(:,c2);
+    meandelt.(comparison) = mean(deltas,1,'omitnan'); 
+    stddelt.(comparison) = std(deltas,0,1,'omitnan');
+
+    disp([comparison ' : ' num2str(meandelt.(comparison)) '% +/- ' num2str(stddelt.(comparison)) '%' ])
+end
+
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %%
