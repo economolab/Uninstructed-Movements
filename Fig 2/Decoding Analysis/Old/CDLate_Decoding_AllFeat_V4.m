@@ -1,0 +1,183 @@
+% DECODING CDlate FROM ALL KINEMATIC FEATURES
+clear,clc,close all
+
+whichcomp = 'Laptop';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
+addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
+addpath(genpath(fullfile(utilspth,'funcs')));
+addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'fig1')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
+%% PARAMETERS
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+params.condition(1)     = {'(hit|miss|no)'};                             % all trials
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % R 2AFC hits, no stim
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % L 2AFC hits, no stim
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % R error 2AFC, no stim, aw off
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % L error 2AFC, no stim
+
+params.tmin = -3;
+params.tmax = 2.5;
+params.dt = (1/100)*3;
+
+% smooth with causal gaussian kernel
+params.smooth = 15;
+
+% cluster qualities to use
+params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+
+params.advance_movement = 0;
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
+%% SPECIFY DATA TO LOAD
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+meta = [];
+
+% --- ALM ---
+%meta = loadJEB13_ALMVideo(meta,datapth);
+% meta = loadJEB6_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth);
+meta = loadEKH1_ALMVideo(meta,datapth);
+% meta = loadEKH3_ALMVideo(meta,datapth);
+% meta = loadJGR2_ALMVideo(meta,datapth);
+% meta = loadJGR3_ALMVideo(meta,datapth);
+% meta = loadJEB14_ALMVideo(meta,datapth);
+% meta = loadJEB15_ALMVideo(meta,datapth);
+
+params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
+
+%% LOAD DATA
+
+% ----------------------------------------------
+% -- Neural Data --
+% obj (struct array) - one entry per session
+% params (struct array) - one entry per session
+% ----------------------------------------------
+[obj,params] = loadSessionData(meta,params);
+%%
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(meta)
+    disp(['Loading ME for session ' num2str(sessix)])
+    me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
+end
+%% Calculate all CDs and find single trial projections
+clearvars -except obj meta params me sav kin
+
+disp('----Calculating coding dimensions----')
+cond2use = [2,3];
+cond2proj = [2,3];
+regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
+
+disp('----Projecting single trials onto CDlate----')
+cd = 'late';
+regr = getSingleTrialProjs(regr,obj,cd);
+%% Load kinematic data
+nSessions = numel(meta);
+for sessix = 1:numel(meta)
+    message = strcat('----Getting kinematic data for session',{' '},num2str(sessix), {' '},'out of',{' '},num2str(nSessions),'----');
+    disp(message)
+    kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
+end
+%% Predict CDLate from DLC features
+clearvars -except datapth kin me meta obj params regr nSessions
+clc;
+
+% params for decoding
+rez.nFolds = 4;                                     % number of iterations (bootstrap)
+rez.binSize = 30;                                   % Bin size to decode over (in milliseconds)
+difTime = params(1).dt*1000;                        % Convert time-difference from s to ms
+rez.dt = floor(rez.binSize / difTime);              % How many samples confer your bin size
+rez.tm = obj(1).time(1:rez.dt:numel(obj(1).time));  % Create a new time axis over which to decode (based on the bin size that you want)
+rez.numT = numel(rez.tm);                           % Number of time-points
+rez.train = 1;                                      % fraction of trials to use for training (1-train for testing)
+
+% match number of right and left hits, and right and left misses
+cond2use = 2:5;                                     % Which conditions you want to include (R hit, L hit, R miss, L miss)
+hitcond = [1 2];                                    % Which conditions out of cond2use are hit
+misscond = [3 4];                                   % Which conditions out of cond2use are miss
+
+% Do the decoding of CDTrialType from all DLC features
+%%% trueVals = (1x1) struct with fields 'Rhit' and 'Lhit'.  Each of these fields is an (nSessions x 1) cell array.  
+%%% Each cell contains (time x trials) array of the true CDTrialType values 
+%%% modelpred is structured in the same way but this reflects the prediction of the multiple linear regression model
+[trueVals, modelpred] = doCDTrialTypeDecoding_fromDLC(nSessions, kin, obj, cond2use, hitcond, misscond, regr,rez, params);
+
+ disp('---FINISHED DECODING FOR ALL SESSIONS---')
+%% Example plots by session for relating predicted and true CDTrialType
+delR2 = [];
+
+start = find(obj(1).time>-0.9,1,'first');
+stop = find(obj(1).time<-0.05,1,'last');
+for sessix = [2,3]%1:length(meta)
+    %%% Plot a scatter plot for a single session of true CDlate and predicted CDlate for each trial
+    %%% Each dot = an average value of CDlate during the delay period 
+    figure();
+    tempR2 = Scatter_ModelPred_TrueCDTrialType(trueVals, modelpred, sessix, start, stop,meta);
+    % Save R2 value for that session
+    delR2 = [delR2, tempR2];
+
+    % Calculate averages and standard deviation for true CD and predicted CD  this session
+    [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix);
+    
+    colors = getColors();
+    alph  = 0.2;
+    
+    %%% Plot an example session of CDlate prediction vs true value
+    figure();
+    plotExampleCDTrialType_Pred(colors, obj, rez, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2);
+
+    %pause
+    %close all
+end
+%% FUNCTIONS
+function [avgCD,stdCD] = getAvgStd(trueVals,modelpred,sessix)
+
+avgCD.Rhit.true = mean(mySmooth(trueVals.Rhit{sessix},31),2,'omitnan');      % Get average true CDlate for R and L hits for this session
+avgCD.Lhit.true = mean(mySmooth(trueVals.Lhit{sessix},31),2,'omitnan');
+stdCD.Rhit.true = std(mySmooth(trueVals.Rhit{sessix},31),0,2,'omitnan');     % Get standard deviation of true CDlate for R and L hits
+stdCD.Lhit.true = std(mySmooth(trueVals.Lhit{sessix},31),0,2,'omitnan');
+
+modelpred.Rhit{sessix} = fillmissing(modelpred.Rhit{sessix},"nearest");
+modelpred.Lhit{sessix} = fillmissing(modelpred.Lhit{sessix},"nearest");
+infix = find(isinf(modelpred.Rhit{sessix})); modelpred.Rhit{sessix}(infix) = 0;
+infix = find(isinf(modelpred.Lhit{sessix})); modelpred.Lhit{sessix}(infix) = 0;
+avgCD.Rhit.pred = mean(mySmooth(modelpred.Rhit{sessix},31),2,'omitnan');     % Get average predicted CDlate for R and L hits for this session
+avgCD.Lhit.pred = mean(mySmooth(modelpred.Lhit{sessix},31),2,'omitnan');
+stdCD.Rhit.pred = std(mySmooth(modelpred.Rhit{sessix},31),0,2,'omitnan');    % Get stdev of predicted CDlate for R and L hits for this session
+stdCD.Lhit.pred = std(mySmooth(modelpred.Lhit{sessix},31),0,2,'omitnan');
+end

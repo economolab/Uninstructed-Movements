@@ -1,0 +1,356 @@
+% Finding alignment of single cells to CDContext in the null or potent subspaces from neural activity that resides within the Null and Potent spaces
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%----- CDContext found in way to account for non-stationarity in firing rate -----
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+clear,clc,close all
+
+whichcomp = 'LabPC';                                                % LabPC or Laptop
+
+% Base path for code depending on laptop or lab PC
+if strcmp(whichcomp,'LabPC')
+    basepth = 'C:\Code';
+elseif strcmp(whichcomp,'Laptop')
+    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+end
+
+% add paths
+utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
+addpath(genpath(fullfile(utilspth,'DataLoadingScripts')));
+addpath(genpath(fullfile(utilspth,'funcs')));
+addpath(genpath(fullfile(utilspth,'utils')));
+addpath(genpath(fullfile(utilspth,'figNP')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 3'];
+addpath(genpath(fullfile(figpth,'funcs')));
+addpath(genpath(fullfile(figpth,'Context switching')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 6'];
+addpath(genpath(fullfile(figpth,'funcs')));
+addpath(genpath(fullfile(figpth,'Context_funcs')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 5'];
+addpath(genpath(fullfile(figpth,'funcs')));
+figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
+addpath(genpath(fullfile(figpth,'funcs')));
+
+load([basepth '\Uninstructed-Movements\ContextColormap.mat']);
+%% PARAMETERS
+params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+
+% time warping only operates on neural data for now.
+% TODO: time warp for video and bpod data
+params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
+params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
+
+params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
+
+% set conditions to calculate PSTHs for
+params.condition(1)     = {'(hit|miss|no)'};                             % all trials
+params.condition(end+1) = {'hit&~stim.enable&~autowater'};               % all 2AFC hits, no stim
+params.condition(end+1) = {'hit&~stim.enable&autowater'};                % all AW hits, no stim
+params.condition(end+1) = {'miss&~stim.enable&~autowater'};              % error 2AFC, no stim, aw off
+params.condition(end+1) = {'miss&~stim.enable&autowater'};               % error AW, no stim
+
+params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % all 2AFC hits, ~early, no stim
+params.condition(end+1) = {'hit&~stim.enable&autowater&~early'};                % all AW hits, ~early,no stim
+
+
+params.tmin = -3;
+params.tmax = 2.5;
+params.dt = 1/100;
+
+% smooth with causal gaussian kernel
+params.smooth = 15;
+
+% cluster qualities to use
+params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
+
+
+params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
+    {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
+
+params.feat_varToExplain = 80; % num factors for dim reduction of video features should explain this much variance
+
+params.N_varToExplain = 80; % keep num dims that explains this much variance in neural data (when doing n/p)
+
+params.advance_movement = 0;
+
+params.bctype = 'reflect'; % options are : reflect  zeropad  none
+%% SPECIFY DATA TO LOAD
+
+if strcmp(whichcomp,'LabPC')
+    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+elseif strcmp(whichcomp,'Laptop')
+    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
+end
+
+meta = [];
+
+% --- ALM --- 
+meta = loadJEB6_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth);
+meta = loadEKH1_ALMVideo(meta,datapth);
+meta = loadEKH3_ALMVideo(meta,datapth);
+meta = loadJGR2_ALMVideo(meta,datapth);
+meta = loadJGR3_ALMVideo(meta,datapth);
+meta = loadJEB19_ALMVideo(meta,datapth);
+
+params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
+%% LOAD DATA
+
+% ----------------------------------------------
+% -- Neural Data --
+% obj (struct array) - one entry per session
+% params (struct array) - one entry per session
+% ----------------------------------------------
+[obj,params] = loadSessionData(meta,params);
+%%
+% ------------------------------------------
+% -- Motion Energy --
+% me (struct array) - one entry per session
+% ------------------------------------------
+for sessix = 1:numel(meta)
+    me(sessix) = loadMotionEnergy(obj(sessix), meta(sessix), params(sessix), datapth);
+end
+%% Null and Potent Space
+
+clearvars -except obj meta params me sav
+
+% -----------------------------------------------------------------------
+% -- Curate Input Data --
+% zscore single trial neural data (time*trials,neurons), for all trials
+% -- Calculate null and potent spaces --
+% null space from quiet time points
+% potent space from moving time points
+% -- Calculate coding directions from null and potent spaces --
+% -----------------------------------------------------------------------
+
+for sessix = 1:numel(meta)
+
+    % -- input data
+     trialdat_zscored = zscore_singleTrialNeuralData(obj(sessix));
+    zscored(sessix).trialdat =  trialdat_zscored;
+
+    % -- Calculate the null and potent spaces for each session
+    cond2use = [2 3 4 5];   % All 2AFC hit trials, all AW hit trials (NUMBERING ACCORDING TO PARAMS.CONDITION)
+    nullalltime = 0;        % use all time points to estimate null space if 1
+    AWonly = 0;             % use only AW to find null and potent spaces 
+    delayOnly = 0;          % use only delay period to find null and potent spaces
+    cond2proj = [2 3];       % (NUMBERING ACCORDING TO PARAMS.CONDITION)
+    rez(sessix) = singleTrial_elsayed_np(trialdat_zscored, obj(sessix), me(sessix), params(sessix), cond2use, cond2proj,nullalltime,AWonly,delayOnly);
+
+    % -- Find coding dimensions from RECONSTRUCTED full neural activity which is reconstructed from the null and potent spaces
+    cond2use = [1 2];            % (NUMBERING ACCORDING TO THE CONDITIONS PROJECTED INTO NULL AND POTENT SPACES, i.e. which of the conditions specified in 'cond2proj' above do you want to use?)
+    cond2proj = [1 2];           % 2AFC hits, AW hits, 2AFC miss, AW miss (corresponding to null/potent psths in rez)
+    cond2use_trialdat = [2 3];   % (NUMBERING ACCORDING TO PARAMS.CONDITION)
+    cd_null(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.null,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+    cd_potent(sessix) = getCodingDimensions_Context(rez(sessix).recon_psth.potent,trialdat_zscored,obj(sessix),params(sessix),cond2use,cond2use_trialdat, cond2proj);
+end
+%% Project single trials onto Null and Potent CDs
+disp('----Projecting single trials onto CDContext----')
+cd = 'context';
+
+[cd_null,cd_potent] = getNPSingleTrialProjs(obj,cd,cd_null,cd_potent,rez); 
+%% find DR/WC selective cells per session
+% only using cells with significant selectivity in this analysis
+trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
+samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
+edges = [trialstart samp];
+cond2use = [6 7];
+for i = 1:numel(obj)
+    cluix{i} = findSelectiveCells(obj(i),params(i),edges,cond2use);
+end
+%% Account for cells that are only context-selective due to non-stationarity in FR
+colors = getColors();
+
+times.start = find(obj(1).time>edges(1),1,'first');
+times.stop = find(obj(1).time<edges(2),1,'last');
+for sessix = 1:numel(obj)
+    [blockid,nBlocks] = getBlockNum_AltContextTask(sessix,obj);
+    tempblockpsth = NaN(size(obj(sessix).psth,1),size(obj(sessix).psth,2),nBlocks);
+    for bb = 1:nBlocks
+        blockix = find(blockid==bb);
+        tempblockpsth(:,:,bb) = mean(obj(sessix).trialdat(:,:,blockix),3,'omitnan');
+    end
+    blockpsth = mean(tempblockpsth(times.start:times.stop,:,:),1,'omitnan');
+    nCells = size(blockpsth,2);
+    goodcell = NaN(1,nCells);
+    for cc = 1:nCells
+        nSwitches = nBlocks-1;
+        switches = NaN(1,nSwitches);
+        for ss = 1:nSwitches
+            FRblockA = blockpsth(:,cc,ss);
+            FRblockB = blockpsth(:,cc,ss+1);
+            if FRblockA>FRblockB
+                switches(ss) = 1;
+            elseif FRblockB>FRblockA
+                switches(ss)=0;
+            end
+        end
+%         if sum(switches)==nSwitches
+%             goodcell(cc) = 0;
+%         elseif sum(switches)==0
+%             goodcell(cc) = 0;
+%         elseif sum(switches)==1||sum(switches)==nSwitches-1
+%             goodcell(cc) = 0;
+%         elseif sum(switches)==(nSwitches/2)||sum(switches)==(nSwitches/2)-1||sum(switches)==(nSwitches/2)+1
+%             goodcell(cc) = 1;
+%         end
+
+        if sum(switches)==(nSwitches/2)
+             goodcell(cc) = 1;
+        elseif sum(switches)==floor(nSwitches/2)
+             goodcell(cc) = 1;
+        elseif sum(switches)==ceil(nSwitches/2)
+            goodcell(cc) = 1;
+        elseif sum(switches)==(floor(nSwitches/2)-1)
+            goodcell(cc) = 1;
+        else
+            goodcell(cc) = 0;
+        end
+    end
+    
+    SelectiveCellix{sessix} = find(cluix{sessix}&goodcell);
+
+%     figure();
+%     for cc = 1:nCells
+%         subplot(1,2,1)
+%         imagesc(squeeze(obj(sessix).trialdat(:,cc,:))')
+%         if goodcell(cc)==1
+%             sgtitle('Good cell')
+%         else
+%             sgtitle('Non-stationary cell')
+%         end
+% 
+%         subplot(1,2,2)
+%         for bb = 1:nBlocks
+%             if rem(bb,2)>0
+%                 col = colors.afc;
+%             else
+%                 col = colors.aw;
+%             end
+%             temp = tempblockpsth(:,cc,bb);
+%             temp = mySmooth(temp,31,'reflect');
+%             plot(obj(1).time,temp,'Color',col); hold on;
+%         end
+%         hold off
+%         legend()
+%         xlim([-3 0])
+%         pause
+%     end
+end
+%% reconstruct single cell activity from CDcontext projs in either null or potent space
+
+cdix = 1; % index of cdcontext in the projs
+cond2use = {'hit|miss'}; % specifying which trials 
+for sessix = 1:numel(meta)
+    clear trialdat W proj 
+    disp(['Session ' num2str(sessix) '/' num2str(numel(meta))])
+    trix = findTrials(obj(sessix), cond2use);
+    trix = trix{1};
+%     clus = find(cluix{sessix});
+    clus = find(SelectiveCellix{sessix});
+
+    % get full single trial data (will compare reconstructed against this)
+%     trialdat.full = zscore_singleTrialNeuralData(obj(sessix));
+    trialdat.full = permute(obj(sessix).trialdat(:,:,trix),[1 3 2]);
+%     trialdat.full = trialdat.full(:,trix,:); % (time,trials,neurons);
+
+    % get CDs
+    W.null = cd_null(sessix).cd_mode_orth(:,cdix);
+    W.potent = cd_potent(sessix).cd_mode_orth(:,cdix);
+    fns = {'null','potent'};
+    for j = 1:numel(fns)
+        % single trials neural activity reconstructed from n/p
+        trialdat.(fns{j}) = rez(sessix).recon.(fns{j})(:,trix,:); % (time,trials,dims)
+        % project onto Wcontext
+        proj.(fns{j}) = tensorprod(trialdat.(fns{j}),W.(fns{j}),3,1);
+        % reconstruct data from CD context proj
+        trialdat.recon.(fns{j}) = tensorprod(proj.(fns{j}),W.(fns{j}),3,2);
+
+        % for each cell, get R^2 b/w it's original data and reconstructed
+        for k = 1:numel(clus) % for each cell
+            thisclu = clus(k);
+            % calculcate variance explained by CD context
+            orig = trialdat.full(:,:,thisclu); % (time,trials)
+
+            fr = mean(mean(orig)); % subspace contribution method
+            % weight = norm(W.(fns{j})(k));
+            % r2.(fns{j}){sessix}(k) = fr*weight;
+
+            recon = trialdat.recon.(fns{j})(:,:,thisclu); % (time,trials) % ve by recon method
+            mdl = fitlm(orig(:),recon(:));
+            r2.(fns{j}){sessix}(k) = mdl.Rsquared.Ordinary;
+          
+        end
+    end
+end
+%% plot
+close all
+
+% concatenate R^2s from null and potent spaces into two vectors
+alln = [];
+allp = [];
+for sessix = 1:numel(meta)
+    n = r2.null{sessix};
+    alln = [alln n];
+    p = r2.potent{sessix};
+    allp = [allp p];
+    % scatter(n,p,10,'filled','MarkerEdgeColor','k','MarkerFaceColor',[0.5,0.5,0.5]);
+    
+    trix = findTrials(obj(sessix), cond2use);
+    trix = trix{1};
+    trialdat.full = permute(obj(sessix).trialdat(:,:,trix),[1 3 2]);
+
+%     clus = find(cluix{sessix});
+    clus = find(SelectiveCellix{sessix});
+    %%%%%%%%---------------SANITY CHECK------------------%%%%%%%%%%%%%%%%
+    for k = 1:numel(clus) % for each cell
+        thisclu = clus(k);
+        % calculcate variance explained by CD context
+        
+        orig = trialdat.full(:,:,thisclu); % (time,trials)
+
+%         tempAL = (n(k) - p(k)) ./ (p(k) + n(k)); % calculate alignment index
+%         subplot(1,2,1)
+%         imagesc(orig');
+%         ylabel('Trials')
+%         subplot(1,2,2)
+%         plot(obj(sessix).time, mySmooth(obj(sessix).psth(:,thisclu,6),31)); hold on; plot(obj(sessix).time,mySmooth(obj(sessix).psth(:,thisclu,7),31)); hold off; 
+%         xline(0,'k--')
+%         xlabel('Time from go cue')
+%         ylabel('FR')
+%         legend('DR','WC')
+%         sgtitle(num2str(tempAL))
+%         pause
+    %%%%%%%%%%-------------------------------------------%%%%%%%%%%%%%%%%%%%
+    end
+end
+alignment = (alln - allp) ./ (allp + alln); % calculate alignment index
+
+% histogram
+% f = figure;
+% f.Position = [644   483   338   231];
+% ax = gca;
+% f.Renderer = 'painters';
+% ax = prettifyPlot(ax);
+hold on;
+
+nalign = alignment(alignment>0);
+palign = alignment(alignment<0);
+h = histogram(nalign,20,'edgecolor','none','Normalization','count'); hold on
+h = histogram(palign,20,'edgecolor','none','Normalization','count'); hold on
+ylabel('# Neurons')
+xlabel('CDContext alignment')
+xline(0,'k--')
+set(gca,"TickDir",'out')
+
+% 
+% h = histogram(alignment,40,'edgecolor','none','Normalization','count');
+% ylabel('# Neurons')
+% xlabel('CDContext alignment')
+% xline(0,'k--')
+%%
+function [p,dip,xl,xu]=dipTest(x,delta_x)% Hartigan's dip test of unimodality% [p, dip, xl, xu] = dipTest (x, delta_x)% x: vector of observations% delta_x: optional argument defining the spacing of a discrete distribution%          (missing delta_x or delta_x=0 means continuous distribution)% p: p value for rejecting the null hypothesis that the distribution is unimodal%    Be aware that this p value is not based on an exact calculation but on a look-up table.%    This table has been constructed using simulations and interpolation is involved%    when reading it out.% dip: the dip statistic% xl: the lower end of the modal interval% xu: the upper end of the modal interval%% J. Ditterich, 12/01% This is an implementation of the dip test of unimodality published in% J. A. Hartigan, P. M. Hartigan: The Dip Test of Unimodality. Annals of Statistics,% 13 (1985) 70-84. It is based on a Fortran algorithm published in% P. M. Hartigan: Algorithm AS 217: Computation of the Dip Statistic to Test for% Unimodality. Applied Statistics, 34 (1985) 320-325. It also takes a correction% into account, which was published in C. J. Sommer, J. N. McNamara: Power considerations% for the dip test of unimodality using mixtures of normal and uniform distributions.% American Statistical Association: Proceedings of the Statistical Computing Section,% 1987, 186-191.% I have added some extensions:% 1) Extended table for being on the conservative side even for larger sample sizes% 2) Extension for handling discrete distributions% Version history:% 11/29/01 JD wrote it% 12/05/01 handling of discrete distributions added% Check argumentsif (size(x,1)~=1)&(size(x,2)~=1) % not a vector?    error('DIP_TEST: x must be a vector!');end;if length(x)<15 % vector too short?    error('DIP_TEST: x is too short!');end;if nargin<2    delta_x=0; % default: continuous distributionend;if delta_x<0 % negative spacing?    error('DIP_TEST: delta_x must not be negative!');end;% Check plausibility of given spacingif delta_x>0    temp=sort(x);    temp=diff(temp);    temp=temp(find(temp~=0));    temp=unique(temp); % get all non-zero spacings    temp=temp/delta_x;        if ~isempty(find(temp~=round(temp))) % Are there spacings which are not multiples of the given delta_x?       error('DIP_TEST: The given delta_x is incompatible with x!');    end;end;% Make continuous values from discrete valuesif delta_x>0    x=x+(rand(size(x,1),size(x,2))-.5)*delta_x;end;% Sort the vectorx=sort(x);n=length(x);% Further checksif x(1)==x(n) % all observations identical?    error('DIP_TEST: All observations must not be identical!');end;% Computationlow=1; % lower indexhigh=n; % upper indexdip=1/n;xl=x(low);xu=x(high);% Establish the indices over which combination is necessary for the convex minorant fitmn=1;for j=2:n    mn(j)=j-1;        while 1        mnj=mn(j);        mnmnj=mn(mnj);        a=mnj-mnmnj;        b=j-mnj;                if (mnj==1)|(((x(j)-x(mnj))*a)<((x(mnj)-x(mnmnj))*b))            break;        end;                mn(j)=mnmnj;    end;end;% Establish the indices over which combination is necessary for the concave majorant fitclear mj;mj(n)=n;for jk=1:n-1    k=n-jk;    mj(k)=k+1;        while 1        mjk=mj(k);        mjmjk=mj(mjk);        a=mjk-mjmjk;        b=k-mjk;                if (mjk==n)|(((x(k)-x(mjk))*a)<((x(mjk)-x(mjmjk))*b))            break;        end;               mj(k)=mjmjk;    end;end;% Start the cycling% Collect the change points for the GCM from high to lowclear gcm lcm;while 1 % line 40 in the Fortran algorithm (big loop)    ic=1;    gcm(1)=high;        while 1        igcm1=gcm(ic);        ic=ic+1;        gcm(ic)=mn(igcm1);                if gcm(ic)<=low            break;        end;    end;        icx=ic;        % Collect the change points for the LCM from low to high    ic=1;    lcm(1)=low;        while 1        lcm1=lcm(ic);        ic=ic+1;        lcm(ic)=mj(lcm1);                if lcm(ic)>=high            break;        end;    end;        icv=ic;    ig=icx;    ih=icv;        % Find the largest distance greater than "dip" between the GCM and the LCM from low to high    ix=icx-1;    iv=2;    d=0;        if (icx~=2)|(icv~=2) % lines 50 - 60 in the Fortran algorithm        while 1 % line 50 in the Fortran algorithm            igcmx=gcm(ix);            lcmiv=lcm(iv);                        if igcmx>lcmiv                % If the next point of either the GCM or LCM is from the GCM then calculate distance here                lcmiv=lcm(iv); % line 55 in the Fortran algorithm                igcm=gcm(ix);                igcm1=gcm(ix+1);                a=lcmiv-igcm1+1;                b=igcm-igcm1;                dx=a/n-((x(lcmiv)-x(igcm1))*b)/(n*(x(igcm)-x(igcm1)));                iv=iv+1;                                if dx>=d                    d=dx;                    ig=ix+1;                    ih=iv-1;                end;            else                % If the next point of either the GCM or LCM is from the LCM then calculate distance here                lcmiv1=lcm(iv-1);                a=lcmiv-lcmiv1;                b=igcmx-lcmiv1-1;                dx=((x(igcmx)-x(lcmiv1))*a)/(n*(x(lcmiv)-x(lcmiv1)))-b/n;                ix=ix-1;                                if dx>=d                    d=dx;                    ig=ix+1;                    ih=iv;                end;            end;                        if ix<1 % line 60 in the Fortran algorithm                ix=1;            end;                        if iv>icv                iv=icv;            end;                        if gcm(ix)==lcm(iv)                break; % leave while loop            end;        end;    else        d=1/n;    end;        % line 65 in the Fortran algorithm    if d<dip % Are we done?        dip=dip/2;        xl=x(low);        xu=x(high);        break; % leave the main loop    end;        % Calculate the dips for the current low and high    % The dip for the convex minorant    dl=0;        if ig~=icx        icxa=icx-1;                for j=ig:icxa            temp=1/n;            jb=gcm(j+1);            je=gcm(j);                        if ((je-jb)>1)&(x(je)~=x(jb))                a=je-jb;                const=a/(n*(x(je)-x(jb)));                                for jr=jb:je                    b=jr-jb+1;                    t=b/n-(x(jr)-x(jb))*const;                                        if t>temp                        temp=t;                    end;                end;            end;                        if dl<temp                dl=temp;            end;        end;    end;        % The dip for the concave majorant    du=0;        if ih~=icv        icva=icv-1;                for k=ih:icva            temp=1/n;            kb=lcm(k);            ke=lcm(k+1);                        if ((ke-kb)>1)&(x(ke)~=x(kb))                a=ke-kb;                const=a/(n*(x(ke)-x(kb)));                                for kr=kb:ke                    b=kr-kb-1;                    t=(x(kr)-x(kb))*const-b/n;                                        if t>temp                        temp=t;                    end;                end;            end;                        if du<temp                du=temp;            end;        end;    end;        % Determine the current maximum    dipnew=dl;        if du>dl        dipnew=du;    end;        if dip<dipnew        dip=dipnew;    end;        low=gcm(ig);    high=lcm(ih);end; % big loop% Calculate the p value (based on the table given in the publications)% I have extended the table for sample sizes of 500 and 1000.nvec=[15 20 30 50 100 200 500 1000];dcell=cell(1,8);dcell{1}=[.0544 .0606 .0641 .0836 .1097 .1179 .1365 .1424 .1538];dcell{2}=[.0474 .0529 .0569 .0735 .0970 .1047 .1209 .1262 .1382];dcell{3}=[.0395 .0442 .0473 .0617 .0815 .0884 .1012 .1061 .1177];dcell{4}=[.0312 .0352 .0378 .0489 .0645 .0702 .0804 .0842 .0926];dcell{5}=[.0228 .0256 .0274 .0355 .0471 .0510 .0586 .0619 .0987];dcell{6}=[.0165 .0185 .0197 .0255 .0341 .0370 .0429 .0449 .0496];dcell{7}=[.0107 .0119 .0127 .0164 .0218 .0237 .0270 .0287 .0311];dcell{8}=[.0075 .0085 .0091 .0117 .0155 .0168 .0197 .0206 .0233];p_vec=[.99 .95 .9 .5 .1 .05 .01 .005 .001];% find nearest nn_diff=nvec-n;n_ind=find(n_diff==0);if isempty(n_ind) % n not tabulated?    n_ind=find(n_diff>0);        if isempty(n_ind) % Is there no larger n value in the table?       n_ind=length(nvec); % choose the largest one    end;end;n_ind=n_ind(1); % Choose (1) the exact n if it is in the table;                %        (2) a value of n which is tabulated, larger than the real n, and has minimum distance;                %            by choosing a larger n the test will be on the conservative side;                %        (3) the largest n in the table if the real n is larger than this value.n_comp=nvec(n_ind); % This is the n for the test.d_test=dip*sqrt(n/n_comp); % This is the dip value for the test (interpolation based on sqrt(n)*dip as suggested in the paper).% get the p valueif d_test<min(dcell{n_ind}) % out of range?    p=p_vec(1); % return the maximum p value in the table    return;end;if d_test>max(dcell{n_ind}) % out of range?    p=p_vec(length(p_vec)); % return the minimum p value in the table    return;end;% interpolationp=interp1(dcell{n_ind},p_vec,d_test,'spline');
+
+
+
+

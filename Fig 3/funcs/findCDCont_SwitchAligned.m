@@ -1,0 +1,50 @@
+%%% Function: findCDCont_SwitchAligned %%%
+% Function for aligning any metric to a block/context switch (i.e. jaw velocity on the first trial after a context switch, second trial after a
+% context switch, etc.)
+
+% INPUTS: nBufferTrials = how many trials you want to look at before and after a block switch
+% obj = variable containing all of your data objects
+% sessix = current session that you are working with
+% CDCont = (time x trials) Whatever metric you want to align to block switches  
+%       I.e. the jaw velocity value for all trials in the session
+% switchtype = string that either says 'toAW_ix' or 'toAFC_ix'.  This tells you which type of switch you are looking at 
+% start, stop = the index within obj.time that corresponds to the beginning and end of the epoch you want to average your metric over
+%       I.e. if you want to look at the average jaw velocity during the presample period, you would get the obj.time indices that 
+%       correspond to the  beginning and end of the presample period.
+
+% OUTPUTS: toAW_CDCont = average value of whatever metric you are looking at in the format of (B x S)
+%       where 'B' = the number of trials that you are looking at on either end of the switch trial (I.e. if you are looking 
+%       at 5 trials before and after the switch trial, 'B' will = 11)
+%       'S' = number of switch trials
+function toAW_CDCont = findCDCont_SwitchAligned(nBufferTrials, obj, sessix, CDCont,switchtype,start,stop)
+
+BoundaryTrix = (2*nBufferTrials)+1;              % Current switch trial will be middle, then want to look at nBufferTrials before and nBufferTrials after switch
+nSwitchTrix = length(obj(sessix).(switchtype));  % Num switch trials in this session
+toAW_CDCont = NaN(BoundaryTrix,nSwitchTrix);     % (# trials you want to look at before and after switches x # of switch trials)
+centerix = nBufferTrials + 1;
+
+for ii = 1:nSwitchTrix
+    trix = obj(sessix).(switchtype)(ii);             % Get the current switch trial
+    temp = mean(CDCont(start:stop,trix),1,'omitnan');     % Take the average presample CDContext on this switch trial
+    toAW_CDCont(centerix,ii) = temp;            % Store this in toAW_CDCont variable
+    for b = 1:nBufferTrials
+        ix = trix+b;                            % Find the trial that is 'b' number of trials after the switch trial
+        if ix > obj(sessix).bp.Ntrials          % If the trial num is greater than the number of trials in the session...
+            toAW_CDCont(centerix+b,ii) = NaN;   % Take the avg presample CDContext to be NaN
+        else
+            temp = mean(CDCont(start:stop,ix),1,'omitnan');   % Take the average presample CDContext on this trial
+            toAW_CDCont(centerix+b,ii) = temp;
+        end
+
+        clear ix temp
+        ix = trix-b;                            % Find the trial that is 'b' number of trials before the switch trial
+        if ix < 1                               % If the trial num is negative (aka not possible)...
+            toAW_CDCont(centerix+b,ii) = NaN;   % Take the avg presample CDContext to be NaN
+        else
+            temp = mean(CDCont(start:stop,ix),1,'omitnan');     % Take the average presample CDContext on this trial
+            toAW_CDCont(centerix-b,ii) = temp;
+        end
+    end
+end
+toAW_CDCont = toAW_CDCont';
+end

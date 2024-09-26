@@ -1,0 +1,269 @@
+% Script for doing ROC analysis--ability to decode trial type from jaw velocity and choice
+% mode
+clear; clc; close all;
+%%
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\ActivityModes'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Data-Loading-Scripts'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Uninstructed-Movements'));
+addpath(genpath('C:\Users\Jackie\Documents\Grad School\Economo Lab\Code\Utils'));
+%% SET RUN PARAMS
+
+% Which method you want to use to identify early movement trials:
+% 'motionEnergy' or 'DeepLabCut'
+params.alignEvent          = 'goCue';   % goCue or firstLick
+params.lowFR               = 1; % remove clusters firing less than this val
+params.dt = 0.05;
+params.Measure             = 'MotionEnergy'; % sideJaw or MotionEnergy
+params.moveThresh          = 0.15;
+
+% set conditions to use for projections
+params.condition(1) = {'R&hit&~stim.enable&autowater.nums==2&~early'}; % right hits, no stim, aw off, no early response
+params.condition(2) = {'L&hit&~stim.enable&autowater.nums==2&~early'}; % left hits, no stim, aw of, no early response
+% params.condition(3) = {'R&miss&~stim.enable&autowater.nums==2&~early'};   % error right, no stim, aw off
+% params.condition(4) = {'L&miss&~stim.enable&autowater.nums==2&~early'};   % error left, no stim, aw off
+% params.condition(5) = {'R&hit&~stim.enable&autowater.nums==1&~early'}; % right hits, no stim, aw on
+% params.condition(6) = {'L&hit&~stim.enable&autowater.nums==1&~early'}; % left hits, no stim, aw on
+% params.condition(7) = {'~hit&~miss&~stim.enable&autowater.nums==2&~early'}; % ignore, 2afc, no stim
+% params.condition(8) = {'R&hit&~stim.enable&autowater.nums==2&early'}; % right EARLY RESPONSE hits, no stim, aw off
+% params.condition(9) = {'L&hit&~stim.enable&autowater.nums==2&early'}; % left EARLY RESPONSE hits, no stim, aw off
+
+
+% set conditions used for finding the modes
+aw = '2'; % 1-on, 2-off
+stim = '0'; % 0-off
+params.modecondition(1) = {['R&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % R hits, 2afc, stim on/off, not early
+params.modecondition(2) = {['L&hit&autowater.nums==' aw '&stim.num==' stim '&~early']};     % L hits, 2afc, stim on/off, not early
+params.modecondition(3) = {['R&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % R miss, 2afc, stim on/off, not early
+params.modecondition(4) = {['L&miss&autowater.nums==' aw '&stim.num==' stim '&~early']};    % L miss, 2afc, stim on/off, not early
+params.modecondition(5) = {['hit&autowater.nums==' aw '&stim.num==' stim '&~early']};       % All hits, 2afc, stim on/off, not early
+params.modecondition(6) = {['hit&autowater.nums==1&stim.num==' stim '&~early']};        % All hits, aw on, stim on/off, not early
+
+%% SET METADATA FROM ALL RELEVANT SESSIONS/ANIMALS
+meta = [];
+meta = loadJEB4_ALMVideo(meta);
+meta = loadJEB5_ALMVideo(meta);
+meta = loadJEB6_ALMVideo(meta);
+meta = loadJEB7_ALMVideo(meta);
+meta = loadEKH1_ALMVideo(meta);
+meta = loadEKH3_ALMVideo(meta);
+meta = loadJGR2_ALMVideo(meta);
+meta = loadJGR3_ALMVideo(meta);
+
+taxis = meta(end).tmin:meta(end).dt:meta(end).tmax;   % get time-axis with 0 as time of event you aligned to
+taxis = taxis(1:end-1);
+%% PREPROCESS DATA
+objs = loadObjs(meta);
+
+for i = 1:numel(meta)
+    obj = objs{i};
+    obj.condition = params.condition;
+    % get trials and clusters to use
+    meta(i).trialid = findTrials(obj, obj.condition);   % Get which trials pertain to the behavioral conditions you are looking at
+    cluQuality = {obj.clu{meta(i).probe}(:).quality}';  % Get clusters that are of the qualities that you specified
+    meta(i).cluid = findClusters(cluQuality, meta(i).quality);
+    % align data
+    obj = alignSpikes(obj,meta(i),params);              % Align the spike times to the event that you specified
+    % get trial avg psth, single trial data, and single trial data grouped
+    % by condition (aka R 2AFC, R AW, etc.)
+    obj = getPSTHs(obj,meta(i));
+    objs{i} = obj;
+end
+%% Remove unwanted sessions
+
+% remove sessions with less than 40 trials of rhit and lhit each (same as
+% hidehiko ppn paper)
+use = false(size(objs));
+for i = 1:numel(use)
+    met = meta(i);
+    check1 = numel(met.trialid{1}) > 40;
+    check2 = numel(met.trialid{2}) > 40;
+    if check1 && check2
+        use(i) = true;
+    end
+end
+
+meta = meta(use);
+objs = objs(use);
+% params.probe = params.probe(use);
+% params.trialid = params.trialid(use);
+% params.cluid = params.cluid(use);
+%% Load all of the data
+AUC.jaw = NaN(1,length(meta));          % (1 x num sessions)
+AUC.choice = NaN(1,length(meta));       % (1 x num sessions)
+R = NaN(1,length(meta));                % Store R^2 values for jaw vel vs choice for each session
+for gg = 1:length(meta)
+    figure(gg);
+    sesh = gg;
+    obj = objs{sesh};     % 11th data object = JEB7, 04-29 (Classic sesh)
+    met = meta(sesh);
+
+    anm = obj.pth.anm;                  % Animal name
+    date = obj.pth.dt;                  % Session date
+    probenum = string(met.probe);       % Which probe was used
+
+    %%%% FIND JAW VEL %%%%
+    % Find the jaw velocity at all time points in the session for trials of
+    % specific conditions
+    conditions = {1,2};
+    if strcmp(params.Measure,'sideJaw')
+        jaw_by_cond = findJawVelocity(taxis, obj,conditions,met,'vel');
+    elseif strcmp(params.Measure,'MotionEnergy')
+        [met,mov,me] = assignEarlyTrials(obj,met,params);
+        jaw_by_cond = findInterpME(taxis,conditions, met,mov,me,params,obj);
+    end
+
+    %%%% FIND CHOICE MODE %%%%
+    cond{1} = params.modecondition{1};
+    cond{2} = params.modecondition{2};
+    epoch = 'midsample';
+    CD.early_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'no');
+    % Find CDlate (coding dimension during late delay period)
+    epoch = 'latedelay';
+    CD.late_mode = choiceMode(obj,met,cond,epoch,params.alignEvent,'yes');
+    % Orthogonalize CD late to CD early
+    CD = orthogModes(CD, obj);
+
+    choice_mode = CD.late_mode;
+
+    % Project single trials onto choice mode
+    cd = choice_mode;
+    latent = getTrialLatents(obj,cd,conditions,met);
+    lat_choice = [];
+    jaw = [];
+    for c = 1:numel(conditions)
+        lat_choice = [lat_choice,latent{c}];
+        jaw = [jaw,jaw_by_cond{c}];
+    end
+
+    %%%% Find average jaw vel and choice mode for each trial %%%%
+    % Define time intervals: Time frame for late delay period(from -0.4 before go-cue to -0.1)
+    late_start = find(taxis>=-0.4, 1, 'first');
+    late_stop = find(taxis<=-0.05, 1, 'last');
+    lateDelay = late_start:late_stop;
+
+    % Get jaw velocity and activity mode averages for late delay
+    timeInt = lateDelay;
+    jawVel_late = getAverages(timeInt,jaw);
+    Choice_late = getAverages(timeInt,lat_choice);
+
+    %%%%  Format data properly for the function %%%%
+    jv = jawVel_late;        % Avg jaw velocity during late delay on each trial
+    ch = Choice_late;        % Avg choice mode value during late delay on each trial
+    Y = NaN(1,length(jv));   % Classification of each trial as 'R' or 'L'; 0 = R and 1 = L
+
+    cnt = 0;
+    for c = 1:length(conditions)
+        ntrix = length(met.trialid{c});
+        if cnt == 0
+            Y(1:ntrix) = 0;     % For the first condition, classify each trial as 0 ('Right trials')
+        else
+            Y(cnt+1:end) = 1;   % For the second condition, classify each trial as 1 ('Left trials')
+        end
+        cnt = ntrix;
+    end
+
+    nanix = find(isnan(jv));                    % Find indices where the jaw vel is a NaN
+    jv = jv(~isnan(jv));                        % Get rid of the NaN values
+    ch(nanix) = [];                             % Indices that were a NaN for jaw vel, get rid of those indices in the choice mode as well
+    Y(nanix) = [];                              % Get rid of trials that had NaN values for jaw or choice
+
+    R(gg) = corr2(jv,ch);        % Get R^2 value for current session (how correlated jaw vel is to choice mode on a trial by trial basis)
+    
+    %%%% DO ROC analysis for jaw velocity %%%%
+    for oo = 1:2                                            % For jaw velocity and choice mode...
+        if oo==1
+            metric = jv;
+            col = 'cyan';
+        elseif oo==2
+            metric = ch;
+            figtitle = 'ROC analysis for choice mode';
+            col = 'magenta';
+        end
+        nsteps = 10000;                                      % How many steps you want to do the ROC analysis for
+        rang = linspace(min(metric),max(metric),nsteps-2);   % Generate steps from the min value of jaw vel or choice mode
+        dr = rang(2)-rang(1);
+        steps = NaN(1,nsteps);
+        steps(2:end-1) = rang; steps(1) = steps(2)-dr; steps(end) = steps(end-1)+dr;   % Add one more step at the beginning and end of the range
+
+
+        trueposrate = NaN(1,nsteps);                   % Store true positive and false positive rates for each threshold step
+        falseposrate = NaN(1,nsteps);
+        for i = 1:nsteps
+            thresh = steps(i);                         % Choose the threshold
+            posix = find(Y==1);
+            posavg = mean(metric(posix));
+            negix = find(Y==0);
+            negavg = mean(metric(negix));
+            if posavg>negavg                               % If the maximum value of jaw vel or choice is a positive class (left trial), want to classify any values that are greater than thresh as positive
+                prediction = metric>thresh;                % Greater than or equal to threshold = 1; Less than or equal to threshold = 0;
+            else                                           % If the minimum value of jaw vel or choice is a positive class (left trial), want to classify any values that are less than thresh as positive
+                prediction = metric<thresh;                % Less than or equal to threshold = 1; Greater than or equal to threshold = 0;
+            end
+            corrpos = sum(prediction==1 & Y==1);       % Positives correctly classified (when they are predicted as 1 and they really are 1)
+            incorrneg = sum(prediction==1 & Y==0);     % Negatives incorrectly classified (when they are predicted as 1 but they are really negative)
+            totalpos = sum(Y);                         % Total num trials that are truly positive
+            totalneg = length(Y)-totalpos;             % Total num trials that are truly negative
+            trueposrate(i) = corrpos/totalpos;         % True pos rate = positives correctly classified/total true positives
+            falseposrate(i) = incorrneg/totalneg;      % False pos rate = negatives incorrectly classified/total true negatives
+        end
+        
+        if issorted(falseposrate,'ascend')                 % Ordering of the x-axis values matters for AUC magnitude
+            auc = trapz(falseposrate,trueposrate);         % Find area under the curve for the ROC plot
+        else
+            auc = trapz(flip(falseposrate),flip(trueposrate));         
+        end
+
+        if oo ==1 
+            AUC.jaw(gg) = auc;          % Save AUC to correct metric and session
+            strauc = num2str(auc);
+            if strcmp(params.Measure,'sideJaw')
+                figtitle1 = strcat('Jaw velocity; AUC =',' ',strauc);
+            elseif strcmp(params.Measure,'MotionEnergy')
+                figtitle1 = strcat('Motion Energy; AUC =',' ',strauc);
+            end
+        elseif oo==2
+            AUC.choice(gg) = auc;
+            strauc = num2str(auc);
+            figtitle2 = strcat('CDlate; AUC =',' ',strauc);
+        end
+
+        %%% PLOT ROC CURVES FOR GIVEN SESSION %%%
+            figure(gg);
+            x = linspace(0,1);
+            y = x;
+            plot(falseposrate,trueposrate,'LineWidth',2,'Color',col); hold on;
+            xlabel('False positive rate','FontSize',13)
+            ylabel('True positive rate','FontSize',13)
+            blah = strcat('Example ROC Analysis for',anm,date,'Probe',probenum);
+            sgtitle(blah)
+    end
+    plot(x,y,'LineStyle','--','Color','black');
+    legend(figtitle1,figtitle2,'FontSize',12,'Location','best')
+end
+%% Visualize AUC stats across sessions
+figure();
+scatter(AUC.jaw,AUC.choice,'black','filled'); hold on;
+scatter(AUC.jaw(3),AUC.choice(3),'green','filled')
+if strcmp(params.Measure,'sideJaw')
+    xlabel('AUC for jaw velocity','FontSize',13);
+elseif strcmp(params.Measure,'MotionEnergy')
+    xlabel('AUC for Motion Energy','FontSize',13);
+end
+ylabel('AUC for CDlate','FontSize',13);
+xlim([0.45 1])
+xline(0.5,'LineStyle','--')
+yline(0.5,'LineStyle','--')
+ylim([0.45 1])
+title('Trial type decoding across all sessions; avg from late delay','FontSize',14)
+
+goodjaw = sum(AUC.jaw>0.7)/length(AUC.jaw);
+goodchoice = sum(AUC.choice>0.7)/length(AUC.choice);
+disp(goodjaw)
+disp(goodchoice)
+%% Histogram of R^2 values across sessions
+figure();
+nbins = 10;
+histogram(R,nbins,'FaceColor','black','FaceAlpha',0.5)
+xlabel('R^2 value','FontSize',13)
+ylabel('Num sessions','FontSize',13)
+title('Correlation between motion energy and CDlate','FontSize',14)

@@ -1,0 +1,66 @@
+%% Function for finding modes of neural activity that are defined by the kinematics of different features
+% INPUTS:
+% obj = current object
+% feat = the position or kinematic data for the feature you have specified
+% params variable
+
+% OUTPUTS:
+% mode = the dimension of neural activity that is defined by which cells
+% have activity most correlated with the specified feature
+% dat = single-trial PSTHs or reduced dimensionality neural data
+
+function [mode, dat] = findMode(obj, feat, params,conditions,times)
+
+if ~(numel(conditions)==1)
+    temp = [];
+    for c = conditions
+        condtrix = params.trialid{c};
+        condfr = obj.trialdat(:,:,condtrix);
+        fr = cat(3, temp,condfr);               % Concatenate the single-trial PSTHs from the specified conditions (time x cells x trials
+    end
+else
+    condtrix = params.trialid{conditions};
+    fr = obj.trialdat(:,:,condtrix);
+end
+fs = 1./mean(diff(obj.time));                   % Find the sampling frequency for the time vector
+
+
+% Define and implement a Butterworth filter for the single-trial PSTHs
+[b,a] = butter(2,params.fcut./fs./2);           % Butterworth filter: 2nd order, cutoff frequency determined using params.fcut and the sampling rate
+                                                % b = filter coefficient vector of numerator
+                                                % a = filter coefficient vector of denominators
+
+filtfr = filtfilt(b, a, fr);                    % Digital filtering of the single-trial PSTHs with the filter described by vectors A and B
+
+filtfr = permute(filtfr(times,:, :), [ 1 3 2]);                          % Re-order the dimensions of filtfr (switch the 2nd and 3rd dimensions)
+filtfr = reshape(filtfr, size(filtfr, 1)*size(filtfr, 2), size(filtfr, 3));   % (time*trials x cells)
+
+if params.fa                                    % If you want to use factor analysis...
+    [~,~,~,~,dat]  = factoran(filtfr,10);       % Reduce the number of neural dimensions
+else
+    dat = filtfr;                               % Otherwise use the filtered single-trial firing rates for each cell 
+end
+
+
+% Find the mode using the specified method
+feat = feat(times, :);                          % Only take the desired time-points 
+feat = feat(:);                                 % Make into one column vector 
+feat(isnan(feat)) = 0;      
+
+switch params.method
+    case 'xcorr'
+        mode = doXCorr(dat, feat);              % Use cross-correlation (w/ lag 0) between the feature measure and the neural data to identify the mode    
+
+    case 'regress'                              % Use regression to find the mode
+        mode = regress(feat,dat);               % Feat = Dat*Mode
+                                                % (time*trials x 1) = (time*trials x cells)(cells x 1)
+        mode = mode./sum(abs(mode));            % Normalize regression coefficients to the sum of the absolute value of coefficients
+    otherwise
+        mode = zeros(1, 1);
+        return;
+
+end
+
+dat = reshape(dat, numel(times), size(fr, 3), size(dat, 2));
+dat = permute(dat, [1 3 2]);
+

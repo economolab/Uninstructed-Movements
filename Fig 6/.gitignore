@@ -1,0 +1,9 @@
+\figs
+/figs
+*.png
+*.mat
+*.svg
+*.eps
+*.epsc
+*.avi
+*.mp4
