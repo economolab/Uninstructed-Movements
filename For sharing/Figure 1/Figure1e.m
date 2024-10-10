@@ -1,14 +1,11 @@
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Figure 1e -- Variability of uninstructed movements across trials
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear,clc,close all
-
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+%% Set paths
 
 % Base path for code depending on laptop or lab PC
-if strcmp(whichcomp,'LabPC')
-    basepth = 'C:\Code';
-elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
-end
+basepth = 'C:\Code';
 
 % add paths
 utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
@@ -21,30 +18,28 @@ addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
-% time warping only operates on neural data for now.
-% TODO: time warp for video and bpod data
 params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
 params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
 
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'(hit|miss|no)'};                             % all trials
-params.condition(end+1) = {'~autowater&~early&~no'};                         % R 2AFC hits, no stim
-params.condition(end+1) = {'autowater&~early&~no'};                         % R 2AFC hits, no stim
-params.condition(end+1) = {'~early&~no'};                         % R 2AFC hits, no stim
+params.condition(1)     = {'(hit|miss|no)'};                      % all trials
+params.condition(end+1) = {'~autowater&~early&~no'};              % DR trials; not early; not no response
+params.condition(end+1) = {'autowater&~early&~no'};               % WC trials; not early; not no response
+params.condition(end+1) = {'~early&~no'};                         % DR and WC trials; not early; not no response
 
-params.tmin = -3;
-params.tmax = 2.5;
-params.dt = 1/200;
+params.tmin = -3;               % Min time-point (in s) with respect to alignEvent
+params.tmax = 2.5;              % Max time-point (in s) with respect to alignEvent
+params.dt = 1/200;              % Time window (s)
 
-% smooth with causal gaussian kernel
+% smooth PSTHs with causal gaussian kernel
 params.smooth = 15;
 
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
 
-
+% Kinematic features to load
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
     {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril','top_paw','bottom_paw'}};
 
@@ -56,25 +51,15 @@ params.advance_movement = 0;
 params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
-if strcmp(whichcomp,'LabPC')
-    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
-elseif strcmp(whichcomp,'Laptop')
-    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
-end
+% Path where data is stored
+datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
 
 meta = [];
 
-% --- ALM ---
+% Scripts for loading data from individual sessions, from individual
+% animals
 meta = loadJEB13_ALMVideo(meta,datapth);
-% meta = loadJEB6_ALMVideo(meta,datapth);
-% meta = loadJEB7_ALMVideo(meta,datapth);
-% meta = loadEKH1_ALMVideo(meta,datapth);
-% meta = loadEKH3_ALMVideo(meta,datapth);
-% meta = loadJGR2_ALMVideo(meta,datapth);
-% meta = loadJGR3_ALMVideo(meta,datapth);
-% meta = loadJEB14_ALMVideo(meta,datapth);
-% meta = loadJEB15_ALMVideo(meta,datapth);
-% meta = loadJEB19_ALMVideo(meta,datapth);
+
 
 params.probe = {meta.probe}; % put probe numbers into params, one entry for element in meta, just so i don't have to change code i've already written
 
@@ -102,8 +87,8 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%%
-% feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'motion_energy'};
+%% Set parameters
+% Which kinematic features you want to look at
 feat2use = {'jaw_yvel_view1','nose_yvel_view1', 'top_paw_yvel_view2'};
 featix = NaN(1,length(feat2use));
 for f = 1:length(feat2use)
@@ -112,15 +97,18 @@ for f = 1:length(feat2use)
     featix(f) = currix;
 end
 
-cond2use = 4;
-condfns = 'All hit trials';
-trix2use = 100;
+% Conditions and trials to use
+cond2use = 4;                   % Which condition to draw trials from (with respect to params.condition)
+condfns = 'All hit trials';     % Name of condition
+trix2use = 100;                 % How many trials you want to randomly sample and plot
 
+% Times that you want to plot
 times.start = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
 times.startix = find(obj(1).time>times.start,1,'first');
 times.stop = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
 times.stopix = find(obj(1).time<times.stop,1,'last');
 
+% Times that task epochs begin and end
 del = median(obj(1).bp.ev.delay)-median(obj(1).bp.ev.(params(1).alignEvent));
 delix = find(obj(1).time>del,1,'first');
 go = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent));
@@ -128,43 +116,37 @@ goix = find(obj(1).time<go,1,'last');
 resp = median(obj(1).bp.ev.goCue)-median(obj(1).bp.ev.(params(1).alignEvent))+2.5;
 respix = find(obj(1).time<resp,1,'last');
 
+% Smoothing of kinematics trace
 sm = 31;
+
+% Percentile values for normalizing kinematic traces on each trial
 ptiles = [94 98 96];
-
-sess2use = 1;
-
+%% Generate plot as in Fig 1e, bottom
+sess2use = 1;                   % Which session you want to use
 for sessix = sess2use
-    for c = 1:length(cond2use)
+    for c = 1:length(cond2use)  % For each condition that you want to plot...
         allkin = [];
         figure();
         cond = cond2use(c);
-        condtrix = params(sessix).trialid{cond};
-        ntrials = length(condtrix);
-        randtrix = randsample(condtrix,trix2use);
-        for f = 1:length(featix)
-            currfeat = featix(f);
+        condtrix = params(sessix).trialid{cond};    % Get trials from that condition
+        ntrials = length(condtrix);                 % number of trials in that condition
+        randtrix = randsample(condtrix,trix2use);   % Randomly sample trials from that condition
+        for f = 1:length(featix)                    % For each kinematic feature that you want to plot...
+            % Get kinematic data
+            currfeat = featix(f);                   % Get the current feature
+            currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);   % Get the trace of that kinematic feature
+            % on the randomly selected trials from trial
+            % Normalize                                                                                    % start until the go cue. And smooth it
+            abskin = abs(currkin);          % Take absolute value
+            normkin = abskin./prctile(abskin(:), ptiles(f));    % Normalize all values to the percentile specified in parameters above
+            normkin(normkin>1) = 1;         % Will end up with values greater than 1 in this case--set these to 1
 
-            % ^ Don't actually want to max normalize because then will be
-            % normalizing by an outlier value probably
-
-            % Want to normalize to the 90-99th percentile of values to account
-            % for more of the data
-
-            if strcmp(feat2use{f},'motion_energy')
-                currkin = mySmooth(kin(sessix).dat(times.startix:goix,randtrix,currfeat),sm);
-                abskin = abs(currkin);
-                normkin = abskin./prctile(abskin(:), ptiles(f));
-                normkin(normkin>1) = 1;
-            else
-                currkin = mySmooth(kin(sessix).dat_std(times.startix:goix,randtrix,currfeat),sm);
-                abskin = abs(currkin);
-                normkin = abskin./prctile(abskin(:), ptiles(f));
-                normkin(normkin>1) = 1;
-            end                                                                  % Will end up with values greater than 1 in this case--set these to 1
-
+            % Concatenate across features
             allkin = cat(3,allkin,normkin);                                      % Concatenate across features (trials x time x feat)
         end
 
+        % Reorganize into matrix such that at each time bin, t, an [r, g, b] color value
+        % was encoded as [jaw_t ,nose_t ,paw_t]
         allkin = permute(allkin,[2 1 3]);                                        % (time x trials x feat/RGB)
         RI = imref2d(size(allkin));
         RI.XWorldLimits = [0 3];
@@ -173,32 +155,28 @@ for sessix = sess2use
         title([meta(sess2use).anm meta(sess2use).date '; ~early and ~no'])
     end
 end
-%%
+%% Generate plot as in Figure 1e, top
 
-% Plot all features for the same trial in one subplot
+% Plot all features for the same trial in one subplot; plot several example
+% trials
 
-colors = {[1 0 0],[0 1 0],[0 0 1]};
-nTrixPlot = 9;
-offset = 3;
-sm = 31;
+% Parameters
+colors = {[1 0 0],[0 1 0],[0 0 1]};    % Colors for plotting 
+nTrixPlot = 9;                         % Number of example trials to plot
+offset = 3;                            % Space between traces
+sm = 31;                               % How much to smooth traces by
+% Plot
 for sessix = sess2use
     for c = 1:length(cond2use)
         figure();
-        condtrix = params(sessix).trialid{cond2use(c)};
-        trix = randsample(condtrix,nTrixPlot);
-        for tt = 1:nTrixPlot
+        condtrix = params(sessix).trialid{cond2use(c)};     % Get trials from the conditions you want to plot
+        trix = randsample(condtrix,nTrixPlot);              % Randomly sample trials
+        for tt = 1:nTrixPlot                                % For each trial...
             subplot(3,3,tt)
-            for feat = 1:length(featix)
-                if strcmp(feat2use{feat},'motion_energy')
-                    condkin = kin(sessix).dat(:,trix(tt),featix(feat));
-                    condkin = condkin./prctile(condkin(:), 60);
-%                     condkin(condkin>1) = 1;
-                    toplot = offset*feat+abs(mySmooth(condkin(:,:,:),5));
-                else
-                    condkin = kin(sessix).dat_std(:,trix(tt),:);
-                    toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));
-                end
-                plot(obj(sessix).time,toplot,'LineWidth',2,'Color',colors{feat}); hold on;
+            for feat = 1:length(featix)                     % For each feature...
+                condkin = kin(sessix).dat_std(:,trix(tt),:);% Get the kinematic traces for that trial
+                toplot = offset*feat+abs(mySmooth(condkin(:,:,featix(feat)),sm));   % Take absolute value of trace and smooth
+                plot(obj(sessix).time,toplot,'LineWidth',2,'Color',colors{feat}); hold on;  
             end
             title(feat2use(feat))
             xlabel('Time from go cue (s)')

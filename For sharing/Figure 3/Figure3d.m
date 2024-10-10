@@ -1,12 +1,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Figure 3d -- Using video data to predict projections onto CDchoice on 
+% Figure 3d -- Using video data to predict projections onto CDchoice on
 % single trials
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear,clc,close all
-% DECODING CDlate FROM ALL KINEMATIC FEATURES (with ridge regression,
-% regularization; train/test split, cross-validation)
-clear,clc,close all
-
+%%
 whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
@@ -25,37 +22,35 @@ addpath(genpath(fullfile(utilspth,'fig1')));
 figpth = [basepth  '\Uninstructed-Movements\Fig 2'];
 addpath(genpath(fullfile(figpth,'funcs')));
 %% PARAMETERS
-params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
+params.alignEvent          = 'goCue';
 
-% time warping only operates on neural data for now.
-% TODO: time warp for video and bpod data
 params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
 params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
 
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
-params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % (2) right hits, no stim, aw off
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % (3) left hits, no stim, aw off
-params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % (4) error right, no stim, aw off
-params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % (5) error left, no stim, aw off
-params.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % (6) no right, no stim, aw off
-params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % (7) no left, no stim, aw off
-params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % (8) all hits, no stim, aw off
+params.condition(1)     = {'(hit|miss|no)'};                                    % (1) all trials
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % (2) right DR hits, no stim, aw off
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % (3) left DR hits, no stim, aw off
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % (4) error right,DR, no stim, aw off
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % (5) error left,DR, no stim, aw off
+params.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};              % (6) no response right,DR, no stim, aw off
+params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              % (7) no response left,DR, no stim, aw off
+params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % (8) all DR hits, no stim, aw off
 
+% Parameters to set up time-axis
+params.tmin = -2.5;             % Min time-point (in s) with respect to alignEvent
+params.tmax = 2.5;              % Max time-point (in s) with respect to alignEvent
+params.dt = 1/100;              % Time window (s)
 
-params.tmin = -2.5;
-params.tmax = 2.5;
-params.dt = 1/100;
-
-% smooth with causal gaussian kernel
+% smooth PSTHs with causal gaussian kernel
 params.smooth = 15;
 
-% cluster qualities to use
+% cluster (sorted unit) qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
 
-
+% Kinematic features to load
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
     {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
 
@@ -75,14 +70,14 @@ end
 
 meta = [];
 
-% --- ALM ---    
-meta = loadJEB6_ALMVideo(meta,datapth);     
-meta = loadJEB7_ALMVideo(meta,datapth);              
-meta = loadEKH1_ALMVideo(meta,datapth);     
+% Load all sessions
+meta = loadJEB6_ALMVideo(meta,datapth);
+meta = loadJEB7_ALMVideo(meta,datapth);
+meta = loadEKH1_ALMVideo(meta,datapth);
 meta = loadEKH3_ALMVideo(meta,datapth);
-meta = loadJGR2_ALMVideo(meta,datapth);     
+meta = loadJGR2_ALMVideo(meta,datapth);
 meta = loadJGR3_ALMVideo(meta,datapth);
-meta = loadJEB13_ALMVideo(meta,datapth);  
+meta = loadJEB13_ALMVideo(meta,datapth);
 meta = loadJEB14_ALMVideo(meta,datapth);
 meta = loadJEB15_ALMVideo(meta,datapth);
 meta = loadJEB19_ALMVideo(meta,datapth);
@@ -109,17 +104,21 @@ end
 %% Calculate all CDs and find single trial projections
 clearvars -except obj meta params me sav kin
 
-disp('----Calculating coding dimensions----')
-cond2use = [2 3]; % right hits, left hits (corresponding to PARAMS.CONDITION)
+% Set parameters for calculating coding dimensions
+cond2use = [2 3];           % Conditions used for calculating CDchoice (corresponding to PARAMS.CONDITION)
 inclramp = 'yes';
-rampcond = 8;
-cond2proj = 2:7;  % right hits, left hits, right miss, left miss, right no, left no (corresponding to null/potent psths in rez)
-cond2use_trialdat = [2 3]; % for calculating selectivity explained in full neural pop
+rampcond = 8;               % Condition used for calculating CDramp
+cond2proj = 2:7;            % Condition-averaged PSTHs to project onto CDchoice
+% right hits, left hits, right miss, left miss, right no, left no (corresponding to null/potent psths in rez)
+cond2use_trialdat = [2 3];  % for calculating selectivity explained in full neural pop
+disp('----Calculating coding dimensions----')
 regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj);
 
-disp('----Projecting single trials onto CDlate----')
-cd = 'late';
-smooth = 60;
+
+% Project single trials onto CD
+cd = 'late';                % 'late' for projecting onto CDchoice
+smooth = 60;                % How much to smooth single trial projections by
+disp('----Projecting single trials onto CDchoice----')
 regr = getSingleTrialProjs(regr,obj,cd,smooth);
 %% Load kinematic data
 nSessions = numel(meta);
@@ -128,32 +127,7 @@ for sessix = 1:numel(meta)
     disp(message)
     kin(sessix) = getKinematics(obj(sessix), me(sessix), params(sessix));
 end
-%% Sanity check -- why do averages of single trial projections onto CDChoice look so much smaller than the projection of the cond avg PSTHs?
-% figure()
-% for sessix = 1:length(meta)
-%     subplot(1,3,1)
-%     plot(obj(sessix).time,regr(sessix).cd_proj(:,1),'r'); hold on;
-%     plot(obj(sessix).time,regr(sessix).cd_proj(:,2),'b'); hold off;
-% 
-%     subplot(1,3,2)
-%     temptrix = params(sessix).trialid{2};
-%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'r'); hold on;
-% 
-%     temptrix = params(sessix).trialid{3};
-%     plot(obj(sessix).time,regr(sessix).singleProj(:,temptrix),'b'); hold off;
-% 
-%     subplot(1,3,3)
-%     temptrix = params(sessix).trialid{2};
-%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'r'); hold on;
-% 
-%     temptrix = params(sessix).trialid{3};
-%     plot(obj(sessix).time,mean(regr(sessix).singleProj(:,temptrix),2,'omitnan'),'b'); hold off;
-% 
-%     sgtitle([meta(sessix).anm ' ; ' meta(sessix).date])
-%     pause
-% end
-%% Predict CDTrialType from DLC features
-%%% DECODING PARAMETERS %%%
+%% SET DECODING PARAMETERS %%
 
 % input data = neural data (time*trials,neurons)
 % output data = kin data   (time*trials,kin feats)
@@ -161,87 +135,74 @@ end
 par.pre=6; % time bins prior to output used for decoding
 par.post=0; % time bins after output used for decoding
 par.dt = params(1).dt; % moving time bin
-par.pre_s = par.pre .* params(1).dt; % dt, pre_s, and post_s just here to know how much time you're using. Set params.dt and pre/post appropriately for you analysis
+par.pre_s = par.pre .* params(1).dt; % dt, pre_s, and post_s just here to know how much time you're using
 par.post_s = par.post .* params(1).dt;
 
-trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);
+trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent)+0.4);     % Timing of when you want to start the decoding
 start = find(obj(1).time>trialstart,1,'first');
-go = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent));
+go = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent));                    % Timing of go cue
 stop = find(obj(1).time>go,1,'first');
 
 par.timerange = start:stop;
 
-% these parameters above are important for decoding accuracy. for actual
-% analyses (like a final analysis to be included in a publication),
-% you should vary these parameters only if you have a validation
-% set that you won't test on until these parameters are set. Otherwise,
-% there's a high risk of overfitting
-
-% cross val folds
+% cross validation folds
 par.nFolds = 4;
 
 % data sets
-par.train = 0.6; % fraction of trials 
-par.test = 1 - par.train;
+par.train = 0.6; % fraction of trials to be used for training
+par.test = 1 - par.train;   % fraction of trials to be used for testing
 
-% feature to use to decode
-% par.feats = kin(1).featLeg;
-par.feats = {'motion','nos','jaw'};
+% features to use to decode
+par.feats = {'motion','nos','jaw'};         % Use all kinematic features measured of motion energy, nose, and jaw
 temp = cellfun(@(x) patternMatchCellArray(kin(1).featLeg,{x},'all') , par.feats,'UniformOutput',false);
 par.feats = cat(1, temp{:});
 
-% trials
-par.cond2use = [2 3]; % R and L hits, ~autowater
+% trials to be used in the decoding
+par.cond2use = [2 3]; % R and L hits, ~autowater (with reference to params.conditions)
 
-par.regularize = 1; % if 0, linear regression. if 1, ridge regression
+% regularization parameters
+par.regularize = 1; % 1 = ridge regression
+par.lambdas = logspace(-3,3,20); % regularization parameters to search over
 
-par.lambdas = logspace(-3,3,20); % regularization parameters to search over. don't need to change unless you want to make it more fine-grained.
-
-%% DECODING
+%% DECODING -- Predict CDchoice from DeepLabCut features
 
 close all
 
-for sessix = 1:numel(meta)
+for sessix = 1:numel(meta)          % For all sessions...
     disp(['Decoding for session ' ' ' num2str(sessix) ' / ' num2str(numel(meta))])
-    
+
+    % Organize data into predictors and regressors
     [X,Y,par] = preparePredictorsRegressors_v2(par, sessix, kin, regr,params);
 
+    % Search over regularization parameters for the best model
     for ilambda = 1:numel(par.lambdas)
         lambda = par.lambdas(ilambda);
         cvmdl{ilambda} = fitrlinear(X.train,Y.train,'Learner','svm','KFold',par.nFolds,'Regularization','ridge','Lambda',lambda);
         loss(ilambda) = cvmdl{ilambda}.kfoldLoss;
-        % cvpred{ilambda} = kfoldPredict(cvmdl{ilambda});
     end
-    
+
+    % Pick the model with the best lambda
     [~,bestmodel] = min(loss);
-    mdl = cvmdl{bestmodel}; % we now have the best lambda, and they trained cvmodel with that lambda,
+    mdl = cvmdl{bestmodel};
     % can predict test data using best cv mdl
     for i = 1:par.nFolds
         mdl_loss(i) = mdl.Trained{i}.loss(X.train,Y.train);
     end
     [~,bestmodel] = min(mdl_loss);
-    testmdl = mdl.Trained{bestmodel}; % we now have the best lambda, and the trained model with that lambda,
-    
+    testmdl = mdl.Trained{bestmodel};
+
     pred = testmdl.predict(X.test);   % use left-out test data for the prediction
-    
+
     % Save the predictor coefficients from the testmdl
     loadings(:,sessix) = testmdl.Beta;  % Average the coefficients for each predictor term across folds; save these for each time point
 
-
+    % Save original input data and predicted data
     y = reshape(Y.test,Y.size.test(1),Y.size.test(2)); % original input data (standardized)
     yhat = reshape(pred,Y.size.test(1),Y.size.test(2)); % prediction
-   
-
-
-%     figure()
-%     subplot(1,2,1); imagesc(y'); colorbar; subplot(1,2,2); imagesc(yhat');colorbar()
-%     figure()
-%     plot(yhat)
-%     pause
 
     % find which trials were Rhit and which were Lhit in test set
-    Rhit_trials = ismember(par.trials.test,par.trials.Rhit); 
-    Lhit_trials = ismember(par.trials.test,par.trials.Lhit); 
+    Rhit_trials = ismember(par.trials.test,par.trials.Rhit);
+    Lhit_trials = ismember(par.trials.test,par.trials.Lhit);
 
     % neural data, split into trial type
     trueVals.Rhit{sessix} = y(:,Rhit_trials);
@@ -254,30 +215,25 @@ end
 
 disp('---FINISHED DECODING FOR ALL SESSIONS---')
 clearvars -except datapth kin me meta obj params regr nSessions exsess modelpred trueVals par loadings
-%% Check how many test trials each session has 
-nTestTrix = NaN(length(meta),2);
-for sessix = 1:length(meta)
-    nTestTrix(sessix,:)=[size(trueVals.Rhit{sessix},2),size(trueVals.Lhit{sessix},2)];
-end
-%% Baseline subtract CDTrialType
-% Times that you want to use to baseline normalize CDTrialType
+%% Baseline subtract CDchoice
+% Times that you want to use to baseline subtract CDchoice
 trialstart = mode(obj(1).bp.ev.bitStart)-mode(obj(1).bp.ev.(params(1).alignEvent));
 start = find(obj(1).time>trialstart,1,'first');
 samp = mode(obj(1).bp.ev.sample)-mode(obj(1).bp.ev.(params(1).alignEvent));
 stop = find(obj(1).time<samp,1,'last');
 
 cond2use = {'Rhit','Lhit'};
-for sessix = 1:length(meta)
-    for c = 1:length(cond2use)
+for sessix = 1:length(meta)             % For each session...
+    for c = 1:length(cond2use)          % For each condition...
         cond = cond2use{c};
-        curr = modelpred.(cond){sessix};
-        presampcurr = curr(start:stop,:);
-        presampcurr = mean(presampcurr,1,'omitnan');
-        presampcurr = mean(presampcurr,'omitnan');
+        curr = modelpred.(cond){sessix};    % Get the predicted CDchoice from that condition
+        presampcurr = curr(start:stop,:);   % Get pre-sample values of predicted CDchoice [time x trials]
+        presampcurr = mean(presampcurr,1,'omitnan');    % Average across time [1 x trials]
+        presampcurr = mean(presampcurr,'omitnan');      % Average across trials
 
-        modelpred.(cond){sessix} = modelpred.(cond){sessix}-presampcurr;
+        modelpred.(cond){sessix} = modelpred.(cond){sessix}-presampcurr;    % Baseline subtract
 
-        curr = trueVals.(cond){sessix};
+        curr = trueVals.(cond){sessix};     % Do the same thing for ground truth CDchoice values
         presampcurr = curr(start:stop,:);
         presampcurr = mean(presampcurr,1,'omitnan');
         presampcurr = mean(presampcurr,'omitnan');
@@ -288,109 +244,95 @@ end
 
 %% Plot example of motion energy and CDChoice, averaged across right and left trials
 % colors = getColors();
-% 
+%
 % exsess = 9;
 % nSessions = numel(meta);
 % cond2plot = [2 3];
 % MEix = find(strcmp(kin(1).featLeg,'motion_energy'));
-% 
+%
 % times.trialstart = median(obj(1).bp.ev.bitStart)-median(obj(1).bp.ev.(params(1).alignEvent));
 % times.startix = find(obj(1).time>times.trialstart,1,'first');
 % times.samp = median(obj(1).bp.ev.sample)-median(obj(1).bp.ev.(params(1).alignEvent));
 % times.stopix = find(obj(1).time<times.samp,1,'last');
-% 
+%
 % cols = {colors.rhit,colors.lhit};
 % alph = 0.2;
 % numtrix2plot = 30;
 % for sessix =  1:numel(meta)
 %     figure();
 %     plotCondAvgMEandCD(cond2plot, sessix, params, obj, meta, kin, trueVals, alph, cols, MEix,times,par,'invert')
-% 
+%
 %     figure();
 %     plotExampleChoiceSelME(numtrix2plot, cond2plot, sessix, params, obj, meta, kin, MEix,times)
 % end
-%% Make heatmaps for a single session showing CDTrialType across trials and predicted CDTrialType
-plotheatmap = 'yes';
-sm = 20;
-invertCD = 'invert';                    % 'Invert' or 'no' for whether or not you want to flip the sign of the CD projection
+%% Make heatmaps for a single session showing CDchoice across trials and predicted CDchoice
+sm = 20;        % How much to smooth single trial projections by
 
 load('C:\Code\Uninstructed-Movements\LeftRightDiverging_Colormap.mat')
-if strcmp(plotheatmap,'yes')
-    % Times that you want to use to sort CDTrialType
-    del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
-    start = find(obj(1).time>del,1,'first');
-    resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
-    stop = find(obj(1).time<resp,1,'last');
 
-    goodsess = [4,6,19,21];
+% Times that you want to use to sort CDChoice
+del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
+start = find(obj(1).time>del,1,'first');
+resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
+stop = find(obj(1).time<resp,1,'last');
 
-    cond2plot = {'Lhit','Rhit'};
-    for sessix = 1:length(meta)                                                                  % For each session...
-        figure();
-        cnt = 0;
-        tempTrue = [];
-        tempPred = [];
-        l1 = size(trueVals.(cond2plot{1}){sessix},2)+0.5;
-        % Combine the true values for CDTrialType and the model predicted
-        % values across conditions
-        % tempTrue = (time x [num left trials + num right trials])
-        for c = 1:length(cond2plot)                                                 % For left and right trials...
-            cond = cond2plot{c};
-            currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDTrialType projections for that condition and session
-            [~,sortix] = sort(mean(currTrue(start:stop,:),1,'omitnan'),'descend');  % Sort the true projections by average magnitude during the delay period
-            tempTrue = [tempTrue,currTrue(:,sortix)];
-            currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDTrialType projections
-            tempPred = [tempPred,currPred(:,sortix)];
-        end
-        nTrials = size(tempTrue,2);                                                 % Total number of trials that are being plotted
-        ax1 = subplot(1,2,1);                                                       % Plot true CDTrialType data on left subplot
-        if strcmp(invertCD,'invert')
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,-1*tempTrue'); hold on                      % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
-        else
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,tempTrue'); hold on;
-        end
-        line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','black','LineStyle','--')
-        
+sess2use = [4,6,19,21];         % Session to use
 
-        ax2 = subplot(1,2,2);
-        if strcmp(invertCD,'invert')
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm)'); hold on
-        else
-            imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(tempPred,sm)'); hold on
-        end
-% 
-%         if strcmp(invertCD,'invert')
-%             imagesc(obj(sessix).time(par.timerange),1:nTrials,-1*tempPred'); hold on
-%         else
-%             imagesc(obj(sessix).time(par.timerange),1:nTrials,tempPred'); hold on
-%         end
-        line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','black','LineStyle','--')
-        title(ax1,'CDTrialType - data')
-        colorbar(ax1)
-        clim(ax1,[-4 4])
-        colormap(LeftRightDiverging_Colormap)
-        xlabel(ax1,'Time from go cue (s)')
-        xline(ax1,0,'k--','LineWidth',1)
-        xline(ax1,-0.9,'k--','LineWidth',1)
-        xline(ax1,-2.2,'k--','LineWidth',1)
-        xlim(ax1,[-2.5 0])
-        set(gca,'TickDir','out');
-        
-        title(ax2,'Model prediction')
-        xlabel(ax2,'Time from go cue (s)')
-        xline(ax2,0,'k--','LineWidth',1)
-        xline(ax2,-0.9,'k--','LineWidth',1)
-        xline(ax2,-2.2,'k--','LineWidth',1)
-        colorbar(ax2)
-        colormap(LeftRightDiverging_Colormap)
-        xlim(ax2,[-2.5 0])
-        clim(ax2,[-1.5 1.5])
-        set(gca,'TickDir','out');
-
-        sgtitle(['Example session:  ' meta(sessix).anm ' ' meta(sessix).date])
+cond2plot = {'Lhit','Rhit'};    % Which conditions to plot
+for sessix = sess2use                                                                 % For each session...
+    figure();
+    cnt = 0;
+    tempTrue = [];
+    tempPred = [];
+    l1 = size(trueVals.(cond2plot{1}){sessix},2)+0.5;   % Where you will draw horizontal line to delineate right and left
+    % Combine the true values for CDchoice and the model predicted
+    % values across conditions
+    % tempTrue = (time x [num left trials + num right trials])
+    for c = 1:length(cond2plot)                                                 % For left and right trials...
+        cond = cond2plot{c};
+        currTrue = trueVals.(cond){sessix};                                     % Get the true single trial CDchoice projections for that condition and session
+        [~,sortix] = sort(mean(currTrue(start:stop,:),1,'omitnan'),'descend');  % Sort the true projections by average magnitude during the delay period
+        tempTrue = [tempTrue,currTrue(:,sortix)];
+        currPred = modelpred.(cond){sessix};                                    % Get the model predicted single trial CDchoice projections
+        tempPred = [tempPred,currPred(:,sortix)];
     end
+    nTrials = size(tempTrue,2);                                                 % Total number of trials that are being plotted
+    % Plot ground truth CDchoice projections in left subplot
+    ax1 = subplot(1,2,1);                                                       % Plot true CDchoice data on left subplot
+    imagesc(obj(sessix).time(par.timerange),1:nTrials,-1*tempTrue'); hold on    % Heatmap of true data (sorted left trials will be on top, then a white line, then sorted right trials)
+    line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','black','LineStyle','--')
+
+    % Plot CDchoice projections predicted from video in right subplot
+    ax2 = subplot(1,2,2);
+    imagesc(obj(sessix).time(par.timerange),1:nTrials,mySmooth(-1*tempPred,sm)'); hold on
+
+    line([obj(sessix).time(1),obj(sessix).time(end)],[l1,l1],'Color','black','LineStyle','--')
+    title(ax1,'CDchoice - neural data')
+    colorbar(ax1)
+    clim(ax1,[-4 4])
+    colormap(LeftRightDiverging_Colormap)
+    xlabel(ax1,'Time from go cue (s)')
+    xline(ax1,0,'k--','LineWidth',1)
+    xline(ax1,-0.9,'k--','LineWidth',1)
+    xline(ax1,-2.2,'k--','LineWidth',1)
+    xlim(ax1,[-2.5 0])
+    set(gca,'TickDir','out');
+
+    title(ax2,'Video prediction')
+    xlabel(ax2,'Time from go cue (s)')
+    xline(ax2,0,'k--','LineWidth',1)
+    xline(ax2,-0.9,'k--','LineWidth',1)
+    xline(ax2,-2.2,'k--','LineWidth',1)
+    colorbar(ax2)
+    colormap(LeftRightDiverging_Colormap)
+    xlim(ax2,[-2.5 0])
+    clim(ax2,[-1.5 1.5])
+    set(gca,'TickDir','out');
+
+    sgtitle(['Example session:  ' meta(sessix).anm ' ' meta(sessix).date])
 end
-%% Example plots by session for relating predicted and true CDTrialType
+
+%% Example plots by session for relating predicted and true CDchoice
 del = mode(obj(1).bp.ev.delay)-mode(obj(1).bp.ev.(params(1).alignEvent));
 start = find(obj(1).time>del,1,'first');
 resp = mode(obj(1).bp.ev.goCue)-mode(obj(1).bp.ev.(params(1).alignEvent))-0.05;
@@ -412,7 +354,7 @@ for sessix = plotrange
     %%% Each dot = an average value of CDlate during the delay period
     figure();
     subplot(1,2,2)
-    tempR2 = Scatter_ModelPred_TrueCDTrialType(trueVals, modelpred, sessix, start, stop,meta,'invert');
+    tempR2 = Scatter_ModelPred_TrueCDchoice(trueVals, modelpred, sessix, start, stop,meta,'invert');
     % Save R2 value for that session
     delR2_ALL = [delR2_ALL, tempR2];
 
@@ -424,7 +366,7 @@ for sessix = plotrange
 
     %%% Plot an example session of CDlate prediction vs true value
     subplot(1,2,1)
-    plotExampleCDTrialType_Pred(colors, obj, par, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2,'invert');
+    plotExampleCDchoice_Pred(colors, obj, par, meta, avgCD, stdCD, sessix, trueVals,alph, tempR2,'invert');
 
     %     if strcmp(plotexample,'no')
     %         close all
@@ -453,7 +395,7 @@ set(gca,'TickDir','out');
 ax = gca;
 ax.FontSize = 16;
 title(['CDChoice: Ex session = ' meta(exsess).anm meta(exsess).date])
-%% Print summary statistics 
+%% Print summary statistics
 disp('---Summary statistics for CDChoice prediction---')
 disp(['Average R2 across all sessions (n = ' num2str(length(meta)) ' ) = ' num2str(mean(delR2_ALL))])
 disp(['Standard deviation across all sessions = ' num2str(std(delR2_ALL))])

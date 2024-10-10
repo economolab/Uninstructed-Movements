@@ -1,16 +1,13 @@
-% Quantifying behavioral performance and cortical dependence in the
-% Alternating Context Task
-% -------------------------------------------------------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Figure 1c -- Quantification of lickport contacts during photoinactivation
+% at go-cue (DR trials) or water drop (WC trials)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear,clc,close all
+%% Set paths
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+% Base path for code 
+basepth = 'C:\Code';
 
-% Base path for code depending on laptop or lab PC
-if strcmp(whichcomp,'LabPC')
-    basepth = 'C:\Code';
-elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
-end
 
 % add paths
 utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
@@ -26,27 +23,26 @@ params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstL
 % set conditions to calculate behavioral performance for 
 params.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
 
-params.condition(end+1) = {'~stim.enable&~autowater&~early'};             % (2) no stim, 2AFC
-params.condition(end+1) = {'stim.enable&~autowater&~early'};              % (3) stim, 2AFC
-params.condition(end+1) = {'L&~stim.enable&~autowater&~early'};           % (4) left, no stim, 2AFC
-params.condition(end+1) = {'L&stim.enable&~autowater&~early'};            % (5) left, stim, 2AFC
-params.condition(end+1) = {'R&~stim.enable&~autowater&~early'};           % (6) right, no stim, 2AFC
-params.condition(end+1) = {'R&stim.enable&~autowater&~early'};            % (7) right, stim, 2AFC
+params.condition(end+1) = {'~stim.enable&~autowater&~early'};             % (2) no stim (control trials), DR; no autowater, not early
+params.condition(end+1) = {'stim.enable&~autowater&~early'};              % (3) stim, DR; no autowater, not early
+params.condition(end+1) = {'L&~stim.enable&~autowater&~early'};           % (4) left, no stim, DR; no autowater, not early
+params.condition(end+1) = {'L&stim.enable&~autowater&~early'};            % (5) left, stim, DR; no autowater, not early
+params.condition(end+1) = {'R&~stim.enable&~autowater&~early'};           % (6) right, no stim, DR; no autowater, not early
+params.condition(end+1) = {'R&stim.enable&~autowater&~early'};            % (7) right, stim, DR; no autowater, not early
 
 
-params.condition(end+1) = {'~stim.enable&autowater&~early'};              % (8) no stim, AW
-params.condition(end+1) = {'stim.enable&autowater&~early'};               % (9) stim, AW
-params.condition(end+1) = {'L&~stim.enable&autowater&~early'};            % (10) left, no stim, AW
-params.condition(end+1) = {'L&stim.enable&autowater&~early'};             % (11) left, stim, AW
-params.condition(end+1) = {'R&~stim.enable&autowater&~early'};            % (12) right, no stim, AW
-params.condition(end+1) = {'R&stim.enable&autowater&~early'};             % (13) right, stim, AW
+params.condition(end+1) = {'~stim.enable&autowater&~early'};              % (8) no stim, WC; not early
+params.condition(end+1) = {'stim.enable&autowater&~early'};               % (9) stim, WC; not early
+params.condition(end+1) = {'L&~stim.enable&autowater&~early'};            % (10) left, no stim, WC; not early
+params.condition(end+1) = {'L&stim.enable&autowater&~early'};             % (11) left, stim, WC; not early
+params.condition(end+1) = {'R&~stim.enable&autowater&~early'};            % (12) right, no stim, WC; not early
+params.condition(end+1) = {'R&stim.enable&autowater&~early'};             % (13) right, stim, WC; not early
 %% SPECIFY DATA TO LOAD
 
-if strcmp(whichcomp,'LabPC')
-    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
-elseif strcmp(whichcomp,'Laptop')
-    datapth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab';
-end
+% Path to data
+datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
+
+% Scripts for loading behavioral data for each session, from each animal
 meta = [];
 meta = loadMAH13_MCStim(meta,datapth);
 meta = loadMAH14_MCStim(meta,datapth);
@@ -61,36 +57,38 @@ meta = loadMAH21_MCStim(meta,datapth);
 % ----------------------------------------------
 disp('Loading behavior objects')
 [obj,params] = loadBehavSessionData(meta,params);
-%% Find trials with a correct lick within a certain latency from the go cue
-conds2use = 2:13;                         % control and stim L/R DR; L control and stim DR; R control and stim DR; same for WC
-lickCutoff = 0.6;                         % Window after go cue that you are looking for correct licks
-trialCutoff = 40;                         % How many trials you want to cut off of the end of the session (to account for loss of motivation/engagement)
+%% Find trials with a correct lick within a certain latency from the go cue/water drop
+% Parameters for analysis
+conds2use = 2:13;       % Which conditions (as in params.condition) you want to do the analysis for
+                        % control and stim L/R DR; L control and stim DR; R control and stim DR; same for WC
+lickCutoff = 0.6;       % Time-window (s) after go cue/water drop that you are looking for correct licks
+trialCutoff = 40;       % How many trials you want to cut off of the end of the session (to account for loss of motivation/engagement)
 for sessix = 1:length(meta)               % For each session...
     % Find the fraction of trials in each condition that had a correct lick within 'lickCutoff' seconds of the go cue/water drop
     % 'perf' = [1 x nConditions] array where each entry is the fraction of trials  
     perf = findPostGoLicks(sessix, obj, trialCutoff, conds2use,lickCutoff, params);
     rez(sessix).trixWLicks = perf;
 end
-%% Concatenate across sessions
+%% Concatenate performance values across sessions
 clearvars -except obj meta rez params lickCutoff 
 perf_all = [];
 % 'perf_all' = [nSessions x nConditions]
 for sessix = 1:length(meta)
     perf_all = [perf_all;rez(sessix).trixWLicks];
 end
-%% INCLUSION CRITERIA: Omit sessions where 2AFC stim didn't work or where performance was bad
+%% INCLUSION CRITERIA: Omit sessions where DR stim didn't work or where performance was bad
 sess2omit = false(length(meta),1);
 Rperf = NaN(length(meta),1);  Reff = NaN(length(meta),1);
 Lperf = NaN(length(meta),1);  Leff = NaN(length(meta),1);
 
-LAFCctrlCond = 3;                   % With reference to 'cond2use' variable above
-RAFCctrlCond = 5;
+LDRctrlCond = 3;                   % With reference to 'cond2use' variable above
+RDRctrlCond = 5;
 EffectCutoff = 0;                   % Can set a threshold for whether stim caused a deficit in performance on DR trials since this is a positive control
 perfCutoff = 0.55;                  % Threshold for performance on R or L trials (if animal is super biased and doing below this threshold on one side, session will be omitted)
 for sessix = 1:length(meta)         % For every session...
     temp = perf_all(sessix,:);
-    Reff(sessix) = temp(RAFCctrlCond)-temp(RAFCctrlCond+1);         % Performance on Right control - Right stim trials 
-    Leff(sessix) = temp(LAFCctrlCond)-temp(LAFCctrlCond+1);         % Performance on Left control - Left stim trials 
+    Reff(sessix) = temp(RDRctrlCond)-temp(RDRctrlCond+1);         % Performance on Right control - Right stim trials 
+    Leff(sessix) = temp(LDRctrlCond)-temp(LDRctrlCond+1);         % Performance on Left control - Left stim trials 
     if Reff(sessix) < EffectCutoff ||  Leff(sessix)< EffectCutoff   % If the effect of the stim for either side was below the effect threshold that you set...
         sess2omit(sessix) = 1;                                      % Omit this session
     end
@@ -131,21 +129,21 @@ end
 cols = getColors();
 sigcutoff = 0.05;                   % Significance value to be used for t-test
 
-[AFCpval, AWpval] = plotPerformance_Bar_Scatter(anmNames, cols, perf_all, perf_byanm, ...
+[DRpval, WCpval] = plotPerformance_Bar_Scatter(anmNames, cols, perf_all, perf_byanm, ...
     std_axSessions, mean_axSessions,sigcutoff, lickCutoff);
 %% Print summary statistics 
 disp('---Summary statistics for MC go cue photoinhibition---')
-disp(['p-values for DR t-tests -- All: ' num2str(AFCpval(1)) ' L: ' num2str(AFCpval(2)) ' ; R: ' num2str(AFCpval(3))])
-disp(['p-values for WC t-tests -- All: ' num2str(AWpval(1)) ' L: ' num2str(AWpval(2)) ' ; R: ' num2str(AWpval(3))])
+disp(['p-values for DR t-tests -- All: ' num2str(DRpval(1)) ' L: ' num2str(DRpval(2)) ' ; R: ' num2str(DRpval(3))])
+disp(['p-values for WC t-tests -- All: ' num2str(WCpval(1)) ' L: ' num2str(WCpval(2)) ' ; R: ' num2str(WCpval(3))])
 disp(['Paired t-test; significance cutoff = ' num2str(sigcutoff)])
 disp(['# sessions = ' num2str(size(perf_all, 1)) '; # animals = ' num2str(size(perf_byanm, 1))])
 t = datetime('now','TimeZone','local','Format','d-MMM-y HH:mm:ss Z');
 disp(t)
 %% Get percent reduction between each control and stim condition
 disp('---Mean/sd reduction in performance for MC go cue photoinhibition---')
-for tt = 1:(size(perf_all,2)/2)
-    c1 = (2*tt)-1;
-    c2 = c1+1;
+for tt = 1:(size(perf_all,2)/2)     % For each trial group (i.e. DR both trial types or DR Left trials)...
+    c1 = (2*tt)-1;                  % Get the performance for that trial group on control trials      
+    c2 = c1+1;                      % Get the performance for that trial group on stim trials
     switch c1
         case 1
             comparison = 'DR_all';
@@ -160,9 +158,9 @@ for tt = 1:(size(perf_all,2)/2)
         case 11
             comparison = 'WC_R';
     end
-    deltas = perf_all(:,c1)-perf_all(:,c2);
-    meandelt.(comparison) = mean(deltas,1,'omitnan'); 
-    stddelt.(comparison) = std(deltas,0,1,'omitnan');
+    deltas = perf_all(:,c1)-perf_all(:,c2);             % Difference in performance across stim and control trials for that trial group
+    meandelt.(comparison) = mean(deltas,1,'omitnan');   % Average difference in performance across all sessions 
+    stddelt.(comparison) = std(deltas,0,1,'omitnan');   % Standard deviation for difference in performance across all sessions
 
     disp([comparison ' : ' num2str(meandelt.(comparison)) '% +/- ' num2str(stddelt.(comparison)) '%' ])
 end
@@ -196,7 +194,7 @@ lastTrial = obj(sessix).bp.Ntrials-trialCutoff;        % Get rid of the last 'tr
     end
 end 
 
-function [AFCpval, AWpval] = plotPerformance_Bar_Scatter(anmNames, cols, perf_all, perf_byanm, ...
+function [DRpval, WCpval] = plotPerformance_Bar_Scatter(anmNames, cols, perf_all, perf_byanm, ...
     std_axSessions, mean_axSessions, sigcutoff,lickCutoff)
 figure();
 subplot(1,2,1)
@@ -261,7 +259,7 @@ er.LineStyle = 'none';
 for test = 1:(length(conds2plot)/2)             % Three t-tests (comparing each of the pairs of conditions)
     x = perf_all(:,(test*2)-1);                 % Control condition
     y = perf_all(:,test*2);                     % Stim condition
-    [hyp,AFCpval(test)] = ttest(x,y,'Alpha',sigcutoff);     % hyp = whether effect is significant; second output = p-value
+    [hyp,DRpval(test)] = ttest(x,y,'Alpha',sigcutoff);     % hyp = whether effect is significant; second output = p-value
     disp(num2str(hyp))
     if hyp&&test==1
         scatter(1.5,105,30,'*','MarkerEdgeColor','black')
@@ -336,7 +334,7 @@ eb.LineStyle = 'none';
 for test = 1:(length(conds2plot)/2)
     x = perf_all(:,conds2plot((test*2)-1));
     y = perf_all(:,conds2plot(test*2));
-    [hyp,AWpval(test)] = ttest(x,y,'Alpha',sigcutoff);
+    [hyp,WCpval(test)] = ttest(x,y,'Alpha',sigcutoff);
     disp(num2str(hyp))
     if hyp&&test==1
         scatter(1.5,105,30,'*','MarkerEdgeColor','black')

@@ -1,14 +1,12 @@
-% ED Figure 1 -- Counts of single and multi-units across randomized delay sessions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EDFigure 2a, right -- Counts of single and multi-units across randomized 
+% delay sessions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear,clc,close all
+%% Set paths
+% Base path for code 
+basepth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab\Code';
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
-
-% Base path for code depending on laptop or lab PC
-if strcmp(whichcomp,'LabPC')
-    basepth = 'C:\Code';
-elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab\Code';
-end
 
 % add paths
 utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
@@ -22,8 +20,6 @@ addpath(genpath(fullfile(figpth,'Hazarded Delay')));
 %% PARAMETERS
 params.alignEvent          = 'goCue'; % 'jawOnset' 'goCue'  'moveOnset'  'firstLick'  'lastLick'
 
-% time warping only operates on neural data for now.
-% TODO: time warp for video and bpod data
 params.timeWarp            = 0;  % piecewise linear time warping - each lick duration on each trial gets warped to median lick duration for that lick across trials
 params.nLicks              = 20; % number of post go cue licks to calculate median lick duration for and warp individual trials to
 
@@ -40,17 +36,17 @@ params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};              
 params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};               % all hits, no stim, aw off
 
 
-params.tmin = -2.5;
-params.tmax = 2.5;
-params.dt = 1/100;
+params.tmin = -2.5;     % minimum value in time-axis (s) relative to align event
+params.tmax = 2.5;      % maximum value in time-axis (s) relative to align event
+params.dt = 1/100;      % bin size (s)
 
-% smooth with causal gaussian kernel
+% smooth PSTHs with causal gaussian kernel
 params.smooth = 15;
 
 % cluster qualities to use
 params.quality = {'all'}; % accepts any cell array of strings - special character 'all' returns clusters of any quality
 
-
+% kinematic features to use
 params.traj_features = {{'tongue','left_tongue','right_tongue','jaw','trident','nose'},...
     {'top_tongue','topleft_tongue','bottom_tongue','bottomleft_tongue','jaw','top_nostril','bottom_nostril'}};
 
@@ -62,18 +58,14 @@ params.advance_movement = 0;
 params.bctype = 'reflect'; % options are : reflect  zeropad  none
 %% SPECIFY DATA TO LOAD
 
-if strcmp(whichcomp,'LabPC')
-    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
-elseif strcmp(whichcomp,'Laptop')
-    datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
-end
+% Path to where data is stored
+datapth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab';
 
 meta = [];
 
-% --- ALM ---
+% Scripts for loading data sessions from each animal
 meta = loadJEB11_ALMVideo(meta,datapth);
 meta = loadJEB12_ALMVideo(meta,datapth);
-
 meta = loadJEB23_ALMVideo(meta,datapth);
 meta = loadJEB24_ALMVideo(meta,datapth);
 
@@ -123,12 +115,14 @@ end
 %% Make stacked bar plot to illustrate num neurons per session
 % Height of each bar = sum of elements in row
 
+% Each x-tick label is the name of a session (animal name and date)
 xticklabs = cell(1,length(meta));
 for sessix = 1:length(meta)
     label = [meta(sessix).anm ';' meta(sessix).date];
     xticklabs{sessix} = label;
 end
 
+% Plot
 y = [numSingle', numMulti'];
 bar(y,'stacked')
 xticks(1:length(meta))
