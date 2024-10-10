@@ -2,13 +2,13 @@
 % regularization; train/test split, cross-validation)
 clear,clc,close all
 
-whichcomp = 'LabPC';                                                % LabPC or Laptop
+whichcomp = 'Laptop';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')
     basepth = 'C:\Code';
 elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Jackie\Documents\Grad School\Economo Lab\Code';
+    basepth = 'C:\Users\Jackie\Documents\GradSchool\EconomoLab\Code';
 end
 
 % add paths
