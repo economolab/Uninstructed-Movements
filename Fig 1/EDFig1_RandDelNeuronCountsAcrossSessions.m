@@ -1,7 +1,7 @@
 % ED Figure 1 -- Counts of single and multi-units across randomized delay sessions
 clear,clc,close all
 
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+whichcomp = 'LabPC';                                                % LabPC or Laptop
 
 % Base path for code depending on laptop or lab PC
 if strcmp(whichcomp,'LabPC')

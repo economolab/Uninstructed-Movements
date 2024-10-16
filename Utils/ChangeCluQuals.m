@@ -1,5 +1,10 @@
 % Change cluster quality names
+<<<<<<< Updated upstream
 obj = deleteGarbageClu(obj);                    % Use function to get rid of all of the clusters that haev 'garbage' label
+=======
+
+obj = deleteGarbageClu(obj);                    % Use function to get rid of all of the clusters that have 'garbage' label
+>>>>>>> Stashed changes
 numprobes = size(obj.clu,2);                    % Number of probes in recording session
 for i = 1:numprobes                             % For each probe...
     currprobe = i;
@@ -16,3 +21,7 @@ for i = 1:numprobes                             % For each probe...
         obj.clu{currprobe}(cc).quality = qual;  % Save the new quality label to the data object
     end
 end
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes

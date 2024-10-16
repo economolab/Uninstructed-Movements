@@ -349,11 +349,22 @@ xlabel('CDContext alignment')
 xline(0,'k--')
 set(gca,"TickDir",'out')
 
-% 
-% h = histogram(alignment,40,'edgecolor','none','Normalization','count');
-% ylabel('# Neurons')
-% xlabel('CDContext alignment')
-% xline(0,'k--')
+%% Overlay null distribution of alignment values on histogram
+load('C:\Code\Uninstructed-Movements\Fig 6\cd_null_alignment_for_jackie.mat')
+
+% plot the actual alignment as proportion of units
+nalign = alignment(alignment>0);
+palign = alignment(alignment<0);
+h = histogram(nalign,20,'edgecolor','none','Normalization','probability'); hold on
+h = histogram(palign,20,'edgecolor','none','Normalization','probability'); hold on
+%h = histogram(alignment,30,'edgecolor','none','Normalization','probability'); hold on
+% plot the null distribution as a line
+plot(cd_alignment_null.binedges,cd_alignment_null.distribution,'LineWidth',2)
+
+ylabel('Fraction of Neurons')
+xlabel('CDContext alignment')
+xline(0,'k--')
+set(gca,"TickDir",'out')
 %% Test distribution of alignment values for unimodality
 % Hartigan's dip test of unimodality
 
