@@ -3,15 +3,10 @@
 % for right and left trials
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear,clc,close all
-%%
-whichcomp = 'Laptop';                                                % LabPC or Laptop
+%% Set paths
 
-% Base path for code depending on laptop or lab PC
-if strcmp(whichcomp,'LabPC')
-    basepth = 'C:\Code';
-elseif strcmp(whichcomp,'Laptop')
-    basepth = 'C:\Users\Onwer\Documents\GradSchool\EconomoLab\Code';
-end
+% Base path for code 
+basepth = 'C:\Code';
 
 % add paths
 utilspth = [basepth '\Munib Uninstruct Move\uninstructedMovements_v2'];
@@ -31,11 +26,14 @@ params.nLicks              = 20; % number of post go cue licks to calculate medi
 params.lowFR               = 1; % remove clusters with firing rates across all trials less than this val
 
 % set conditions to calculate PSTHs for
-params.condition(1)     = {'(hit|miss|no)'};                             % all trials
-params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};             % R DR hits, no stim; not early
-params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};             % L DR hits, no stim; not early
-params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};            % R error DR, no stim; not early
-params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};            % L error DR, no stim; not early
+params.condition(1)     = {'(hit|miss|no)'};                             % (1) all trials
+params.condition(end+1) = {'R&hit&~stim.enable&~autowater&~early'};      % (2) R DR hits, no stim; not early; not autowater
+params.condition(end+1) = {'L&hit&~stim.enable&~autowater&~early'};      % (3) L DR hits, no stim; not early; not autowater
+params.condition(end+1) = {'R&miss&~stim.enable&~autowater&~early'};     % (4) R error DR, no stim; not early; not autowater
+params.condition(end+1) = {'L&miss&~stim.enable&~autowater&~early'};     % (5) L error DR, no stim; not early; not autowater
+params.condition(end+1) = {'R&no&~stim.enable&~autowater&~early'};       % (6) no right, no stim; not early; not autowater
+params.condition(end+1) = {'L&no&~stim.enable&~autowater&~early'};       % (7) no left, no stim; not early; not autowater
+params.condition(end+1) = {'hit&~stim.enable&~autowater&~early'};        % (8) all hits, no stim; not early; not autowater
 
 % parameters for creating time-axis
 params.tmin = -2.5;         % min time (in s) relative to alignEvent    
@@ -59,11 +57,8 @@ params.N_varToExplain = 80; % keep num dims that explains this much variance in 
 
 params.advance_movement = 0;
 %% SPECIFY DATA TO LOAD
-if strcmp(whichcomp,'LabPC')
-    datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
-elseif strcmp(whichcomp,'Laptop')
-    datapth = 'C:\Users\Owner\Documents\GradSchool\EconomoLab';
-end
+
+datapth = 'C:\Users\Jackie Birnbaum\Documents\Data';
 
 meta = [];
 
@@ -105,7 +100,8 @@ disp('----Calculating coding dimensions----')
 cond2use = [2,3];       % Conditions that you want to use to calculate the CD (with reference to 
                         % params.condition)
 cond2proj = [2,3];      % Conditions that you want want to project onto the CD
-regr = getCodingDimensions_DR(obj,params,cond2use,cond2proj);
+rampcond = 8;
+regr = getCodingDimensions_2afc(obj,params,cond2use,cond2proj,rampcond);
 
 disp('----Projecting single trials onto CDchoice----')
 cd = 'late';            % Which CD you want to project onto (CDlate = CDchoice in the manuscript)

@@ -76,7 +76,8 @@ perf_all = [];
 for sessix = 1:length(meta)
     perf_all = [perf_all;rez(sessix).trixWLicks];
 end
-%% INCLUSION CRITERIA: Omit sessions where DR stim didn't work or where performance was bad
+%% INCLUSION CRITERIA: Omit sessions where DR stim didn't work [this is a positive control as we know
+% what the effects of this should be] or where performance was bad
 sess2omit = false(length(meta),1);
 Rperf = NaN(length(meta),1);  Reff = NaN(length(meta),1);
 Lperf = NaN(length(meta),1);  Leff = NaN(length(meta),1);

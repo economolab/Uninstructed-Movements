@@ -13,7 +13,7 @@ for sessix = 1:numel(obj)                               % For every session...
 
     for trix = 1:nTrials                                % For each trial...
         temp = trialpsth(:,:,trix);                     % Get the PSTH for all cells on that trial
-        TrixProj(:,trix) = mySmooth((temp*mode),sm);    % Project the trial PSTH onto the mode that you specified
+        TrixProj(:,trix) = mySmooth((temp*mode),sm,'reflect');    % Project the trial PSTH onto the mode that you specified
     end
 
     rez(sessix).singleProj = TrixProj;                  % Assign this back to the rez structure
